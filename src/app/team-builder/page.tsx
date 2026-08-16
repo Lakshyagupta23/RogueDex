@@ -19,7 +19,7 @@ function TeamBuilderContent() {
   const [teamSize, setTeamSize] = useState<3 | 6>(6);
   const [selectedGens, setSelectedGens] = useState<number[]>([]);
   const [restrictType, setRestrictType] = useState<string>('any');
-  const [legendaryRule, setLegendaryRule] = useState<'allow' | 'disallow' | 'only'>('allow');
+  const [legendaryRule, setLegendaryRule] = useState<'allow' | 'disallow' | 'only' | 'disallow_all'>('allow');
   const [fullyEvolvedOnly, setFullyEvolvedOnly] = useState(false);
   const [isCompetitiveMode, setIsCompetitiveMode] = useState(false);
   const [allowDuplicateTypes, setAllowDuplicateTypes] = useState(true);
@@ -137,6 +137,7 @@ function TeamBuilderContent() {
 
       // 2. Legendary Rule
       if (legendaryRule === 'disallow' && (pk.isLegendary || pk.isMythical)) return false;
+      if (legendaryRule === 'disallow_all' && (pk.isLegendary || pk.isMythical || pk.isParadox || pk.isUltraBeast)) return false;
       if (legendaryRule === 'only' && !pk.isLegendary && !pk.isMythical) return false;
 
       // 3. Duplicate species check (exclude checking the slot being rerolled)
@@ -444,6 +445,7 @@ function TeamBuilderContent() {
               >
                 <option value="allow">Allow Legendary/Mythical</option>
                 <option value="disallow">Disallow Legendaries</option>
+                <option value="disallow_all">Disallow All (Leg/Myth/Paradox/UB)</option>
                 <option value="only">Only Legendary/Mythical</option>
               </select>
             </div>

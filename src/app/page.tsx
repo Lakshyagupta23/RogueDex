@@ -1035,7 +1035,7 @@ function RandomizerContent() {
                   className="glass-panel glass-panel-hover rounded-2xl p-4 flex flex-col items-center relative border border-slate-850 min-h-[220px] overflow-hidden group"
                 >
                   {/* Lock slot control */}
-                  <div className="absolute top-2.5 left-3 flex gap-1 z-10">
+                  <div className="absolute top-2.5 left-3 flex gap-1.5 z-10">
                     <button
                       onClick={() => handleLockToggle(idx)}
                       className={`p-1 rounded-full border text-[10px] transition-colors ${
@@ -1047,6 +1047,15 @@ function RandomizerContent() {
                     >
                       {isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
                     </button>
+                    {!isLocked && (
+                      <button
+                        onClick={() => handleRerollSlot(idx)}
+                        className="p-1 rounded-full bg-slate-900/60 border border-slate-850 text-slate-500 hover:text-slate-250 transition-colors"
+                        title="Reroll Pokémon"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${isSpinning ? 'animate-spin' : ''}`} />
+                      </button>
+                    )}
                   </div>
 
                   {/* Header right icons: Cry playback */}
