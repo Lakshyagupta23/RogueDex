@@ -103,6 +103,7 @@ export default function DraftMode() {
     excludeGalarian,
     excludeHisuian,
     excludePaldean,
+    categories: fullyEvolvedOnly ? ['fully_evolved'] : [],
   }), [selectedGens, selectedTypes, typeMatchMode, formsMode, maxBst600,
        excludeLegendary, excludeMythical, excludeParadox, excludeStarters,
        excludeUltraBeast, excludeAlolan, excludeGalarian, excludeHisuian, excludePaldean, fullyEvolvedOnly]);
