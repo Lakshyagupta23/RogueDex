@@ -166,7 +166,15 @@ export default function DraftMode() {
     return new Promise((resolve, reject) => {
       if (peerRef.current) { resolve(peerRef.current); return; }
       import('peerjs').then(({ Peer }) => {
-        const peer = new Peer(id, { debug: 1 });
+        const peer = new Peer(id, {
+          debug: 1,
+          config: {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
+          }
+        });
         peer.on('open', () => { peerRef.current = peer; resolve(peer); });
         peer.on('connection', (conn: any) => {
           if (!isHostRef.current) return;
@@ -211,7 +219,7 @@ export default function DraftMode() {
     const guestId = 'g_' + Math.random().toString(36).substring(2, 10);
     try {
       const peer = await initPeer(guestId);
-      const conn = peer.connect(code, { reliable: true });
+      const conn = peer.connect(code);
       hostConnRef.current = conn;
       let opened = false;
       const timeout = setTimeout(() => {
@@ -219,7 +227,7 @@ export default function DraftMode() {
           alert('Could not connect to that room.\nMake sure the host has created the room and the code is correct.');
           conn.close(); peerRef.current?.destroy(); peerRef.current = null;
         }
-      }, 8000);
+      }, 12000);
       conn.on('open', () => {
         opened = true; clearTimeout(timeout);
         conn.send({ type: 'guest_join', playerId: guestId, username: uname });
@@ -414,8 +422,8 @@ export default function DraftMode() {
                     </div>
                   </div>
 
-                  {/* Forms & BST */}
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* Forms, BST & Evolution */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Forms</label>
                       <select value={formsMode} onChange={e => setFormsMode(e.target.value as any)}
@@ -425,6 +433,16 @@ export default function DraftMode() {
                         <option value="mega_only">Megas Only</option>
                         <option value="regional_only">Regionals Only</option>
                       </select>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Evolution</label>
+                      <button onClick={() => setFullyEvolvedOnly(b => !b)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-bold transition-colors ${
+                          fullyEvolvedOnly ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'
+                        }`}>
+                        <span className={`w-3 h-3 rounded-full border-2 ${fullyEvolvedOnly ? 'bg-indigo-400 border-indigo-400' : 'border-slate-600'}`} />
+                        Fully Evolved
+                      </button>
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-bold uppercase tracking-wider text-slate-500">BST Cap</label>
@@ -452,7 +470,6 @@ export default function DraftMode() {
                         ['Galarian Forms', excludeGalarian, setExcludeGalarian],
                         ['Hisuian Forms', excludeHisuian, setExcludeHisuian],
                         ['Paldean Forms', excludePaldean, setExcludePaldean],
-                        ['Fully Evolved Only', fullyEvolvedOnly, setFullyEvolvedOnly],
                       ] as [string, boolean, React.Dispatch<React.SetStateAction<boolean>>][]).map(([label, val, set]) => (
                         <button key={label} onClick={() => set(v => !v)}
                           className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold transition-colors text-left ${
