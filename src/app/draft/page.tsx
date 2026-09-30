@@ -60,10 +60,10 @@ export default function DraftMode() {
   
   // Generate Local ID
   useEffect(() => {
-    let pid = localStorage.getItem('roguedex_draft_pid');
+    let pid = sessionStorage.getItem('roguedex_draft_pid');
     if (!pid) {
       pid = 'draft_' + Math.random().toString(36).substring(2, 9);
-      localStorage.setItem('roguedex_draft_pid', pid);
+      sessionStorage.setItem('roguedex_draft_pid', pid);
     }
     setPlayerId(pid);
   }, []);
@@ -108,7 +108,7 @@ export default function DraftMode() {
         });
         
         peer.on('error', (err) => {
-          console.error(err);
+          console.error('Peer error:', err);
           reject(err);
         });
       });
