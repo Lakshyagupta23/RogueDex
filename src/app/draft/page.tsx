@@ -35,7 +35,7 @@ interface DraftState {
 }
 
 export default function DraftMode() {
-  const { pokemonList, isLoading } = usePokemon();
+  const { pokemonList, loading } = usePokemon();
   
   const [playerId, setPlayerId] = useState<string>('');
   const [username, setUsername] = useState<string>('Trainer');
@@ -307,7 +307,7 @@ export default function DraftMode() {
     broadcastState(next);
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#0b0e16] flex items-center justify-center text-white">
         <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
