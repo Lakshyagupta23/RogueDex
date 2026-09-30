@@ -103,8 +103,11 @@ export default function DraftMode() {
           }
         });
         
-        peer.on('error', (err) => {
+        peer.on('error', (err: any) => {
           console.error('Peer error:', err);
+          if (err.type === 'peer-unavailable') {
+            alert('Room not found! The host might have disconnected or the code is wrong.');
+          }
           reject(err);
         });
       });
@@ -244,7 +247,8 @@ export default function DraftMode() {
     setIsHost(false);
     try {
       const peer = await initPeer();
-      const conn = peer.connect(joinCode.toLowerCase());
+      const cleanCode = joinCode.trim().toLowerCase();
+      const conn = peer.connect(cleanCode);
       activeConnRef.current = conn;
       
       conn.on('open', () => {
@@ -256,8 +260,8 @@ export default function DraftMode() {
       });
       
       conn.on('data', (data: any) => handleGuestReceive(data));
-    } catch (e) {
-      alert("Error joining draft room");
+    } catch (e: any) {
+      alert("Error joining draft room: " + (e.message || String(e)));
     }
   };
 
