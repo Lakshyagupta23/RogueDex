@@ -60,11 +60,7 @@ export default function DraftMode() {
   
   // Generate Local ID
   useEffect(() => {
-    let pid = sessionStorage.getItem('roguedex_draft_pid');
-    if (!pid) {
-      pid = 'draft_' + Math.random().toString(36).substring(2, 9);
-      sessionStorage.setItem('roguedex_draft_pid', pid);
-    }
+    const pid = 'draft_' + Math.random().toString(36).substring(2, 9);
     setPlayerId(pid);
   }, []);
   
