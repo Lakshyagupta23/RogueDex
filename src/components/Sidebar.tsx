@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Shield, Heart, Zap, Layers, Sparkles, BookOpen, Smile, Calculator, Grid, HeartHandshake, ChevronLeft, ChevronRight, Scale } from 'lucide-react';
+import { Menu, X, Shield, Heart, Zap, Layers, Sparkles, BookOpen, Smile, Calculator, Grid, HeartHandshake, ChevronLeft, ChevronRight, Scale, Users } from 'lucide-react';
 import SearchBar from './SearchBar';
 
 const NAV_ITEMS = [
   { href: '/randomizer', label: 'Randomizer', icon: Zap },
   { href: '/team-builder', label: 'Team Builder', icon: Layers },
+  { href: '/draft', label: 'Draft Mode', icon: Users },
   { href: '/pokemon/compare', label: 'Compare', icon: Scale },
   { href: '/games/whos-that-pokemon', label: 'Guess Game', icon: Sparkles },
   { href: '/tools/breeding', label: 'Breeding', icon: HeartHandshake },
