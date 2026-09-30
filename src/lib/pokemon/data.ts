@@ -3,7 +3,7 @@ import { PokemonIndexItem } from './types';
 export interface FilterCriteria {
   generations?: number[];
   types?: string[];
-  typeMatchMode?: 'primary' | 'secondary' | 'either';
+  typeMatchMode?: 'primary' | 'secondary' | 'either' | 'both';
   categories?: string[];
   formsMode?: 'all' | 'base_only' | 'mega_only' | 'regional_only';
   searchQuery?: string;
@@ -41,12 +41,18 @@ export function filterPokemon(pokemonList: PokemonIndexItem[], criteria: FilterC
     // 2. Types filter
     if (criteria.types && criteria.types.length > 0) {
       const mode = criteria.typeMatchMode || 'either';
-      const hasMatch = criteria.types.some(t => {
-        if (mode === 'primary') return pk.types[0] === t;
-        if (mode === 'secondary') return pk.types[1] === t;
-        return pk.types.includes(t);
-      });
-      if (!hasMatch) return false;
+      
+      if (mode === 'both') {
+        const hasAllTypes = criteria.types.every(t => pk.types.includes(t));
+        if (!hasAllTypes) return false;
+      } else {
+        const hasMatch = criteria.types.some(t => {
+          if (mode === 'primary') return pk.types[0] === t;
+          if (mode === 'secondary') return pk.types[1] === t;
+          return pk.types.includes(t);
+        });
+        if (!hasMatch) return false;
+      }
     }
 
     // 3. Categories filter (Matches ANY active category selections)

@@ -31,7 +31,7 @@ function RandomizerContent() {
   // 1. Filter States
   const [selectedGens, setSelectedGens] = useState<number[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [typeMatchMode, setTypeMatchMode] = useState<'primary' | 'secondary' | 'either'>('either');
+  const [typeMatchMode, setTypeMatchMode] = useState<'primary' | 'secondary' | 'either' | 'both'>('either');
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const [formsMode, setFormsMode] = useState<'all' | 'base_only' | 'mega_only' | 'regional_only'>('all');
 
@@ -95,7 +95,7 @@ function RandomizerContent() {
 
     const gens = urlGens ? urlGens.split(',').map(Number).filter(Boolean) : [];
     const types = urlTypes ? urlTypes.split(',').filter(Boolean) : [];
-    const tMode = (urlTypeMode === 'primary' || urlTypeMode === 'secondary' || urlTypeMode === 'either') 
+    const tMode = (urlTypeMode === 'primary' || urlTypeMode === 'secondary' || urlTypeMode === 'either' || urlTypeMode === 'both') 
       ? urlTypeMode 
       : 'either';
     const cats = urlCats ? urlCats.split(',').filter(Boolean) : [];
@@ -635,6 +635,7 @@ function RandomizerContent() {
                   className="text-[10px] bg-[#0b0e16] border border-slate-800 text-slate-400 rounded px-1.5 py-0.5 focus:outline-none"
                 >
                   <option value="either">Either Type</option>
+                  <option value="both">Both Types</option>
                   <option value="primary">Primary Only</option>
                   <option value="secondary">Secondary Only</option>
                 </select>
