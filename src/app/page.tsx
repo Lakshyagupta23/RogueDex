@@ -43,6 +43,8 @@ function RandomizerContent() {
   const [minSpDef, setMinSpDef] = useState(0);
   const [minSpe, setMinSpe] = useState(0);
   const [isShinyMode, setIsShinyMode] = useState(false);
+  const [maxBst600, setMaxBst600] = useState(false);
+  const [uniqueOnly, setUniqueOnly] = useState(false);
 
   // Exclusions states
   const [excludeLegendary, setExcludeLegendary] = useState(false);
@@ -111,6 +113,8 @@ function RandomizerContent() {
     const spe = urlSpe ? Number(urlSpe) : 0;
     const shiny = urlShiny === 'true';
     const qty = urlQty ? Number(urlQty) : 1;
+    const max600 = searchParams.get('maxBst600') === 'true';
+    const unique = searchParams.get('uniqueOnly') === 'true';
 
     setSelectedGens(gens);
     setSelectedTypes(types);
@@ -125,6 +129,8 @@ function RandomizerContent() {
     setMinSpe(spe);
     setIsShinyMode(shiny);
     setQuantity(qty);
+    setMaxBst600(max600);
+    setUniqueOnly(unique);
 
     setExcludeLegendary(urlExLeg);
     setExcludeMythical(urlExMyth);
@@ -143,6 +149,7 @@ function RandomizerContent() {
       typeMatchMode: tMode,
       categories: cats,
       formsMode: forms,
+      maxBst: max600 ? 600 : undefined,
       minHp: hp > 0 ? hp : undefined,
       minAtk: atk > 0 ? atk : undefined,
       minDef: def > 0 ? def : undefined,
@@ -205,7 +212,9 @@ function RandomizerContent() {
     exAlola = excludeAlolan,
     exGalar = excludeGalarian,
     exHisui = excludeHisuian,
-    exPaldea = excludePaldean
+    exPaldea = excludePaldean,
+    max600 = maxBst600,
+    unique = uniqueOnly
   ) => {
     const params = new URLSearchParams();
     if (gens.length > 0) params.set('gens', gens.join(','));
@@ -231,6 +240,8 @@ function RandomizerContent() {
     if (exGalar) params.set('exGalar', 'true');
     if (exHisui) params.set('exHisui', 'true');
     if (exPaldea) params.set('exPaldea', 'true');
+    if (max600) params.set('maxBst600', 'true');
+    if (unique) params.set('uniqueOnly', 'true');
 
     router.replace(`?${params.toString()}`, { scroll: false });
   };
@@ -241,6 +252,7 @@ function RandomizerContent() {
     typeMatchMode,
     categories: selectedCats,
     formsMode,
+    maxBst: maxBst600 ? 600 : undefined,
     minHp: minHp > 0 ? minHp : undefined,
     minAtk: minAtk > 0 ? minAtk : undefined,
     minDef: minDef > 0 ? minDef : undefined,
@@ -355,9 +367,28 @@ function RandomizerContent() {
           clearInterval(interval);
           setResults(final => {
             const finalResults = [...final];
+            const currentSelected = new Set<number>();
+            if (uniqueOnly) {
+              for (let i = 0; i < quantity; i++) {
+                if (lockedSlots[i] && finalResults[i]) {
+                  currentSelected.add(finalResults[i]!.speciesId);
+                }
+              }
+            }
             for (let i = 0; i < quantity; i++) {
               if (!lockedSlots[i]) {
-                finalResults[i] = filtered[Math.floor(Math.random() * filtered.length)] || null;
+                if (uniqueOnly) {
+                  const candidates = filtered.filter(pk => !currentSelected.has(pk.speciesId));
+                  if (candidates.length > 0) {
+                    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+                    finalResults[i] = chosen;
+                    currentSelected.add(chosen.speciesId);
+                  } else {
+                    finalResults[i] = filtered[Math.floor(Math.random() * filtered.length)] || null;
+                  }
+                } else {
+                  finalResults[i] = filtered[Math.floor(Math.random() * filtered.length)] || null;
+                }
               }
             }
             return finalResults;
@@ -394,7 +425,22 @@ function RandomizerContent() {
         clearInterval(interval);
         setResults(final => {
           const next = [...final];
-          next[slotIdx] = filtered[Math.floor(Math.random() * filtered.length)] || null;
+          if (uniqueOnly) {
+            const currentSelected = new Set<number>();
+            for (let i = 0; i < quantity; i++) {
+              if (i !== slotIdx && next[i]) {
+                currentSelected.add(next[i]!.speciesId);
+              }
+            }
+            const candidates = filtered.filter(pk => !currentSelected.has(pk.speciesId));
+            if (candidates.length > 0) {
+              next[slotIdx] = candidates[Math.floor(Math.random() * candidates.length)];
+            } else {
+              next[slotIdx] = filtered[Math.floor(Math.random() * filtered.length)] || null;
+            }
+          } else {
+            next[slotIdx] = filtered[Math.floor(Math.random() * filtered.length)] || null;
+          }
           return next;
         });
         setSpinningSlots(prev => {
@@ -475,6 +521,8 @@ function RandomizerContent() {
     setMinSpDef(0);
     setMinSpe(0);
     setIsShinyMode(false);
+    setMaxBst600(false);
+    setUniqueOnly(false);
 
     setExcludeLegendary(false);
     setExcludeMythical(false);
@@ -486,7 +534,7 @@ function RandomizerContent() {
     setExcludeHisuian(false);
     setExcludePaldean(false);
 
-    updateUrl([], [], 'either', [], 'all', 0, 0, 0, 0, 0, 0, false, 1, false, false, false, false, false, false, false, false, false);
+    updateUrl([], [], 'either', [], 'all', 0, 0, 0, 0, 0, 0, false, 1, false, false, false, false, false, false, false, false, false, false, false);
   };
 
   const playCry = (speciesId: number) => {
@@ -752,6 +800,44 @@ function RandomizerContent() {
                     {isShinyMode && <div className="w-1.5 h-1.5 bg-slate-950 rounded-sm" />}
                   </div>
                   <span className="flex items-center gap-1 font-bold">✨ Shiny Mode</span>
+                </label>
+
+                <label className="flex items-center gap-2 mt-2 cursor-pointer text-slate-400 hover:text-white text-[10px] select-none">
+                  <input
+                    type="checkbox"
+                    checked={maxBst600}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      setMaxBst600(val);
+                      updateUrl(undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, val, undefined);
+                    }}
+                    className="sr-only"
+                  />
+                  <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
+                    maxBst600 ? 'bg-purple-500 border-purple-400' : 'border-slate-850 bg-[#0b0e16]'
+                  }`}>
+                    {maxBst600 && <div className="w-1.5 h-1.5 bg-slate-950 rounded-sm" />}
+                  </div>
+                  <span className="flex items-center gap-1 font-bold">≤ 600 BST</span>
+                </label>
+
+                <label className="flex items-center gap-2 mt-2 cursor-pointer text-slate-400 hover:text-white text-[10px] select-none">
+                  <input
+                    type="checkbox"
+                    checked={uniqueOnly}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      setUniqueOnly(val);
+                      updateUrl(undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, val);
+                    }}
+                    className="sr-only"
+                  />
+                  <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
+                    uniqueOnly ? 'bg-green-500 border-green-400' : 'border-slate-850 bg-[#0b0e16]'
+                  }`}>
+                    {uniqueOnly && <div className="w-1.5 h-1.5 bg-slate-950 rounded-sm" />}
+                  </div>
+                  <span className="flex items-center gap-1 font-bold">Unique Pokémon Only</span>
                 </label>
               </div>
 
