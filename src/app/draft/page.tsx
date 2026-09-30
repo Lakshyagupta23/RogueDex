@@ -248,7 +248,7 @@ export default function DraftMode() {
     setIsHost(false);
     try {
       const peer = await initPeer();
-      const conn = peer.connect(joinCode.toUpperCase());
+      const conn = peer.connect(joinCode.toLowerCase());
       activeConnRef.current = conn;
       
       conn.on('open', () => {
