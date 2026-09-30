@@ -241,6 +241,14 @@ export default function DraftMode() {
         console.error('Guest conn error:', err);
         alert('Connection error: ' + (err.message || String(err)));
       });
+      const peerErrorHandler = (err: any) => {
+        if (err.type === 'peer-unavailable') {
+          clearTimeout(timeout);
+          alert('Room does not exist! Make sure you entered the correct code.');
+          peer.off('error', peerErrorHandler);
+        }
+      };
+      peer.on('error', peerErrorHandler);
     } catch (e: any) { alert('Error joining room: ' + (e.message || String(e))); }
   }, [joinCode, initPeer, applyState]);
 
