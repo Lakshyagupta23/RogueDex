@@ -384,7 +384,7 @@ function RandomizerContent() {
                     finalResults[i] = chosen;
                     currentSelected.add(chosen.speciesId);
                   } else {
-                    finalResults[i] = filtered[Math.floor(Math.random() * filtered.length)] || null;
+                    finalResults[i] = null;
                   }
                 } else {
                   finalResults[i] = filtered[Math.floor(Math.random() * filtered.length)] || null;
@@ -436,7 +436,7 @@ function RandomizerContent() {
             if (candidates.length > 0) {
               next[slotIdx] = candidates[Math.floor(Math.random() * candidates.length)];
             } else {
-              next[slotIdx] = filtered[Math.floor(Math.random() * filtered.length)] || null;
+              next[slotIdx] = null;
             }
           } else {
             next[slotIdx] = filtered[Math.floor(Math.random() * filtered.length)] || null;
