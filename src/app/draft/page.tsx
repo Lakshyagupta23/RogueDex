@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usePokemon } from '@/context/PokemonContext';
@@ -58,6 +58,7 @@ export default function DraftMode() {
   const [excludeGalarian, setExcludeGalarian] = useState(false);
   const [excludeHisuian, setExcludeHisuian] = useState(false);
   const [excludePaldean, setExcludePaldean] = useState(false);
+  const [fullyEvolvedOnly, setFullyEvolvedOnly] = useState(false);
 
   // Connection refs
   const peerRef = useRef<any>(null);
@@ -104,7 +105,7 @@ export default function DraftMode() {
     excludePaldean,
   }), [selectedGens, selectedTypes, typeMatchMode, formsMode, maxBst600,
        excludeLegendary, excludeMythical, excludeParadox, excludeStarters,
-       excludeUltraBeast, excludeAlolan, excludeGalarian, excludeHisuian, excludePaldean]);
+       excludeUltraBeast, excludeAlolan, excludeGalarian, excludeHisuian, excludePaldean, fullyEvolvedOnly]);
 
   const generateOptions = useCallback((state: DraftState, list: PokemonIndexItem[]) => {
     const pool = filterPokemon(list, state.filters);
@@ -291,7 +292,7 @@ export default function DraftMode() {
     setFormsMode('all'); setMaxBst600(false);
     setExcludeLegendary(false); setExcludeMythical(false); setExcludeParadox(false);
     setExcludeStarters(false); setExcludeUltraBeast(false);
-    setExcludeAlolan(false); setExcludeGalarian(false); setExcludeHisuian(false); setExcludePaldean(false);
+    setExcludeAlolan(false); setExcludeGalarian(false); setExcludeHisuian(false); setExcludePaldean(false); setFullyEvolvedOnly(false);
   };
 
   return (
@@ -451,6 +452,7 @@ export default function DraftMode() {
                         ['Galarian Forms', excludeGalarian, setExcludeGalarian],
                         ['Hisuian Forms', excludeHisuian, setExcludeHisuian],
                         ['Paldean Forms', excludePaldean, setExcludePaldean],
+                        ['Fully Evolved Only', fullyEvolvedOnly, setFullyEvolvedOnly],
                       ] as [string, boolean, React.Dispatch<React.SetStateAction<boolean>>][]).map(([label, val, set]) => (
                         <button key={label} onClick={() => set(v => !v)}
                           className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold transition-colors text-left ${
@@ -495,6 +497,7 @@ export default function DraftMode() {
               if (f.excludeParadox) tags.push('No Paradox');
               if (f.excludeStarters) tags.push('No Starters');
               if (f.excludeUltraBeast) tags.push('No Ultra Beasts');
+              if (f.categories?.includes('fully_evolved')) tags.push('Fully Evolved');
               if (tags.length === 0) return <p className="text-xs text-slate-600 mb-4">No filters applied</p>;
               return (
                 <div className="mb-6 flex flex-wrap gap-2 justify-center">
@@ -654,3 +657,9 @@ function TeamSlot({ data }: { data?: DraftTeamMember }) {
     </div>
   );
 }
+
+
+
+
+
+
