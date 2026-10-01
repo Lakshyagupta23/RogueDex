@@ -29,6 +29,7 @@ interface DraftState {
   code: string;
   status: 'LOBBY' | 'DRAFTING' | 'HEIST' | 'REVEAL';
   gameMode: GameMode;
+  blindClueType?: 'ability' | 'color';
   optionsPerRound: number;
   round: number;
   totalRounds: number;
@@ -59,19 +60,26 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'auction', icon: <Gavel className="w-6 h-6" />, label: '💰 Salary Cap', description: 'Start with $100. Live bid against your opponent!', color: 'text-emerald-400', borderColor: 'border-emerald-500' },
 ];
 
-function BlindAbilityHint({ id }: { id: number }) {
-  const [ability, setAbility] = useState<string>('Loading...');
+function BlindClueHint({ id, speciesId, clueType }: { id: number, speciesId: number, clueType?: 'ability' | 'color' }) {
+  const [clue, setClue] = useState<string>('Loading...');
   useEffect(() => {
-    fetch(`https://pokeapi.co/api/v2/pokemon/${id}/`)
-      .then(r => r.json())
-      .then(d => setAbility(d.abilities[0]?.ability?.name?.replace(/-/g, ' ') || 'Unknown'))
-      .catch(() => setAbility('Unknown Ability'));
-  }, [id]);
+    if (clueType === 'color') {
+      fetch(`https://pokeapi.co/api/v2/pokemon-species/${speciesId}/`)
+        .then(r => r.json())
+        .then(d => setClue(d.color?.name || 'Unknown Color'))
+        .catch(() => setClue('Unknown Color'));
+    } else {
+      fetch(`https://pokeapi.co/api/v2/pokemon/${id}/`)
+        .then(r => r.json())
+        .then(d => setClue(d.abilities[0]?.ability?.name?.replace(/-/g, ' ') || 'Unknown'))
+        .catch(() => setClue('Unknown Ability'));
+    }
+  }, [id, speciesId, clueType]);
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center p-2 bg-slate-900 border border-purple-500/50 rounded-xl z-20">
       <Eye className="w-6 h-6 text-purple-500 mb-2 opacity-50" />
-      <span className="text-[10px] uppercase font-bold text-slate-500">Ability Clue</span>
-      <span className="text-sm font-black text-purple-400 text-center capitalize leading-tight mt-1">{ability}</span>
+      <span className="text-[10px] uppercase font-bold text-slate-500">{clueType === 'color' ? 'Color Clue' : 'Ability Clue'}</span>
+      <span className="text-sm font-black text-purple-400 text-center capitalize leading-tight mt-1">{clue}</span>
     </div>
   );
 }
@@ -82,6 +90,7 @@ export default function DraftMode() {
   const [joinCode, setJoinCode] = useState('');
   const [optionsPerRound, setOptionsPerRound] = useState(3);
   const [selectedMode, setSelectedMode] = useState<GameMode>('standard');
+  const [blindClueType, setBlindClueType] = useState<'ability' | 'color'>('ability');
 
   // Advanced Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -375,7 +384,7 @@ export default function DraftMode() {
       const filters = buildFilters();
       const totalRounds = 3; 
       const initial: DraftState = {
-        code, status: 'LOBBY', gameMode: selectedMode,
+        code, status: 'LOBBY', gameMode: selectedMode, blindClueType,
         optionsPerRound, round: 1, totalRounds, filters,
         p1: { id: pid, username: usernameRef.current, team: [], ready: false },
         p2: null, p1Options: [], p2Options: [],
@@ -604,6 +613,16 @@ export default function DraftMode() {
                       </div>
                     </button>
                   ))}
+                  {selectedMode === 'blind' && (
+                    <div className="mt-2 p-3 rounded-xl border border-purple-500/30 bg-purple-900/10 flex items-center justify-between">
+                      <span className="text-sm text-purple-300 font-bold">What clue should be revealed?</span>
+                      <select value={blindClueType} onChange={e => setBlindClueType(e.target.value as 'ability' | 'color')}
+                        className="bg-slate-950 border border-purple-500/50 rounded px-3 py-1 text-purple-400 text-sm focus:outline-none">
+                        <option value="ability">Pokemon Ability</option>
+                        <option value="color">Pokemon Color</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -830,7 +849,7 @@ export default function DraftMode() {
                                  if (val > gameState.currentBid) { submitAuctionBid(val); setAuctionBidInput(''); }
                                }} className="bg-indigo-600 px-4 py-2 rounded font-bold hover:bg-indigo-500 text-sm">Bid</button>
                              </div>
-                             <button onClick={submitAuctionPass} className="w-full mt-2 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 rounded text-sm transition-colors">Pass / Yield</button>
+                             <button onClick={submitAuctionPass} className="w-full mt-2 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 rounded text-sm transition-colors">Skip Pokémon</button>
                           </div>
                         )}
                       </div>
@@ -876,7 +895,7 @@ export default function DraftMode() {
                               <div key={pk.id} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
                                 isKeep ? 'bg-indigo-500/20 border-indigo-500' : isGive ? 'bg-rose-500/20 border-rose-500' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'
                               }`}>
-                                {isBlind && <BlindAbilityHint id={pk.id} />}
+                                {isBlind && <BlindClueHint id={pk.id} speciesId={pk.speciesId} clueType={gameState.blindClueType} />}
                                 <div className="flex items-center gap-3 relative z-30">
                                   <img src={pk.sprite} alt={pk.name} className={`w-12 h-12 object-contain ${isBlind ? 'opacity-0' : ''}`} />
                                   <div className={isBlind ? 'opacity-0' : ''}>
