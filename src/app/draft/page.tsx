@@ -850,13 +850,16 @@ export default function DraftMode() {
 
   const [speedrunTimer, setSpeedrunTimer] = useState(7);
   useEffect(() => {
-    if (gameState?.gameMode === 'speedrun' && gameState.status === 'DRAFTING' && !submitted && !mySlot?.ready) {
+    const isHostLocal = isHostRef.current;
+    const mySlotLocal = isHostLocal ? gameState?.p1 : gameState?.p2;
+    const myOptionsLocal = isHostLocal ? gameState?.p1Options : gameState?.p2Options;
+    if (gameState?.gameMode === 'speedrun' && gameState.status === 'DRAFTING' && !submitted && !mySlotLocal?.ready) {
       setSpeedrunTimer(7);
       const interval = setInterval(() => {
         setSpeedrunTimer(t => {
           if (t <= 1) {
-            if (myOptions && myOptions.length >= 2) {
-               const sorted = [...myOptions].sort((a, b) => a.stats.total - b.stats.total);
+            if (myOptionsLocal && myOptionsLocal.length >= 2) {
+               const sorted = [...myOptionsLocal].sort((a, b) => a.stats.total - b.stats.total);
                const worst = sorted[0];
                const best = sorted[sorted.length - 1]; 
                submitChoices(worst.id, best.id);
@@ -869,7 +872,7 @@ export default function DraftMode() {
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [gameState?.round, gameState?.status, gameState?.gameMode, submitted, mySlot?.ready, myOptions, submitChoices]);
+  }, [gameState?.round, gameState?.status, gameState?.gameMode, submitted, gameState?.p1?.ready, gameState?.p2?.ready, gameState?.p1Options, gameState?.p2Options, submitChoices]);
 
   const submitMyHeist = useCallback(() => {
     if (!gameStateRef.current || myHeistStealIdx === null || myHeistSwapIdx === null) return;
@@ -932,7 +935,7 @@ export default function DraftMode() {
     
     const showdownText = team.filter(m => !m.isMystery).map(m => {
       const pk = m.actualPk;
-      const ability = pk.abilities && pk.abilities.length > 0 ? pk.abilities[0] : 'Unknown';
+      const ability = (pk as any).abilities && (pk as any).abilities.length > 0 ? (pk as any).abilities[0] : 'Unknown';
       return `${pk.displayName}\nAbility: ${ability}\n`;
     }).join('\n');
     
