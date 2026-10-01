@@ -579,7 +579,10 @@ export default function DraftMode() {
         applyState(next); broadcastToGuest(next);
       }
     }
-  }, [applyState, broadcastToGuest, resolveRound, resolveHeist, resolveAuctionWin, resolveChaosChoice]);
+    if (data.type === 'snake_pick') {
+      resolveSnakePick(data.pkId);
+    }
+  }, [applyState, broadcastToGuest, resolveRound, resolveHeist, resolveAuctionWin, resolveChaosChoice, resolveSnakePick]);
 
   const stateDiscardAndDraw = useCallback((next: DraftState) => {
      next.round += 1;
@@ -771,6 +774,14 @@ export default function DraftMode() {
       hostConnRef.current?.send({ type: 'auction_pass', playerNum });
     }
   }, [handleHostReceiveData]);
+
+  const submitSnakePick = useCallback((pkId: number) => {
+    if (isHostRef.current) {
+      resolveSnakePick(pkId);
+    } else {
+      hostConnRef.current?.send({ type: 'snake_pick', pkId });
+    }
+  }, [resolveSnakePick]);
 
   const revealCards = useCallback(() => {
     if (!isHostRef.current || !gameStateRef.current) return;
@@ -1205,7 +1216,7 @@ export default function DraftMode() {
                         {gameState.p1Options.map(pk => (
                           <button key={pk.id} 
                             disabled={gameState.snakeTurn !== myPlayerNum}
-                            onClick={() => resolveSnakePick(pk.id)}
+                            onClick={() => submitSnakePick(pk.id)}
                             className={`relative p-2 rounded-xl border flex flex-col items-center justify-center transition-all ${
                               gameState.snakeTurn === myPlayerNum ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 hover:border-emerald-400 cursor-pointer' : 'bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed'
                             }`}>
