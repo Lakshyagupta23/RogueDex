@@ -30,26 +30,40 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'nuzlocke', icon: <Skull className="w-6 h-6" />, label: '☠️ Nuzlocke Draft', description: 'Draft a team of 6, then each player assassinates 1 opponent Pokémon! Guess their target to save it.', color: 'text-rose-400', borderColor: 'border-rose-500' }
 ];
 
-function BlindClueHint({ id, speciesId, clueType }: { id: number, speciesId: number, clueType?: 'ability' | 'color' }) {
+function BlindClueHint({ id, speciesId }: { id: number, speciesId: number }) {
   const [clue, setClue] = useState<string>('Loading...');
+  const [clueLabel, setClueLabel] = useState<string>('Analyzing...');
+
   useEffect(() => {
-    if (clueType === 'color') {
+    const types = ['weight', 'height', 'color', 'ability', 'shape', 'habitat'];
+    const chosenType = types[Math.floor(Math.random() * types.length)];
+    
+    if (['color', 'shape', 'habitat'].includes(chosenType)) {
       fetch(`https://pokeapi.co/api/v2/pokemon-species/${speciesId}/`)
         .then(r => r.json())
-        .then(d => setClue(d.color?.name || 'Unknown Color'))
-        .catch(() => setClue('Unknown Color'));
+        .then(d => {
+          if (chosenType === 'color') { setClueLabel('Color'); setClue(d.color?.name || 'Unknown'); }
+          if (chosenType === 'shape') { setClueLabel('Shape'); setClue(d.shape?.name || 'Unknown'); }
+          if (chosenType === 'habitat') { setClueLabel('Habitat'); setClue(d.habitat?.name || 'Unknown'); }
+        })
+        .catch(() => { setClueLabel('Error'); setClue('???'); });
     } else {
       fetch(`https://pokeapi.co/api/v2/pokemon/${id}/`)
         .then(r => r.json())
-        .then(d => setClue(d.abilities[0]?.ability?.name?.replace(/-/g, ' ') || 'Unknown'))
-        .catch(() => setClue('Unknown Ability'));
+        .then(d => {
+          if (chosenType === 'weight') { setClueLabel('Weight'); setClue(`${d.weight / 10} kg`); }
+          if (chosenType === 'height') { setClueLabel('Height'); setClue(`${d.height / 10} m`); }
+          if (chosenType === 'ability') { setClueLabel('Ability'); setClue(d.abilities[0]?.ability?.name?.replace(/-/g, ' ') || 'Unknown'); }
+        })
+        .catch(() => { setClueLabel('Error'); setClue('???'); });
     }
-  }, [id, speciesId, clueType]);
+  }, [id, speciesId]);
+
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center p-2 bg-slate-900 border border-purple-500/50 rounded-xl z-20">
-      <Eye className="w-6 h-6 text-purple-500 mb-2 opacity-50" />
-      <span className="text-[10px] uppercase font-bold text-slate-500">{clueType === 'color' ? 'Color Clue' : 'Ability Clue'}</span>
-      <span className="text-sm font-black text-purple-400 text-center capitalize leading-tight mt-1">{clue}</span>
+    <div className="absolute inset-0 flex flex-col items-center justify-center p-2 bg-[#0b0e16] border border-purple-500/30 rounded-xl z-20 shadow-[inset_0_0_20px_rgba(168,85,247,0.15)]">
+      <Eye className="w-8 h-8 text-purple-500 mb-2 opacity-50" />
+      <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">{clueLabel}</span>
+      <span className="text-base font-black text-purple-400 text-center capitalize leading-tight mt-1">{clue}</span>
     </div>
   );
 }
@@ -208,7 +222,6 @@ export default function DraftMode() {
   const [joinCode, setJoinCode] = useState('');
   const [optionsPerRound, setOptionsPerRound] = useState(3);
   const [selectedMode, setSelectedMode] = useState<GameMode>('standard');
-  const [blindClueType, setBlindClueType] = useState<'ability' | 'color'>('ability');
   const [musicOn, setMusicOn] = useState(false);
 
   useEffect(() => {
@@ -265,6 +278,7 @@ export default function DraftMode() {
   const [myNuzlockeTargetIdx, setMyNuzlockeTargetIdx] = useState<number | null>(null);
   const [myNuzlockeProtectIdx, setMyNuzlockeProtectIdx] = useState<number | null>(null);
   const [nuzlockeSubmitted, setNuzlockeSubmitted] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const p1HeistRef = useRef<{ stealIdx: number; swapIdx: number } | null>(null);
   const p2HeistRef = useRef<{ stealIdx: number; swapIdx: number } | null>(null);
 
@@ -805,7 +819,7 @@ export default function DraftMode() {
       const filters = buildFilters();
       const totalRounds = 3; 
       const initial: DraftState = {
-        code, status: 'LOBBY', gameMode: selectedMode, blindClueType,
+        code, status: 'LOBBY', gameMode: selectedMode,
         optionsPerRound: selectedMode === 'wildcard' ? 3 : optionsPerRound, round: 1, totalRounds, filters,
         p1: { id: pid, username: usernameRef.current, team: [], ready: false },
         p2: null, p1Options: [], p2Options: [],
@@ -869,7 +883,6 @@ export default function DraftMode() {
        ...cur, 
        status: initialStatus,
        gameMode: selectedMode,
-       blindClueType,
        optionsPerRound,
        filters: buildFilters(),
        round: 1,
@@ -892,7 +905,7 @@ export default function DraftMode() {
     setMyHeistStealIdx(null); setMyHeistSwapIdx(null); setHeistSubmitted(false);
     generateOptions(next, pokemonList);
     applyState(next); broadcastToGuest(next);
-  }, [generateOptions, applyState, broadcastToGuest, pokemonList, selectedMode, blindClueType, optionsPerRound, buildFilters]);
+  }, [generateOptions, applyState, broadcastToGuest, pokemonList, selectedMode, optionsPerRound, buildFilters]);
 
   const submitChoices = useCallback((kId: number, gId: number) => {
     if (!gameStateRef.current) return;
@@ -1019,23 +1032,54 @@ export default function DraftMode() {
     applyState(next); broadcastToGuest(next);
   }, [applyState, broadcastToGuest]);
 
-  const exportToShowdown = useCallback(() => {
+  const exportToShowdown = useCallback(async () => {
     if (!gameStateRef.current) return;
     const team = isHostRef.current ? gameStateRef.current.p1.team : gameStateRef.current.p2?.team;
     if (!team) return;
     
-    const showdownText = team.filter(m => !m.isMystery).map(m => {
-      const pk = m.actualPk;
-      const ability = (pk as any).abilities && (pk as any).abilities.length > 0 ? (pk as any).abilities[0] : 'Unknown';
-      return `${pk.displayName}\nAbility: ${ability}\n`;
-    }).join('\n');
-    
-    navigator.clipboard.writeText(showdownText).then(() => {
+    setIsExporting(true);
+    try {
+      const res = await fetch('https://pkmn.github.io/randbats/data/gen9randombattle.json');
+      const randomSets = await res.json();
+      
+      const showdownText = team.filter(m => !m.isMystery).map(m => {
+        const pk = m.actualPk;
+        
+        let nameKey = pk.displayName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('');
+        if (nameKey === 'Ho-oh') nameKey = 'Ho-Oh';
+        if (nameKey === 'Porygon-z') nameKey = 'Porygon-Z';
+        if (nameKey === 'Jangmo-o') nameKey = 'Jangmo-o';
+        
+        let pSet = randomSets[nameKey] || randomSets[pk.displayName] || randomSets[pk.name.charAt(0).toUpperCase() + pk.name.slice(1)];
+        
+        if (!pSet) {
+           const ability = (pk as any).abilities && (pk as any).abilities.length > 0 ? (pk as any).abilities[0] : 'Unknown';
+           return `${pk.displayName}\nAbility: ${ability}\nEVs: 85 HP / 85 Atk / 85 Def / 85 SpA / 85 SpD / 85 Spe\n`;
+        }
+        
+        const roles = Object.keys(pSet.roles || {});
+        const roleName = roles.length > 0 ? roles[Math.floor(Math.random() * roles.length)] : null;
+        const role = roleName ? pSet.roles[roleName] : pSet;
+        
+        const ability = (role.abilities && role.abilities.length > 0) ? role.abilities[Math.floor(Math.random() * role.abilities.length)] : (pSet.abilities ? pSet.abilities[0] : 'Unknown');
+        const item = (role.items && role.items.length > 0) ? role.items[Math.floor(Math.random() * role.items.length)] : (pSet.items ? pSet.items[0] : 'Leftovers');
+        const teraType = (role.teraTypes && role.teraTypes.length > 0) ? role.teraTypes[Math.floor(Math.random() * role.teraTypes.length)] : 'Normal';
+        
+        let moves = [...(role.moves || pSet.moves || [])];
+        moves = moves.sort(() => 0.5 - Math.random()).slice(0, 4);
+        
+        return `${pk.displayName} @ ${item}\nAbility: ${ability}\nLevel: ${pSet.level || 80}\nTera Type: ${teraType}\nEVs: 85 HP / 85 Atk / 85 Def / 85 SpA / 85 SpD / 85 Spe\n${moves.map(mv => '- ' + mv).join('\n')}\n`;
+      }).join('\n');
+      
+      await navigator.clipboard.writeText(showdownText);
       playHoverTick();
-      alert('Team copied to clipboard in Showdown format!');
-    }).catch(err => {
-      console.error('Failed to copy team: ', err);
-    });
+      alert('Competitive Team copied to clipboard with Random Battle sets!');
+    } catch (err) {
+      console.error('Failed to export competitive team: ', err);
+      alert('Failed to generate competitive sets.');
+    } finally {
+      setIsExporting(false);
+    }
   }, []);
 
   const returnToLobby = useCallback(() => {
@@ -1222,16 +1266,7 @@ export default function DraftMode() {
                       </div>
                     </button>
                   ))}
-                  {selectedMode === 'blind' && (
-                    <div className="mt-2 p-3 rounded-xl border border-purple-500/30 bg-purple-900/10 flex items-center justify-between">
-                      <span className="text-sm text-purple-300 font-bold">What clue should be revealed?</span>
-                      <select value={blindClueType} onChange={e => setBlindClueType(e.target.value as 'ability' | 'color')}
-                        className="bg-slate-950 border border-purple-500/50 rounded px-3 py-1 text-purple-400 text-sm focus:outline-none">
-                        <option value="ability">Pokemon Ability</option>
-                        <option value="color">Pokemon Color</option>
-                      </select>
-                    </div>
-                  )}
+
                 </div>
               </div>
 
@@ -1616,7 +1651,7 @@ export default function DraftMode() {
                                 <HoloCard typeColor={TYPE_COLORS[pk.types[0]]} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
                                   isKeep ? 'bg-indigo-500/20 border-indigo-500' : isGive ? 'bg-rose-500/20 border-rose-500' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'
                                 }`}>
-                                  {isBlind && <BlindClueHint id={pk.id} speciesId={pk.speciesId} clueType={gameState.blindClueType} />}
+                                  {isBlind && <BlindClueHint id={pk.id} speciesId={pk.speciesId} />}
                                   <div className="flex items-center gap-3 relative z-30">
                                     <img src={pk.sprite} alt={pk.name} className={`w-12 h-12 object-contain ${isBlind ? 'opacity-0' : ''}`} />
                                     <div className={isBlind ? 'opacity-0' : ''}>
@@ -1666,8 +1701,9 @@ export default function DraftMode() {
                       ) : (
                         <p className="text-slate-500 text-sm flex items-center h-full px-4">Waiting for host to reveal...</p>
                       )}
-                      <button onClick={exportToShowdown} className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold px-6 py-3 rounded-xl transition-colors flex items-center gap-2">
-                        <ClipboardCopy className="w-5 h-5" /> Export to Showdown
+                      <button onClick={exportToShowdown} disabled={isExporting} className="bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-slate-200 font-bold px-6 py-3 rounded-xl transition-colors flex items-center gap-2">
+                        {isExporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCopy className="w-5 h-5" />}
+                        {isExporting ? 'Generating Sets...' : 'Export to Showdown'}
                       </button>
                     </div>
                   </div>
