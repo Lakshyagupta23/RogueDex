@@ -27,6 +27,7 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'speedrun', icon: <Timer className="w-6 h-6" />, label: '⏱️ Speedrun', description: '7 seconds per pick. If time runs out, the worst Pokémon is auto-picked!', color: 'text-red-400', borderColor: 'border-red-500' },
   { id: 'vip', icon: <Crown className="w-6 h-6" />, label: '👑 Protect the King', description: 'Round 1 is your VIP. All other picks must share a type with it!', color: 'text-yellow-400', borderColor: 'border-yellow-500' },
   { id: 'salary_cap', icon: <Coins className="w-6 h-6" />, label: '🏛️ Salary Cap (Nomination)', description: 'Take turns nominating Pokémon for bidding. Don\'t run out of money!', color: 'text-green-400', borderColor: 'border-green-500' },
+  { id: 'nuzlocke', icon: <Skull className="w-6 h-6" />, label: '☠️ Nuzlocke Draft', description: 'Draft a team of 6, then each player assassinates 1 opponent Pokémon! Guess their target to save it.', color: 'text-rose-400', borderColor: 'border-rose-500' }
 ];
 
 function BlindClueHint({ id, speciesId, clueType }: { id: number, speciesId: number, clueType?: 'ability' | 'color' }) {
@@ -56,6 +57,11 @@ function BlindClueHint({ id, speciesId, clueType }: { id: number, speciesId: num
 function MonotypeRoulettePanel({ gameState, isHost, onComplete }: { gameState: DraftState, isHost: boolean, onComplete: () => void }) {
   const [currentType, setCurrentType] = useState<string>(ALL_TYPES[0]);
   const [isDone, setIsDone] = useState(false);
+  const onCompleteRef = useRef(onComplete);
+  
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
   
   useEffect(() => {
     let tick = 0;
@@ -68,12 +74,12 @@ function MonotypeRoulettePanel({ gameState, isHost, onComplete }: { gameState: D
         setCurrentType(gameState.monotypeType || 'normal');
         setIsDone(true);
         if (isHost) {
-          setTimeout(() => onComplete(), 3000);
+          setTimeout(() => onCompleteRef.current(), 3000);
         }
       }
     }, 50);
     return () => clearInterval(interval);
-  }, [gameState.monotypeType, isHost, onComplete]);
+  }, [gameState.monotypeType, isHost]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh]">
@@ -242,6 +248,8 @@ export default function DraftMode() {
   useEffect(() => { usernameRef.current = username; }, [username]);
 
   // Game state
+  const [vsScreenPlaying, setVsScreenPlaying] = useState(false);
+  const prevStatusRef = useRef<string | null>(null);
   const [gameState, setGameState] = useState<DraftState | null>(null);
   const gameStateRef = useRef<DraftState | null>(null);
   const [keepChoice, setKeepChoice] = useState<number | null>(null);
@@ -254,11 +262,22 @@ export default function DraftMode() {
   const [myHeistStealIdx, setMyHeistStealIdx] = useState<number | null>(null);
   const [myHeistSwapIdx, setMyHeistSwapIdx] = useState<number | null>(null);
   const [heistSubmitted, setHeistSubmitted] = useState(false);
+  const [myNuzlockeTargetIdx, setMyNuzlockeTargetIdx] = useState<number | null>(null);
+  const [myNuzlockeProtectIdx, setMyNuzlockeProtectIdx] = useState<number | null>(null);
+  const [nuzlockeSubmitted, setNuzlockeSubmitted] = useState(false);
   const p1HeistRef = useRef<{ stealIdx: number; swapIdx: number } | null>(null);
   const p2HeistRef = useRef<{ stealIdx: number; swapIdx: number } | null>(null);
 
   // Auction Local State
   const [auctionBidInput, setAuctionBidInput] = useState<string>('');
+
+  useEffect(() => {
+    if (gameState?.status === 'DRAFTING' && gameState.round === 1 && prevStatusRef.current === 'LOBBY') {
+      setVsScreenPlaying(true);
+      setTimeout(() => setVsScreenPlaying(false), 3000);
+    }
+    prevStatusRef.current = gameState?.status ?? null;
+  }, [gameState?.status, gameState?.round]);
 
   const applyState = useCallback((next: DraftState) => {
     gameStateRef.current = next;
@@ -565,6 +584,12 @@ export default function DraftMode() {
         state.status = 'HEIST';
         state.p1HeistChoice = null;
         state.p2HeistChoice = null;
+      } else if (state.gameMode === 'nuzlocke') {
+        state.status = 'NUZLOCKE';
+        state.nuzlockeP1Target = null;
+        state.nuzlockeP1Protect = null;
+        state.nuzlockeP2Target = null;
+        state.nuzlockeP2Protect = null;
       } else {
         state.status = 'REVEAL';
       }
@@ -610,6 +635,30 @@ export default function DraftMode() {
     broadcastToGuest({ ...state });
   }, [applyState, broadcastToGuest]);
 
+  const resolveNuzlocke = useCallback((state: DraftState) => {
+    // Both submitted
+    // P1 target kills P2's pokemon UNLESS P2 protected it
+    if (state.nuzlockeP1Target !== state.nuzlockeP2Protect) {
+      if (state.nuzlockeP1Target !== null && state.nuzlockeP1Target !== undefined && state.p2!.team[state.nuzlockeP1Target]) {
+        state.p2!.team[state.nuzlockeP1Target].isDead = true;
+      }
+    }
+    // P2 target kills P1's pokemon UNLESS P1 protected it
+    if (state.nuzlockeP2Target !== state.nuzlockeP1Protect) {
+      if (state.nuzlockeP2Target !== null && state.nuzlockeP2Target !== undefined && state.p1.team[state.nuzlockeP2Target]) {
+        state.p1.team[state.nuzlockeP2Target].isDead = true;
+      }
+    }
+    
+    state.nuzlockeP1Target = null;
+    state.nuzlockeP1Protect = null;
+    state.nuzlockeP2Target = null;
+    state.nuzlockeP2Protect = null;
+    state.status = 'REVEAL';
+    applyState({ ...state });
+    broadcastToGuest({ ...state });
+  }, [applyState, broadcastToGuest]);
+
   const handleHostReceiveData = useCallback((data: any) => {
     const cur = gameStateRef.current;
     if (!cur) return;
@@ -629,6 +678,25 @@ export default function DraftMode() {
       next.p2HeistChoice = data.stealIdx;
       p2HeistRef.current = { stealIdx: data.stealIdx, swapIdx: data.swapIdx };
       if (p1HeistRef.current !== null) { resolveHeist(next); } else { applyState(next); broadcastToGuest(next); }
+    }
+    if (data.type === 'submit_nuzlocke') {
+      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      if (data.playerNum === 1) {
+        next.nuzlockeP1Target = data.targetIdx;
+        next.nuzlockeP1Protect = data.protectIdx;
+      } else {
+        next.nuzlockeP2Target = data.targetIdx;
+        next.nuzlockeP2Protect = data.protectIdx;
+      }
+      
+      const p1Ready = next.nuzlockeP1Target !== null && next.nuzlockeP1Target !== undefined;
+      const p2Ready = next.nuzlockeP2Target !== null && next.nuzlockeP2Target !== undefined;
+
+      if (p1Ready && p2Ready) {
+        resolveNuzlocke(next);
+      } else {
+        applyState(next); broadcastToGuest(next);
+      }
     }
     if (data.type === 'chaos_choice') {
       resolveChaosChoice(2, data.choice);
@@ -852,7 +920,7 @@ export default function DraftMode() {
   useEffect(() => {
     const isHostLocal = isHostRef.current;
     const mySlotLocal = isHostLocal ? gameState?.p1 : gameState?.p2;
-    const myOptionsLocal = isHostLocal ? gameState?.p1Options : gameState?.p2Options;
+    const myOptionsLocal = (gameState?.gameMode === 'snake' || gameState?.gameMode === 'auction') ? gameState?.p1Options : (isHostLocal ? gameState?.p1Options : gameState?.p2Options);
     if (gameState?.gameMode === 'speedrun' && gameState.status === 'DRAFTING' && !submitted && !mySlotLocal?.ready) {
       setSpeedrunTimer(7);
       const interval = setInterval(() => {
@@ -890,6 +958,25 @@ export default function DraftMode() {
       } else { alert('Lost connection to host!'); setHeistSubmitted(false); }
     }
   }, [myHeistStealIdx, myHeistSwapIdx, applyState, broadcastToGuest, resolveHeist]);
+
+  const submitMyNuzlocke = useCallback(() => {
+    if (!gameStateRef.current || myNuzlockeTargetIdx === null || myNuzlockeProtectIdx === null) return;
+    playStealSound(); // Reuse sound
+    setNuzlockeSubmitted(true);
+    if (isHostRef.current) {
+      const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+      next.nuzlockeP1Target = myNuzlockeTargetIdx;
+      next.nuzlockeP1Protect = myNuzlockeProtectIdx;
+      const p2Ready = next.nuzlockeP2Target !== null && next.nuzlockeP2Target !== undefined;
+      if (p2Ready) { resolveNuzlocke(next); } else { applyState(next); broadcastToGuest(next); }
+    } else {
+      const conn = hostConnRef.current;
+      if (conn && conn.open) {
+        conn.send({ type: 'submit_nuzlocke', targetIdx: myNuzlockeTargetIdx, protectIdx: myNuzlockeProtectIdx });
+      } else { alert('Lost connection to host!'); setNuzlockeSubmitted(false); }
+    }
+  }, [myNuzlockeTargetIdx, myNuzlockeProtectIdx, applyState, broadcastToGuest, resolveNuzlocke]);
+
 
   const submitAuctionBid = useCallback((amount: number) => {
     if (!gameStateRef.current) return;
@@ -1000,7 +1087,7 @@ export default function DraftMode() {
 
   const isHost = isHostRef.current;
   const myPlayerNum = isHost ? 1 : 2;
-  const myOptions = isHost ? gameState?.p1Options : gameState?.p2Options;
+  const myOptions = (gameState?.gameMode === 'snake' || gameState?.gameMode === 'auction') ? gameState?.p1Options : (isHost ? gameState?.p1Options : gameState?.p2Options);
   const mySlot = isHost ? gameState?.p1 : gameState?.p2;
   const opponentSlot = isHost ? gameState?.p2 : gameState?.p1;
   const activeFilterCount = [
@@ -1020,6 +1107,51 @@ export default function DraftMode() {
 
   return (
     <div className="min-h-screen bg-[#0b0e16] text-slate-200 p-6 font-sans">
+      <AnimatePresence>
+        {vsScreenPlaying && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-sm"
+          >
+            <div className="flex items-center gap-8 md:gap-16">
+              <motion.div 
+                initial={{ x: -100, opacity: 0 }} 
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ type: 'spring', bounce: 0.5 }}
+                className="flex flex-col items-center"
+              >
+                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-indigo-500/20 border-4 border-indigo-500 flex items-center justify-center mb-4 shadow-[0_0_50px_rgba(99,102,241,0.5)]">
+                  <Users className="w-12 h-12 md:w-16 md:h-16 text-indigo-400" />
+                </div>
+                <h2 className="text-2xl md:text-3xl font-black text-white">{gameState?.p1.username}</h2>
+              </motion.div>
+              
+              <motion.div
+                initial={{ scale: 0, rotate: -45 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ delay: 0.3, type: 'spring', bounce: 0.6 }}
+                className="text-6xl md:text-8xl font-black italic bg-gradient-to-br from-amber-400 to-orange-600 bg-clip-text text-transparent drop-shadow-[0_0_30px_rgba(251,191,36,0.5)]"
+              >
+                VS
+              </motion.div>
+              
+              <motion.div 
+                initial={{ x: 100, opacity: 0 }} 
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ type: 'spring', bounce: 0.5 }}
+                className="flex flex-col items-center"
+              >
+                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-rose-500/20 border-4 border-rose-500 flex items-center justify-center mb-4 shadow-[0_0_50px_rgba(244,63,94,0.5)]">
+                  <Users className="w-12 h-12 md:w-16 md:h-16 text-rose-400" />
+                </div>
+                <h2 className="text-2xl md:text-3xl font-black text-white">{gameState?.p2?.username || 'Opponent'}</h2>
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="max-w-6xl mx-auto flex items-center justify-between mb-8 pb-4 border-b border-slate-800">
         <div className="flex items-center gap-3">
           <Link href="/" className="text-xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">RogueDex</Link>
@@ -1276,6 +1408,8 @@ export default function DraftMode() {
           }} />
         ) : gameState.status === 'HEIST' ? (
           <HeistPhase gameState={gameState} isHost={isHost} myTeam={mySlot?.team ?? []} opponentTeam={opponentSlot?.team ?? []} myStealIdx={myHeistStealIdx} mySwapIdx={myHeistSwapIdx} setMyStealIdx={setMyHeistStealIdx} setMySwapIdx={setMyHeistSwapIdx} heistSubmitted={heistSubmitted} onSubmit={submitMyHeist} />
+        ) : gameState.status === 'NUZLOCKE' ? (
+          <NuzlockePhase gameState={gameState} isHost={isHost} myTeam={mySlot?.team ?? []} opponentTeam={opponentSlot?.team ?? []} myTargetIdx={myNuzlockeTargetIdx} myProtectIdx={myNuzlockeProtectIdx} setMyTargetIdx={setMyNuzlockeTargetIdx} setMyProtectIdx={setMyNuzlockeProtectIdx} submitted={nuzlockeSubmitted} onSubmit={submitMyNuzlocke} />
         ) : gameState.status === 'CHAOS_EVENT' ? (
           <ChaosEventPanel
             gameState={gameState}
@@ -1613,6 +1747,74 @@ function HeistPhase({ gameState, isHost, myTeam, opponentTeam, myStealIdx, mySwa
   );
 }
 
+function NuzlockePhase({ gameState, isHost, myTeam, opponentTeam, myTargetIdx, myProtectIdx, setMyTargetIdx, setMyProtectIdx, submitted, onSubmit }: any) {
+  const myOpponentReady = isHost ? gameState.nuzlockeP2Target !== null && gameState.nuzlockeP2Target !== undefined : gameState.nuzlockeP1Target !== null && gameState.nuzlockeP1Target !== undefined;
+  return (
+    <div className="flex flex-col items-center gap-8">
+      <div className="text-center relative">
+        <div className="absolute inset-0 rounded-3xl blur-2xl bg-rose-500/10 pointer-events-none" />
+        <div className="relative">
+          <p className="text-6xl mb-2">☠️</p>
+          <h2 className="text-4xl font-black text-rose-400 tracking-tight">NUZLOCKE PHASE</h2>
+          <p className="text-slate-400 mt-2 text-lg">Pick 1 opponent Pokémon to kill. Pick 1 of yours to protect!</p>
+          <div className="mt-3 flex justify-center gap-3">
+            <span className="text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30 px-3 py-1 rounded-full font-bold uppercase">Step 1: Pick to Kill</span>
+            <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full font-bold uppercase">Step 2: Pick to Protect</span>
+          </div>
+        </div>
+      </div>
+      {submitted ? (
+        <div className="flex flex-col items-center gap-4 p-8 rounded-2xl border border-rose-500/30 bg-slate-900/50">
+          <Loader2 className="w-8 h-8 animate-spin text-rose-400" />
+          <p className="text-rose-300 font-bold text-lg">Choices locked in! Waiting for opponent...</p>
+          {myOpponentReady && <p className="text-emerald-400 text-sm font-bold">Opponent is ready! Resolving Nuzlocke...</p>}
+        </div>
+      ) : (
+        <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="flex flex-col gap-3">
+            <h3 className="font-black text-rose-400 text-lg flex items-center gap-2">
+              <Sword className="w-5 h-5" /> Assassinate from {isHost ? gameState.p2?.username : gameState.p1.username}&apos;s Team
+            </h3>
+            <p className="text-xs text-slate-500">Click a card to mark it for assassination</p>
+            <div className="grid grid-cols-3 gap-2">
+              {opponentTeam.map((member: any, i: number) => (
+                <button key={i} onClick={() => { playHoverTick(); setMyTargetIdx(myTargetIdx === i ? null : i); }}
+                  className={`aspect-square rounded-xl border-2 p-2 flex flex-col items-center justify-center transition-all ${myTargetIdx === i ? 'border-rose-400 bg-rose-500/20 scale-95' : 'border-slate-700 bg-slate-900 hover:border-rose-600 hover:bg-rose-500/10'}`}>
+                  <img src={member.actualPk.sprite} alt={member.actualPk.name} className="w-12 h-12 object-contain" />
+                  <p className="text-[9px] font-bold text-slate-300 capitalize mt-1 text-center leading-tight">{member.actualPk.displayName}</p>
+                  {myTargetIdx === i && <span className="text-[8px] text-rose-400 font-black mt-0.5">KILL!</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-3">
+            <h3 className="font-black text-emerald-400 text-lg flex items-center gap-2">
+              <Shield className="w-5 h-5" /> Protect from Your Team
+            </h3>
+            <p className="text-xs text-slate-500">Click a card to protect it</p>
+            <div className="grid grid-cols-3 gap-2">
+              {myTeam.map((member: any, i: number) => (
+                <button key={i} onClick={() => { playHoverTick(); setMyProtectIdx(myProtectIdx === i ? null : i); }}
+                  className={`aspect-square rounded-xl border-2 p-2 flex flex-col items-center justify-center transition-all ${myProtectIdx === i ? 'border-emerald-400 bg-emerald-500/20 scale-95' : 'border-slate-700 bg-slate-900 hover:border-emerald-600 hover:bg-emerald-500/10'}`}>
+                  <img src={member.actualPk.sprite} alt={member.actualPk.name} className="w-12 h-12 object-contain" />
+                  <p className="text-[9px] font-bold text-slate-300 capitalize mt-1 text-center leading-tight">{member.actualPk.displayName}</p>
+                  {myProtectIdx === i && <span className="text-[8px] text-emerald-400 font-black mt-0.5">PROTECT</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {!submitted && (
+        <button onClick={onSubmit} disabled={myTargetIdx === null || myProtectIdx === null}
+          className="px-12 py-4 rounded-2xl font-black text-lg uppercase tracking-widest transition-all disabled:bg-slate-800 disabled:text-slate-600 bg-rose-500 hover:bg-rose-400 text-slate-900 shadow-lg shadow-rose-500/30">
+          ☠️ Lock In Choices
+        </button>
+      )}
+    </div>
+  );
+}
+
 function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: number, playerNum: 1 | 2 }) {
   const [isFlipped, setIsFlipped] = useState(!data?.isMystery);
 
@@ -1662,15 +1864,16 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
         </div>
 
         {/* BACK: POKEMON */}
-        <div className="absolute inset-0 w-full h-full bg-slate-900/80 border border-slate-700 rounded-2xl p-3 flex flex-col items-center justify-between overflow-hidden"
+        <div className={`absolute inset-0 w-full h-full border rounded-2xl p-3 flex flex-col items-center justify-between overflow-hidden transition-all ${data.isDead ? 'bg-slate-900 border-rose-900/50 grayscale' : 'bg-slate-900/80 border-slate-700'}`}
              style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
           {data.fromOpponent && <span className="absolute top-2 right-2 text-[8px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase z-10">Given</span>}
           {data.cost !== undefined && <span className="absolute top-2 left-2 text-[8px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-black z-10">${data.cost}</span>}
-          <img src={pk.sprite} alt={pk.name} className="w-16 h-16 object-contain z-10 drop-shadow-md" />
+          {data.isDead && <div className="absolute inset-0 z-20 flex items-center justify-center bg-rose-950/40 backdrop-blur-[1px]"><span className="text-4xl">☠️</span></div>}
+          <img src={pk.sprite} alt={pk.name} className={`w-16 h-16 object-contain z-10 drop-shadow-md ${data.isDead ? 'opacity-50 mix-blend-luminosity' : ''}`} />
           <div className="text-center z-10">
-            <p className="font-bold text-xs text-white capitalize">{pk.displayName}</p>
+            <p className={`font-bold text-xs capitalize ${data.isDead ? 'text-slate-500 line-through' : 'text-white'}`}>{pk.displayName}</p>
             <div className="flex gap-1 justify-center mt-1">
-              {pk.types.map(t => <div key={t} style={{ backgroundColor: TYPE_COLORS[t] }} className="w-2 h-2 rounded-full" />)}
+              {pk.types.map(t => <div key={t} style={{ backgroundColor: TYPE_COLORS[t] }} className={`w-2 h-2 rounded-full ${data.isDead ? 'opacity-20' : ''}`} />)}
             </div>
           </div>
         </div>

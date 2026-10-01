@@ -66,7 +66,7 @@ export interface SavedTeam {
   tags?: string[];
 }
 
-export type GameMode = 'standard' | 'blind' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos' | 'speedrun' | 'vip' | 'salary_cap';
+export type GameMode = 'standard' | 'blind' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos' | 'speedrun' | 'vip' | 'salary_cap' | 'nuzlocke';
 export type ChaosEventId = 'rocket' | 'safari' | 'ditto' | 'fossil' | 'celebi' | 'yveltal' | 'wonder' | 'gym' | 'glitch' | 'gamble';
 
 export type DraftTeamMember = {
@@ -74,6 +74,7 @@ export type DraftTeamMember = {
   actualPk: PokemonIndexItem;
   fromOpponent: boolean;
   cost?: number;
+  isDead?: boolean;
 };
 
 export interface PlayerSlot {
@@ -85,7 +86,7 @@ export interface PlayerSlot {
 
 export interface DraftState {
   code: string;
-  status: 'LOBBY' | 'MONOTYPE_ROULETTE' | 'DRAFTING' | 'HEIST' | 'REVEAL' | 'CHAOS_EVENT';
+  status: 'LOBBY' | 'MONOTYPE_ROULETTE' | 'DRAFTING' | 'HEIST' | 'REVEAL' | 'CHAOS_EVENT' | 'NUZLOCKE';
   gameMode: GameMode;
   blindClueType?: 'ability' | 'color';
   optionsPerRound: number;
@@ -125,5 +126,10 @@ export interface DraftState {
     p1Choice?: any;
     p2Choice?: any;
   };
+  // Nuzlocke state
+  nuzlockeP1Target?: number | null;
+  nuzlockeP1Protect?: number | null;
+  nuzlockeP2Target?: number | null;
+  nuzlockeP2Protect?: number | null;
 }
 
