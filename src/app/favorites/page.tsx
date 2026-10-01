@@ -32,10 +32,15 @@ function FavoritesContent() {
   };
 
   // Copy Showdown sets for saved team
-  const handleCopyTeamShowdown = (team: SavedTeam) => {
-    const text = generateShowdownTeam(team.pokemon);
-    navigator.clipboard.writeText(text);
-    showToastNotification(`Showdown text for "${team.name}" copied!`);
+  const handleCopyTeamShowdown = async (team: SavedTeam) => {
+    try {
+      const text = await generateShowdownTeam(team.pokemon);
+      await navigator.clipboard.writeText(text);
+      showToastNotification(`Showdown text for "${team.name}" copied!`);
+    } catch (e) {
+      console.error(e);
+      showToastNotification('Failed to generate competitive sets.');
+    }
   };
 
   if (loading) {

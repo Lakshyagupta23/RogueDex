@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Heart, RefreshCw, SlidersHorizontal, Trash2, HelpCircle, Sparkles, Volume2, Sparkle, Lock, Unlock } from 'lucide-react';
+import { Heart, RefreshCw, SlidersHorizontal, Trash2, HelpCircle, Sparkles, Volume2, Sparkle, Lock, Unlock, Sword } from 'lucide-react';
 import { usePokemon } from '@/context/PokemonContext';
 import { PokemonIndexItem } from '@/lib/pokemon/types';
 import { getRandomPokemon, FilterCriteria, filterPokemon } from '@/lib/pokemon/data';
 import { TYPE_COLORS, TYPE_GLOWS, TYPE_GRADIENTS, GENERATIONS, CATEGORIES, SPECIAL_FORMS } from '@/lib/pokemon/constants';
+import { generateShowdownTeam } from '@/lib/pokemon/showdown';
 import StatBar from '@/components/StatBar';
 
 // Helper to pre-load image assets dynamically before rendering to prevent visual flash
@@ -62,6 +63,7 @@ function RandomizerContent() {
   const [results, setResults] = useState<(PokemonIndexItem | null)[]>(Array(24).fill(null));
   const [lockedSlots, setLockedSlots] = useState<boolean[]>(Array(24).fill(false));
   const [spinningSlots, setSpinningSlots] = useState<boolean[]>(Array(24).fill(false));
+  const [isExporting, setIsExporting] = useState(false);
 
   const [showFilters, setShowFilters] = useState(false);
   const [recents, setRecents] = useState<PokemonIndexItem[]>([]);
@@ -535,6 +537,21 @@ function RandomizerContent() {
     setExcludePaldean(false);
 
     updateUrl([], [], 'either', [], 'all', 0, 0, 0, 0, 0, 0, false, 1, false, false, false, false, false, false, false, false, false, false, false);
+  };
+
+  const handleExportShowdown = async () => {
+    setIsExporting(true);
+    try {
+      const pksToExport = results.slice(0, quantity).filter(p => !!p) as PokemonIndexItem[];
+      const text = await generateShowdownTeam(pksToExport);
+      await navigator.clipboard.writeText(text);
+      alert('Competitive Sets copied to clipboard!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to generate competitive sets.');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const playCry = (speciesId: number) => {
@@ -1084,7 +1101,7 @@ function RandomizerContent() {
                   </div>
 
                   {/* Card redirect trigger link */}
-                  <div className="text-center md:text-left mt-2">
+                  <div className="text-center md:text-left mt-2 flex items-center gap-2">
                     <a
                       href={`/pokemon/${currentPokemon.name}`}
                       className="px-6 py-2.5 bg-slate-950/40 hover:bg-slate-950/80 text-white font-bold border border-slate-850 hover:border-slate-800 text-xs rounded-xl transition-all duration-200 inline-block"
@@ -1217,7 +1234,7 @@ function RandomizerContent() {
         )}
 
         {/* Generate / Reroll trigger */}
-        <div className="w-full flex justify-center">
+        <div className="w-full flex justify-center gap-4">
           <button
             onClick={handleRandomize}
             disabled={filteredCount === 0 || isSpinning}
@@ -1226,6 +1243,17 @@ function RandomizerContent() {
             <RefreshCw className={`w-5 h-5 ${(isSpinning || spinningSlots.some(Boolean)) ? 'animate-spin' : ''}`} />
             {quantity > 1 ? 'Reroll Unlocked Slots' : 'Generate Pokémon'}
           </button>
+
+          {results.length > 0 && results[0] !== null && (
+            <button
+              onClick={handleExportShowdown}
+              disabled={isExporting || isSpinning}
+              className="flex items-center gap-3 px-6 py-4 bg-slate-800 hover:bg-slate-700 text-indigo-400 font-extrabold rounded-2xl active:scale-98 transition-all border border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
+            >
+              {isExporting ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sword className="w-5 h-5" />}
+              Showdown Export
+            </button>
+          )}
         </div>
 
       </div>

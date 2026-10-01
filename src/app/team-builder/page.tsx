@@ -313,8 +313,14 @@ function TeamBuilderContent() {
   };
 
   // Export Showdown
-  const showdownText = useMemo(() => {
-    return generateShowdownTeam(activeTeamItems);
+  const [showdownText, setShowdownText] = useState('');
+  useEffect(() => {
+    generateShowdownTeam(activeTeamItems)
+      .then(text => setShowdownText(text))
+      .catch(err => {
+        console.error('Failed to generate showdown sets:', err);
+        setShowdownText('Failed to generate sets.');
+      });
   }, [activeTeamItems]);
 
   const handleCopyShowdown = () => {

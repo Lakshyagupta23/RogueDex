@@ -11,6 +11,7 @@ import { CHAOS_EVENTS, getRandomFullyEvolved, getRandomLegendary, getRandomFossi
 import Link from 'next/link';
 import HoloCard from '@/components/HoloCard';
 import { motion, AnimatePresence } from 'framer-motion';
+import { generateShowdownExport } from '@/lib/showdown';
 
 const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison','ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy'];
 const ALL_GENS = [1,2,3,4,5,6,7,8,9];
@@ -412,7 +413,7 @@ export default function DraftMode() {
   const resolveSnakePick = useCallback((pkId: number) => {
     if (!isHostRef.current || !gameStateRef.current) return;
     const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
-    const pkIndex = next.p1Options.findIndex(p => p.id === pkId);
+    const pkIndex = next.p1Options.findIndex(p => Number(p.id) === Number(pkId));
     if (pkIndex === -1) return;
     
     let originalPk = next.p1Options[pkIndex];
@@ -1039,37 +1040,8 @@ export default function DraftMode() {
     
     setIsExporting(true);
     try {
-      const res = await fetch('https://pkmn.github.io/randbats/data/gen9randombattle.json');
-      const randomSets = await res.json();
-      
-      const showdownText = team.filter(m => !m.isMystery).map(m => {
-        const pk = m.actualPk;
-        
-        let nameKey = pk.displayName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('');
-        if (nameKey === 'Ho-oh') nameKey = 'Ho-Oh';
-        if (nameKey === 'Porygon-z') nameKey = 'Porygon-Z';
-        if (nameKey === 'Jangmo-o') nameKey = 'Jangmo-o';
-        
-        let pSet = randomSets[nameKey] || randomSets[pk.displayName] || randomSets[pk.name.charAt(0).toUpperCase() + pk.name.slice(1)];
-        
-        if (!pSet) {
-           const ability = (pk as any).abilities && (pk as any).abilities.length > 0 ? (pk as any).abilities[0] : 'Unknown';
-           return `${pk.displayName}\nAbility: ${ability}\nEVs: 85 HP / 85 Atk / 85 Def / 85 SpA / 85 SpD / 85 Spe\n`;
-        }
-        
-        const roles = Object.keys(pSet.roles || {});
-        const roleName = roles.length > 0 ? roles[Math.floor(Math.random() * roles.length)] : null;
-        const role = roleName ? pSet.roles[roleName] : pSet;
-        
-        const ability = (role.abilities && role.abilities.length > 0) ? role.abilities[Math.floor(Math.random() * role.abilities.length)] : (pSet.abilities ? pSet.abilities[0] : 'Unknown');
-        const item = (role.items && role.items.length > 0) ? role.items[Math.floor(Math.random() * role.items.length)] : (pSet.items ? pSet.items[0] : 'Leftovers');
-        const teraType = (role.teraTypes && role.teraTypes.length > 0) ? role.teraTypes[Math.floor(Math.random() * role.teraTypes.length)] : 'Normal';
-        
-        let moves = [...(role.moves || pSet.moves || [])];
-        moves = moves.sort(() => 0.5 - Math.random()).slice(0, 4);
-        
-        return `${pk.displayName} @ ${item}\nAbility: ${ability}\nLevel: ${pSet.level || 80}\nTera Type: ${teraType}\nEVs: 85 HP / 85 Atk / 85 Def / 85 SpA / 85 SpD / 85 Spe\n${moves.map(mv => '- ' + mv).join('\n')}\n`;
-      }).join('\n');
+      const names = team.filter(m => !m.isMystery).map(m => m.actualPk.displayName);
+      const showdownText = await generateShowdownExport(names);
       
       await navigator.clipboard.writeText(showdownText);
       playHoverTick();
@@ -1116,6 +1088,15 @@ export default function DraftMode() {
     generateOptions(next, pokemonList);
     applyState(next); broadcastToGuest(next);
   }, [generateOptions, applyState, broadcastToGuest, pokemonList]);
+
+  const changeModeMidDraft = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (!isHostRef.current || !gameStateRef.current) return;
+    const newMode = e.target.value as GameMode;
+    const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+    next.gameMode = newMode;
+    generateOptions(next, pokemonList);
+    applyState(next); broadcastToGuest(next);
+  }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
 
   useEffect(() => {
     if (gameState?.status === 'HEIST') {
@@ -1492,8 +1473,15 @@ export default function DraftMode() {
               )}
               {gameState.status !== 'REVEAL' && isHost && (
                  <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                   <button onClick={returnToLobby} className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-indigo-400 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-indigo-500/30">⬅️ Back to Lobby (Change Mode)</button>
-                   <button onClick={restartDraft} className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-rose-500/30">🔄 Reset Draft (Clear Teams)</button>
+                   <button onClick={returnToLobby} className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-indigo-400 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-indigo-500/30">⬅️ Back to Lobby (Reset)</button>
+                   <select
+                     value={gameState.gameMode}
+                     onChange={changeModeMidDraft}
+                     className="bg-slate-800 text-fuchsia-400 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-fuchsia-500/30 outline-none cursor-pointer"
+                   >
+                     {GAME_MODES.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                   </select>
+                   <button onClick={restartDraft} className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-rose-500/30">🔄 Reset Teams</button>
                  </div>
               )}
               {gameState.status === 'REVEAL' && !isHost && <p className="text-slate-500 text-sm mt-2">Waiting for host to restart...</p>}

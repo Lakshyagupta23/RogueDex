@@ -1,23 +1,20 @@
-import { PokemonIndexItem } from './types';
-
-// Fetch and generate Showdown export text for a team using official Gen 9 Random Battle sets
-export async function generateShowdownTeam(team: PokemonIndexItem[]): Promise<string> {
+export async function generateShowdownExport(pokemonNames: string[]): Promise<string> {
   try {
     const res = await fetch('https://pkmn.github.io/randbats/data/gen9randombattle.json');
     const randomSets = await res.json();
     
-    return team.map(pk => {
+    return pokemonNames.map(name => {
       // Normalize name for dataset
-      let nameKey = pk.displayName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('');
+      let nameKey = name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('');
       if (nameKey === 'Ho-oh') nameKey = 'Ho-Oh';
       if (nameKey === 'Porygon-z') nameKey = 'Porygon-Z';
       if (nameKey === 'Jangmo-o') nameKey = 'Jangmo-o';
       
-      let pSet = randomSets[nameKey] || randomSets[pk.displayName] || randomSets[pk.name.charAt(0).toUpperCase() + pk.name.slice(1)];
+      let pSet = randomSets[nameKey] || randomSets[name] || randomSets[name.charAt(0).toUpperCase() + name.slice(1)];
       
       if (!pSet) {
          // Fallback if not found in dataset
-         return `${pk.displayName}\nAbility: Unknown\nEVs: 85 HP / 85 Atk / 85 Def / 85 SpA / 85 SpD / 85 Spe\n`;
+         return `${name}\nAbility: Unknown\nEVs: 85 HP / 85 Atk / 85 Def / 85 SpA / 85 SpD / 85 Spe\n`;
       }
       
       const roles = Object.keys(pSet.roles || {});
@@ -31,8 +28,8 @@ export async function generateShowdownTeam(team: PokemonIndexItem[]): Promise<st
       let moves = [...(role.moves || pSet.moves || [])];
       moves = moves.sort(() => 0.5 - Math.random()).slice(0, 4);
       
-      return `${pk.displayName} @ ${item}\nAbility: ${ability}\nLevel: ${pSet.level || 80}\nTera Type: ${teraType}\nEVs: 85 HP / 85 Atk / 85 Def / 85 SpA / 85 SpD / 85 Spe\n${moves.map(mv => '- ' + mv).join('\n')}`;
-    }).join('\n\n');
+      return `${name} @ ${item}\nAbility: ${ability}\nLevel: ${pSet.level || 80}\nTera Type: ${teraType}\nEVs: 85 HP / 85 Atk / 85 Def / 85 SpA / 85 SpD / 85 Spe\n${moves.map(mv => '- ' + mv).join('\n')}\n`;
+    }).join('\n');
   } catch (err) {
     console.error('Failed to generate showdown sets:', err);
     throw err;
