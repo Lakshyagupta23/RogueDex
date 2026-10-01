@@ -5,14 +5,17 @@ import { usePokemon } from '@/context/PokemonContext';
 import { PokemonIndexItem } from '@/lib/pokemon/types';
 import { FilterCriteria, filterPokemon } from '@/lib/pokemon/data';
 import { TYPE_COLORS } from '@/lib/pokemon/constants';
-import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
-import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemonCry } from '@/lib/audio';
+import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp, Eye, Sword, Shield, Skull, Gavel } from 'lucide-react';
+import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemonCry, playHeistAlarm, playStealSound } from '@/lib/audio';
 import Link from 'next/link';
+
+type GameMode = 'standard' | 'blind' | 'heist' | 'auction';
 
 type DraftTeamMember = {
   isMystery: boolean;
   actualPk: PokemonIndexItem;
   fromOpponent: boolean;
+  cost?: number;
 };
 
 interface PlayerSlot {
@@ -24,24 +27,61 @@ interface PlayerSlot {
 
 interface DraftState {
   code: string;
-  status: 'LOBBY' | 'DRAFTING' | 'REVEAL';
+  status: 'LOBBY' | 'DRAFTING' | 'HEIST' | 'REVEAL';
+  gameMode: GameMode;
   optionsPerRound: number;
   round: number;
+  totalRounds: number;
   filters: FilterCriteria;
   p1: PlayerSlot;
   p2: PlayerSlot | null;
   p1Options: PokemonIndexItem[];
   p2Options: PokemonIndexItem[];
+  // Heist state
+  p1HeistChoice: number | null;
+  p2HeistChoice: number | null;
+  // Auction state
+  p1Budget: number;
+  p2Budget: number;
+  currentBid: number;
+  highestBidder: 1 | 2 | null;
+  p1Passed: boolean;
+  p2Passed: boolean;
 }
 
 const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison','ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy'];
 const ALL_GENS = [1,2,3,4,5,6,7,8,9];
+
+const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; description: string; color: string; borderColor: string }[] = [
+  { id: 'standard', icon: <Shield className="w-6 h-6" />, label: 'Standard Draft', description: 'Classic 3-round draft. Pick to keep, give to opponent.', color: 'text-indigo-400', borderColor: 'border-indigo-500' },
+  { id: 'blind', icon: <Eye className="w-6 h-6" />, label: '🎭 Blind Draft', description: 'Build your team knowing ONLY the abilities of the Pokemon!', color: 'text-purple-400', borderColor: 'border-purple-500' },
+  { id: 'heist', icon: <Skull className="w-6 h-6" />, label: '💣 The Heist', description: '3 normal rounds, then steal 1 Pokémon from your opponent!', color: 'text-amber-400', borderColor: 'border-amber-500' },
+  { id: 'auction', icon: <Gavel className="w-6 h-6" />, label: '💰 Salary Cap', description: 'Start with $100. Live bid against your opponent!', color: 'text-emerald-400', borderColor: 'border-emerald-500' },
+];
+
+function BlindAbilityHint({ id }: { id: number }) {
+  const [ability, setAbility] = useState<string>('Loading...');
+  useEffect(() => {
+    fetch(`https://pokeapi.co/api/v2/pokemon/${id}/`)
+      .then(r => r.json())
+      .then(d => setAbility(d.abilities[0]?.ability?.name?.replace(/-/g, ' ') || 'Unknown'))
+      .catch(() => setAbility('Unknown Ability'));
+  }, [id]);
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center p-2 bg-slate-900 border border-purple-500/50 rounded-xl z-20">
+      <Eye className="w-6 h-6 text-purple-500 mb-2 opacity-50" />
+      <span className="text-[10px] uppercase font-bold text-slate-500">Ability Clue</span>
+      <span className="text-sm font-black text-purple-400 text-center capitalize leading-tight mt-1">{ability}</span>
+    </div>
+  );
+}
 
 export default function DraftMode() {
   const { pokemonList, loading } = usePokemon();
   const [username, setUsername] = useState('Trainer');
   const [joinCode, setJoinCode] = useState('');
   const [optionsPerRound, setOptionsPerRound] = useState(3);
+  const [selectedMode, setSelectedMode] = useState<GameMode>('standard');
 
   // Advanced Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -79,6 +119,16 @@ export default function DraftMode() {
   const p1PendingRef = useRef<{ keepId: number; giveId: number } | null>(null);
   const p2PendingRef = useRef<{ keepId: number; giveId: number } | null>(null);
 
+  // Heist state
+  const [myHeistStealIdx, setMyHeistStealIdx] = useState<number | null>(null);
+  const [myHeistSwapIdx, setMyHeistSwapIdx] = useState<number | null>(null);
+  const [heistSubmitted, setHeistSubmitted] = useState(false);
+  const p1HeistRef = useRef<{ stealIdx: number; swapIdx: number } | null>(null);
+  const p2HeistRef = useRef<{ stealIdx: number; swapIdx: number } | null>(null);
+
+  // Auction Local State
+  const [auctionBidInput, setAuctionBidInput] = useState<string>('');
+
   const applyState = useCallback((next: DraftState) => {
     gameStateRef.current = next;
     setGameState(next);
@@ -111,16 +161,46 @@ export default function DraftMode() {
 
   const generateOptions = useCallback((state: DraftState, list: PokemonIndexItem[]) => {
     const pool = filterPokemon(list, state.filters);
-    const src = pool; // Strictly enforce filters, even if empty
-    // Shuffle and pick unique options
     const pickUnique = (count: number): PokemonIndexItem[] => {
-      const shuffled = [...src].sort(() => Math.random() - 0.5);
+      const shuffled = [...pool].sort(() => Math.random() - 0.5);
       return shuffled.slice(0, Math.min(count, shuffled.length));
     };
-    state.p1Options = pickUnique(state.optionsPerRound);
-    state.p2Options = pickUnique(state.optionsPerRound);
+    if (state.gameMode === 'auction') {
+      state.p1Options = pickUnique(1);
+      state.p2Options = [];
+      state.currentBid = 0;
+      state.highestBidder = null;
+      state.p1Passed = state.p1.team.length >= 6;
+      state.p2Passed = state.p2 ? state.p2.team.length >= 6 : false;
+    } else {
+      state.p1Options = pickUnique(state.optionsPerRound);
+      state.p2Options = pickUnique(state.optionsPerRound);
+    }
   }, []);
 
+  const resolveAuctionWin = useCallback((state: DraftState, winner: 1 | 2 | null) => {
+    playLockIn();
+    const pk = state.p1Options[0];
+    if (winner === 1) {
+      state.p1Budget -= state.currentBid;
+      state.p1.team.push({ isMystery: false, actualPk: pk, fromOpponent: false, cost: state.currentBid });
+    } else if (winner === 2) {
+      state.p2Budget -= state.currentBid;
+      state.p2!.team.push({ isMystery: false, actualPk: pk, fromOpponent: false, cost: state.currentBid });
+    }
+    
+    // Check end condition
+    if (state.p1.team.length >= 6 && state.p2!.team.length >= 6) {
+      state.status = 'REVEAL';
+    } else {
+      state.round += 1;
+      generateOptions(state, pokemonList);
+    }
+    applyState({ ...state });
+    broadcastToGuest({ ...state });
+  }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
+
+  // Resolve a standard draft round
   const resolveRound = useCallback((state: DraftState) => {
     const act1 = p1PendingRef.current!;
     const act2 = p2PendingRef.current!;
@@ -128,23 +208,63 @@ export default function DraftMode() {
     const p1Give = state.p1Options.find(p => p.id === act1.giveId)!;
     const p2Keep = state.p2Options.find(p => p.id === act2.keepId)!;
     const p2Give = state.p2Options.find(p => p.id === act2.giveId)!;
-    state.p1.team.push({ isMystery: false, actualPk: p1Keep, fromOpponent: false });
+
+    const isBlind = state.gameMode === 'blind';
+    state.p1.team.push({ isMystery: isBlind, actualPk: p1Keep, fromOpponent: false });
     state.p1.team.push({ isMystery: true,  actualPk: p2Give, fromOpponent: true  });
-    state.p2!.team.push({ isMystery: false, actualPk: p2Keep, fromOpponent: false });
+    state.p2!.team.push({ isMystery: isBlind, actualPk: p2Keep, fromOpponent: false });
     state.p2!.team.push({ isMystery: true,  actualPk: p1Give, fromOpponent: true  });
+
     state.p1.ready = false;
     state.p2!.ready = false;
     p1PendingRef.current = null;
     p2PendingRef.current = null;
     state.round += 1;
-    if (state.round > 3) {
-      state.status = 'REVEAL';
+
+    if (state.round > state.totalRounds) {
+      if (state.gameMode === 'heist') {
+        state.status = 'HEIST';
+        state.p1HeistChoice = null;
+        state.p2HeistChoice = null;
+      } else {
+        state.status = 'REVEAL';
+      }
     } else {
       generateOptions(state, pokemonList);
     }
     applyState({ ...state });
     broadcastToGuest({ ...state });
   }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
+
+  // Resolve the Heist round
+  const resolveHeist = useCallback((state: DraftState) => {
+    const h1 = p1HeistRef.current!;
+    const h2 = p2HeistRef.current!;
+
+    const stolen1 = state.p2!.team[h1.stealIdx];
+    const stolen2 = state.p1.team[h2.stealIdx];
+
+    const newP1Team = [...state.p1.team];
+    const newP2Team = [...state.p2!.team];
+
+    const p1SwappedOut = newP1Team[h1.swapIdx];
+    const p2SwappedOut = newP2Team[h2.swapIdx];
+
+    newP1Team[h1.swapIdx] = { ...stolen1, fromOpponent: true, isMystery: false };
+    newP2Team[h2.swapIdx] = { ...stolen2, fromOpponent: true, isMystery: false };
+    newP2Team[h1.stealIdx] = { ...p1SwappedOut, fromOpponent: true, isMystery: false };
+    newP1Team[h2.stealIdx] = { ...p2SwappedOut, fromOpponent: true, isMystery: false };
+
+    state.p1.team = newP1Team;
+    state.p2!.team = newP2Team;
+    state.p1HeistChoice = null;
+    state.p2HeistChoice = null;
+    p1HeistRef.current = null;
+    p2HeistRef.current = null;
+    state.status = 'REVEAL';
+    applyState({ ...state });
+    broadcastToGuest({ ...state });
+  }, [applyState, broadcastToGuest]);
 
   const handleHostReceiveData = useCallback((data: any) => {
     const cur = gameStateRef.current;
@@ -160,7 +280,52 @@ export default function DraftMode() {
       p2PendingRef.current = { keepId: data.keepId, giveId: data.giveId };
       if (next.p1.ready) { resolveRound(next); } else { applyState(next); broadcastToGuest(next); }
     }
-  }, [applyState, broadcastToGuest, resolveRound]);
+    if (data.type === 'submit_heist') {
+      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      next.p2HeistChoice = data.stealIdx;
+      p2HeistRef.current = { stealIdx: data.stealIdx, swapIdx: data.swapIdx };
+      if (p1HeistRef.current !== null) { resolveHeist(next); } else { applyState(next); broadcastToGuest(next); }
+    }
+    if (data.type === 'auction_bid') {
+      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      const budget = data.playerNum === 1 ? next.p1Budget : next.p2Budget;
+      const isValid = data.amount <= budget && (data.amount > next.currentBid || (data.amount === 0 && next.highestBidder === null));
+      if (isValid) {
+         playSelectClick();
+         next.currentBid = data.amount;
+         next.highestBidder = data.playerNum;
+         next.p1Passed = next.p1.team.length >= 6;
+         next.p2Passed = next.p2!.team.length >= 6;
+
+         if (next.p1Passed && next.highestBidder === 2) resolveAuctionWin(next, 2);
+         else if (next.p2Passed && next.highestBidder === 1) resolveAuctionWin(next, 1);
+         else { applyState(next); broadcastToGuest(next); }
+      }
+    }
+    if (data.type === 'auction_pass') {
+      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      if (data.playerNum === 1) next.p1Passed = true;
+      else next.p2Passed = true;
+
+      if (next.p1Passed && next.p2Passed && next.highestBidder === null) {
+        // Discard
+        stateDiscardAndDraw(next);
+      } else if (next.p1Passed && next.highestBidder === 2) {
+        resolveAuctionWin(next, 2);
+      } else if (next.p2Passed && next.highestBidder === 1) {
+        resolveAuctionWin(next, 1);
+      } else {
+        applyState(next); broadcastToGuest(next);
+      }
+    }
+  }, [applyState, broadcastToGuest, resolveRound, resolveHeist, resolveAuctionWin]);
+
+  const stateDiscardAndDraw = useCallback((next: DraftState) => {
+     next.round += 1;
+     generateOptions(next, pokemonList);
+     applyState(next);
+     broadcastToGuest(next);
+  }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
 
   const initPeer = useCallback((id: string): Promise<any> => {
     return new Promise((resolve, reject) => {
@@ -208,17 +373,21 @@ export default function DraftMode() {
       const peer = await initPeer(pid);
       const code = peer.id.toUpperCase();
       const filters = buildFilters();
+      const totalRounds = 3; 
       const initial: DraftState = {
-        code, status: 'LOBBY', optionsPerRound, round: 1, filters,
+        code, status: 'LOBBY', gameMode: selectedMode,
+        optionsPerRound, round: 1, totalRounds, filters,
         p1: { id: pid, username: usernameRef.current, team: [], ready: false },
         p2: null, p1Options: [], p2Options: [],
+        p1HeistChoice: null, p2HeistChoice: null,
+        p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false
       };
       applyState(initial);
     } catch (e: any) {
       isHostRef.current = false;
       alert('Could not create room. Please refresh and try again.\n' + (e.message || String(e)));
     }
-  }, [initPeer, optionsPerRound, applyState, buildFilters]);
+  }, [initPeer, optionsPerRound, applyState, buildFilters, selectedMode]);
 
   const handleJoinRoom = useCallback(async () => {
     const uname = usernameRef.current.trim();
@@ -285,6 +454,43 @@ export default function DraftMode() {
     }
   }, [keepChoice, giveChoice, applyState, broadcastToGuest, resolveRound]);
 
+  const submitMyHeist = useCallback(() => {
+    if (!gameStateRef.current || myHeistStealIdx === null || myHeistSwapIdx === null) return;
+    playStealSound();
+    setHeistSubmitted(true);
+    if (isHostRef.current) {
+      p1HeistRef.current = { stealIdx: myHeistStealIdx, swapIdx: myHeistSwapIdx };
+      const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+      next.p1HeistChoice = myHeistStealIdx;
+      if (p2HeistRef.current !== null) { resolveHeist(next); } else { applyState(next); broadcastToGuest(next); }
+    } else {
+      const conn = hostConnRef.current;
+      if (conn && conn.open) {
+        conn.send({ type: 'submit_heist', stealIdx: myHeistStealIdx, swapIdx: myHeistSwapIdx });
+      } else { alert('Lost connection to host!'); setHeistSubmitted(false); }
+    }
+  }, [myHeistStealIdx, myHeistSwapIdx, applyState, broadcastToGuest, resolveHeist]);
+
+  const submitAuctionBid = useCallback((amount: number) => {
+    if (!gameStateRef.current) return;
+    const playerNum = isHostRef.current ? 1 : 2;
+    if (isHostRef.current) {
+      handleHostReceiveData({ type: 'auction_bid', playerNum, amount });
+    } else {
+      hostConnRef.current?.send({ type: 'auction_bid', playerNum, amount });
+    }
+  }, [handleHostReceiveData]);
+
+  const submitAuctionPass = useCallback(() => {
+    if (!gameStateRef.current) return;
+    const playerNum = isHostRef.current ? 1 : 2;
+    if (isHostRef.current) {
+      handleHostReceiveData({ type: 'auction_pass', playerNum });
+    } else {
+      hostConnRef.current?.send({ type: 'auction_pass', playerNum });
+    }
+  }, [handleHostReceiveData]);
+
   const revealCards = useCallback(() => {
     if (!isHostRef.current || !gameStateRef.current) return;
     playRevealChime();
@@ -305,32 +511,44 @@ export default function DraftMode() {
       p2: cur.p2 ? { ...cur.p2, team: [], ready: false } : null,
       p1Options: [],
       p2Options: [],
+      p1HeistChoice: null, p2HeistChoice: null,
+      p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false
     };
     p1PendingRef.current = null;
     p2PendingRef.current = null;
+    p1HeistRef.current = null;
+    p2HeistRef.current = null;
     setKeepChoice(null); setGiveChoice(null); setSubmitted(false);
+    setMyHeistStealIdx(null); setMyHeistSwapIdx(null); setHeistSubmitted(false);
     generateOptions(next, pokemonList);
     applyState(next); broadcastToGuest(next);
   }, [generateOptions, applyState, broadcastToGuest, pokemonList]);
 
+  useEffect(() => {
+    if (gameState?.status === 'HEIST') {
+      playHeistAlarm();
+      setMyHeistStealIdx(null); setMyHeistSwapIdx(null); setHeistSubmitted(false);
+    }
+  }, [gameState?.status]);
+
   useEffect(() => { setKeepChoice(null); setGiveChoice(null); setSubmitted(false); }, [gameState?.round]);
   useEffect(() => { return () => { peerRef.current?.destroy(); peerRef.current = null; }; }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0b0e16] flex items-center justify-center text-white">
-        <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="min-h-screen bg-[#0b0e16] flex items-center justify-center text-white">
+      <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+    </div>
+  );
 
   const isHost = isHostRef.current;
+  const myPlayerNum = isHost ? 1 : 2;
   const myOptions = isHost ? gameState?.p1Options : gameState?.p2Options;
   const mySlot = isHost ? gameState?.p1 : gameState?.p2;
+  const opponentSlot = isHost ? gameState?.p2 : gameState?.p1;
   const activeFilterCount = [
     selectedGens.length > 0, selectedTypes.length > 0, formsMode !== 'all', maxBst600,
     excludeLegendary, excludeMythical, excludeParadox, excludeStarters, excludeUltraBeast,
-    excludeAlolan, excludeGalarian, excludeHisuian, excludePaldean,
+    excludeAlolan, excludeGalarian, excludeHisuian, excludePaldean, fullyEvolvedOnly
   ].filter(Boolean).length;
   const filteredPool = pokemonList.length > 0 ? filterPokemon(pokemonList, buildFilters()) : [];
 
@@ -357,27 +575,50 @@ export default function DraftMode() {
       <div className="max-w-6xl mx-auto">
         {!gameState ? (
           <div className="max-w-xl mx-auto mt-6 flex flex-col gap-4">
-            {/* Main Card */}
             <div className="p-8 rounded-2xl flex flex-col gap-6 border border-slate-800 bg-slate-900/50">
               <div className="text-center">
                 <h2 className="text-2xl font-black text-white mb-2">Multiplayer Draft</h2>
                 <p className="text-sm text-slate-400">Pick for yourself, give to your opponent.</p>
               </div>
+
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Your Username</label>
                 <input type="text" value={username} onChange={e => setUsername(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
               </div>
+
+              <div className="flex flex-col gap-3">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Game Mode</label>
+                <div className="flex flex-col gap-2">
+                  {GAME_MODES.map(mode => (
+                    <button key={mode.id} onClick={() => { playHoverTick(); setSelectedMode(mode.id); }}
+                      className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
+                        selectedMode === mode.id
+                          ? `bg-slate-800 ${mode.borderColor} ${mode.color}`
+                          : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                      }`}>
+                      <span className={`mt-0.5 shrink-0 ${selectedMode === mode.id ? mode.color : 'text-slate-600'}`}>{mode.icon}</span>
+                      <div>
+                        <p className="font-bold text-sm text-white">{mode.label}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{mode.description}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex flex-col gap-3 pt-4 border-t border-slate-800">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Host a Game</label>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-slate-400">Cards per Round:</span>
-                  <select value={optionsPerRound} onChange={e => setOptionsPerRound(Number(e.target.value))}
-                    className="bg-slate-950 border border-slate-700 rounded px-3 py-1 text-white focus:outline-none">
-                    <option value={3}>3 Cards</option>
-                    <option value={4}>4 Cards</option>
-                  </select>
-                </div>
+                {selectedMode !== 'auction' && (
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-slate-400">Cards per Round:</span>
+                    <select value={optionsPerRound} onChange={e => setOptionsPerRound(Number(e.target.value))}
+                      className="bg-slate-950 border border-slate-700 rounded px-3 py-1 text-white focus:outline-none">
+                      <option value={3}>3 Cards</option>
+                      <option value={4}>4 Cards</option>
+                    </select>
+                  </div>
+                )}
                 <button onClick={handleCreateRoom}
                   className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-colors flex justify-center items-center gap-2">
                   <UserPlus className="w-5 h-5" /> Create Draft Room
@@ -408,39 +649,26 @@ export default function DraftMode() {
                 <div className="flex items-center gap-3">
                   <SlidersHorizontal className="w-4 h-4 text-indigo-400" />
                   <span className="text-sm font-bold text-slate-300">Advanced Filters</span>
-                  {activeFilterCount > 0 && (
-                    <span className="text-xs bg-indigo-500 text-white px-2 py-0.5 rounded-full font-bold">{activeFilterCount} active</span>
-                  )}
-                  {pokemonList.length > 0 && (
-                    <span className="text-xs text-slate-500">({filteredPool.length} Pokemon in pool)</span>
-                  )}
+                  {activeFilterCount > 0 && <span className="text-xs bg-indigo-500 text-white px-2 py-0.5 rounded-full font-bold">{activeFilterCount} active</span>}
+                  {pokemonList.length > 0 && <span className="text-xs text-slate-500">({filteredPool.length} Pokemon)</span>}
                 </div>
                 {showFilters ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
               </button>
-
               {showFilters && (
                 <div className="px-6 pb-6 flex flex-col gap-5 border-t border-slate-800 pt-5">
-
-                  {/* Generations */}
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Generations</label>
                     <div className="flex flex-wrap gap-2">
                       {ALL_GENS.map(g => (
-                        <button key={g}
-                          onClick={() => setSelectedGens(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors border ${
-                            selectedGens.includes(g) ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'
-                          }`}>Gen {g}</button>
+                        <button key={g} onClick={() => setSelectedGens(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors border ${selectedGens.includes(g) ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}>Gen {g}</button>
                       ))}
                     </div>
                   </div>
-
-                  {/* Types */}
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Types</label>
-                      <select value={typeMatchMode} onChange={e => setTypeMatchMode(e.target.value as any)}
-                        className="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-xs text-white">
+                      <select value={typeMatchMode} onChange={e => setTypeMatchMode(e.target.value as any)} className="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-xs text-white">
                         <option value="either">Either Type</option>
                         <option value="primary">Primary Only</option>
                         <option value="secondary">Secondary Only</option>
@@ -449,24 +677,16 @@ export default function DraftMode() {
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {ALL_TYPES.map(t => (
-                        <button key={t}
-                          onClick={() => setSelectedTypes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])}
-                          className={`px-2.5 py-1 rounded text-[10px] font-bold capitalize transition-all border ${
-                            selectedTypes.includes(t) ? 'border-transparent text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'
-                          }`}
-                          style={selectedTypes.includes(t) ? { backgroundColor: TYPE_COLORS[t], borderColor: TYPE_COLORS[t] } : {}}>
-                          {t}
-                        </button>
+                        <button key={t} onClick={() => setSelectedTypes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])}
+                          className={`px-2.5 py-1 rounded text-[10px] font-bold capitalize transition-all border ${selectedTypes.includes(t) ? 'border-transparent text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                          style={selectedTypes.includes(t) ? { backgroundColor: TYPE_COLORS[t], borderColor: TYPE_COLORS[t] } : {}}>{t}</button>
                       ))}
                     </div>
                   </div>
-
-                  {/* Forms, BST & Evolution */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Forms</label>
-                      <select value={formsMode} onChange={e => setFormsMode(e.target.value as any)}
-                        className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none">
+                      <select value={formsMode} onChange={e => setFormsMode(e.target.value as any)} className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none">
                         <option value="all">All Forms</option>
                         <option value="base_only">Base Only</option>
                         <option value="mega_only">Megas Only</option>
@@ -475,58 +695,37 @@ export default function DraftMode() {
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Evolution</label>
-                      <button onClick={() => setFullyEvolvedOnly(b => !b)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-bold transition-colors ${
-                          fullyEvolvedOnly ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'
-                        }`}>
-                        <span className={`w-3 h-3 rounded-full border-2 ${fullyEvolvedOnly ? 'bg-indigo-400 border-indigo-400' : 'border-slate-600'}`} />
-                        Fully Evolved
+                      <button onClick={() => setFullyEvolvedOnly(b => !b)} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-bold transition-colors ${fullyEvolvedOnly ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                        <span className={`w-3 h-3 rounded-full border-2 ${fullyEvolvedOnly ? 'bg-indigo-400 border-indigo-400' : 'border-slate-600'}`} /> Fully Evolved
                       </button>
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-bold uppercase tracking-wider text-slate-500">BST Cap</label>
-                      <button onClick={() => setMaxBst600(b => !b)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-bold transition-colors ${
-                          maxBst600 ? 'bg-amber-600/20 border-amber-500 text-amber-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'
-                        }`}>
-                        <span className={`w-3 h-3 rounded-full border-2 ${maxBst600 ? 'bg-amber-400 border-amber-400' : 'border-slate-600'}`} />
-                        Max 600 BST
+                      <button onClick={() => setMaxBst600(b => !b)} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-bold transition-colors ${maxBst600 ? 'bg-amber-600/20 border-amber-500 text-amber-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                        <span className={`w-3 h-3 rounded-full border-2 ${maxBst600 ? 'bg-amber-400 border-amber-400' : 'border-slate-600'}`} /> Max 600 BST
                       </button>
                     </div>
                   </div>
-
-                  {/* Exclusions */}
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Exclude</label>
                     <div className="grid grid-cols-2 gap-2">
                       {([
-                        ['Legendaries', excludeLegendary, setExcludeLegendary],
-                        ['Mythicals', excludeMythical, setExcludeMythical],
-                        ['Paradox', excludeParadox, setExcludeParadox],
-                        ['Starters', excludeStarters, setExcludeStarters],
-                        ['Ultra Beasts', excludeUltraBeast, setExcludeUltraBeast],
-                        ['Alolan Forms', excludeAlolan, setExcludeAlolan],
-                        ['Galarian Forms', excludeGalarian, setExcludeGalarian],
-                        ['Hisuian Forms', excludeHisuian, setExcludeHisuian],
+                        ['Legendaries', excludeLegendary, setExcludeLegendary], ['Mythicals', excludeMythical, setExcludeMythical],
+                        ['Paradox', excludeParadox, setExcludeParadox], ['Starters', excludeStarters, setExcludeStarters],
+                        ['Ultra Beasts', excludeUltraBeast, setExcludeUltraBeast], ['Alolan Forms', excludeAlolan, setExcludeAlolan],
+                        ['Galarian Forms', excludeGalarian, setExcludeGalarian], ['Hisuian Forms', excludeHisuian, setExcludeHisuian],
                         ['Paldean Forms', excludePaldean, setExcludePaldean],
                       ] as [string, boolean, React.Dispatch<React.SetStateAction<boolean>>][]).map(([label, val, set]) => (
-                        <button key={label} onClick={() => set(v => !v)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold transition-colors text-left ${
-                            val ? 'bg-rose-600/20 border-rose-500 text-rose-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'
-                          }`}>
+                        <button key={label} onClick={() => set(v => !v)} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold transition-colors text-left ${val ? 'bg-rose-600/20 border-rose-500 text-rose-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
                           <span className={`w-3 h-3 rounded-sm border-2 shrink-0 flex items-center justify-center ${val ? 'bg-rose-500 border-rose-500' : 'border-slate-600'}`}>
                             {val && <span className="text-white text-[8px] font-black">X</span>}
-                          </span>
-                          {label}
+                          </span> {label}
                         </button>
                       ))}
                     </div>
                   </div>
-
                   {activeFilterCount > 0 && (
-                    <button onClick={resetFilters} className="text-xs text-rose-400 hover:text-rose-300 underline underline-offset-2 text-center">
-                      Reset all filters
-                    </button>
+                    <button onClick={resetFilters} className="text-xs text-rose-400 hover:text-rose-300 underline underline-offset-2 text-center">Reset all filters</button>
                   )}
                 </div>
               )}
@@ -536,33 +735,20 @@ export default function DraftMode() {
         ) : gameState.status === 'LOBBY' ? (
           <div className="max-w-lg mx-auto mt-20 p-8 rounded-2xl text-center border border-slate-800 bg-slate-900/50">
             <h2 className="text-2xl font-black text-white mb-6">Waiting Room</h2>
+            {(() => {
+              const m = GAME_MODES.find(x => x.id === gameState.gameMode)!;
+              return (
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border mb-4 ${m.borderColor} bg-slate-900`}>
+                  <span className={m.color}>{m.icon}</span>
+                  <span className={`text-sm font-bold ${m.color}`}>{m.label}</span>
+                </div>
+              );
+            })()}
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-6 mb-6">
               <p className="text-sm text-slate-500 uppercase font-bold tracking-widest mb-2">Room Code</p>
               <div className="text-4xl font-black font-mono tracking-widest text-indigo-400 mb-2 select-all cursor-pointer">{gameState.code}</div>
               <p className="text-xs text-slate-500">Share this code with your opponent</p>
             </div>
-            {(() => {
-              const f = gameState.filters;
-              const tags: string[] = [];
-              if (f.generations && f.generations.length > 0) tags.push(`Gen ${f.generations.join('/')}`);
-              if (f.types && f.types.length > 0) tags.push(f.types.join('+'));
-              if (f.maxBst) tags.push('BST max 600');
-              if (f.formsMode && f.formsMode !== 'all') tags.push(f.formsMode.replace(/_/g, ' '));
-              if (f.excludeLegendary) tags.push('No Legends');
-              if (f.excludeMythical) tags.push('No Mythicals');
-              if (f.excludeParadox) tags.push('No Paradox');
-              if (f.excludeStarters) tags.push('No Starters');
-              if (f.excludeUltraBeast) tags.push('No Ultra Beasts');
-              if (f.categories?.includes('fully_evolved')) tags.push('Fully Evolved');
-              if (tags.length === 0) return <p className="text-xs text-slate-600 mb-4">No filters applied</p>;
-              return (
-                <div className="mb-6 flex flex-wrap gap-2 justify-center">
-                  {tags.map(tag => (
-                    <span key={tag} className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded font-bold uppercase">{tag}</span>
-                  ))}
-                </div>
-              );
-            })()}
             <div className="flex justify-around items-center mb-8">
               <div className="flex flex-col items-center">
                 <div className="w-16 h-16 rounded-full bg-indigo-500/20 border-2 border-indigo-500 flex items-center justify-center text-xl font-bold text-indigo-300 mb-2">P1</div>
@@ -570,17 +756,12 @@ export default function DraftMode() {
               </div>
               <span className="text-2xl font-black text-slate-700">VS</span>
               <div className="flex flex-col items-center">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold mb-2 border-2 ${
-                  gameState.p2 ? 'bg-rose-500/20 border-rose-500 text-rose-300' : 'bg-slate-800 border-dashed border-slate-700 text-slate-600'
-                }`}>{gameState.p2 ? 'P2' : '?'}</div>
-                <span className={`font-bold ${gameState.p2 ? 'text-white' : 'text-slate-600'}`}>
-                  {gameState.p2 ? gameState.p2.username : 'Waiting...'}
-                </span>
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold mb-2 border-2 ${gameState.p2 ? 'bg-rose-500/20 border-rose-500 text-rose-300' : 'bg-slate-800 border-dashed border-slate-700 text-slate-600'}`}>{gameState.p2 ? 'P2' : '?'}</div>
+                <span className={`font-bold ${gameState.p2 ? 'text-white' : 'text-slate-600'}`}>{gameState.p2 ? gameState.p2.username : 'Waiting...'}</span>
               </div>
             </div>
             {isHost ? (
-              <button onClick={startDraft} disabled={!gameState.p2}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold py-4 rounded-xl transition-colors flex justify-center items-center gap-2 text-lg">
+              <button onClick={startDraft} disabled={!gameState.p2} className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold py-4 rounded-xl transition-colors flex justify-center items-center gap-2 text-lg">
                 <Play className="w-5 h-5" /> Start Draft
               </button>
             ) : (
@@ -589,23 +770,84 @@ export default function DraftMode() {
               </div>
             )}
           </div>
-
+        ) : gameState.status === 'HEIST' ? (
+          <HeistPhase gameState={gameState} isHost={isHost} myTeam={mySlot?.team ?? []} opponentTeam={opponentSlot?.team ?? []} myStealIdx={myHeistStealIdx} mySwapIdx={myHeistSwapIdx} setMyStealIdx={setMyHeistStealIdx} setMySwapIdx={setMyHeistSwapIdx} heistSubmitted={heistSubmitted} onSubmit={submitMyHeist} />
         ) : (
           <div className="flex flex-col gap-12">
             <div className="text-center">
               <h2 className="text-3xl font-black text-white">
-                {gameState.status === 'REVEAL' ? 'Final Teams!' : `Round ${gameState.round} / 3`}
+                {gameState.status === 'REVEAL' ? 'Final Teams!' : gameState.gameMode === 'auction' ? 'Live Auction' : `Round ${gameState.round} / ${gameState.totalRounds}`}
               </h2>
-              {gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
+              {gameState.gameMode === 'blind' && gameState.status === 'DRAFTING' && <p className="text-purple-400 font-bold mt-1 text-sm">👁 BLIND MODE - Pick by abilities!</p>}
+              {gameState.gameMode !== 'auction' && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
               {gameState.status === 'REVEAL' && isHost && (
-                <button onClick={restartDraft} className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">
-                  🔄 Play Again (Same Room)
-                </button>
+                <button onClick={restartDraft} className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">🔄 Play Again (Same Room)</button>
               )}
-              {gameState.status === 'REVEAL' && !isHost && (
-                <p className="text-slate-500 text-sm mt-2">Waiting for host to restart...</p>
-              )}
+              {gameState.status === 'REVEAL' && !isHost && <p className="text-slate-500 text-sm mt-2">Waiting for host to restart...</p>}
             </div>
+            
+            {gameState.gameMode === 'auction' && gameState.status === 'DRAFTING' && (
+              <div className="max-w-4xl mx-auto w-full mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* P1 Budget */}
+                  <div className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center ${gameState.highestBidder === 1 ? 'border-amber-400 bg-amber-500/10' : 'border-slate-800 bg-slate-900/50'}`}>
+                     <span className="text-xs uppercase font-bold text-slate-500">{gameState.p1.username}&apos;s Budget</span>
+                     <span className="text-3xl font-black text-emerald-400">${gameState.p1Budget}</span>
+                     {gameState.highestBidder === 1 && <span className="mt-2 text-xs font-black text-amber-400 bg-amber-500/20 px-2 py-1 rounded">WINNING BID</span>}
+                     {gameState.p1Passed && <span className="mt-2 text-xs font-black text-rose-400 bg-rose-500/20 px-2 py-1 rounded">PASSED / FULL</span>}
+                  </div>
+                  
+                  {/* Center Action */}
+                  <div className="p-6 rounded-2xl border border-indigo-500/30 bg-slate-900 flex flex-col items-center">
+                    <h3 className="text-sm font-bold text-slate-300 mb-4 uppercase tracking-widest">On The Block</h3>
+                    {gameState.p1Options.length > 0 && (
+                      <div className="flex flex-col items-center justify-center w-full relative">
+                        <img src={gameState.p1Options[0].sprite} className="w-24 h-24 object-contain drop-shadow-lg" />
+                        <span className="font-bold text-lg text-white capitalize mt-2">{gameState.p1Options[0].displayName}</span>
+                        <div className="flex gap-1 mt-1 mb-4">
+                          {gameState.p1Options[0].types.map(t => <span key={t} style={{ color: TYPE_COLORS[t] }} className="text-[10px] font-bold uppercase">{t}</span>)}
+                        </div>
+                        <div className="text-4xl font-black text-amber-400 mb-4">${gameState.currentBid}</div>
+                        
+                        {(myPlayerNum === 1 ? gameState.p1Passed : gameState.p2Passed) ? (
+                          <div className="flex flex-col items-center text-rose-400 font-bold mb-4">
+                            You passed on this item.
+                          </div>
+                        ) : (
+                          <div className="flex flex-col w-full gap-2">
+                             <div className="flex gap-2">
+                               {gameState.highestBidder === null && (
+                                 <button onClick={() => submitAuctionBid(0)} className="flex-1 bg-slate-700 hover:bg-slate-600 font-bold py-2 rounded text-white text-sm transition-colors">Bid $0</button>
+                               )}
+                               <button onClick={() => submitAuctionBid(gameState.currentBid + 1)} disabled={myPlayerNum === 1 ? gameState.p1Budget < gameState.currentBid + 1 : gameState.p2Budget < gameState.currentBid + 1} className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 font-bold py-2 rounded text-white text-sm transition-colors">+ $1</button>
+                               <button onClick={() => submitAuctionBid(gameState.currentBid + 5)} disabled={myPlayerNum === 1 ? gameState.p1Budget < gameState.currentBid + 5 : gameState.p2Budget < gameState.currentBid + 5} className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 font-bold py-2 rounded text-white text-sm transition-colors">+ $5</button>
+                               <button onClick={() => submitAuctionBid(gameState.currentBid + 10)} disabled={myPlayerNum === 1 ? gameState.p1Budget < gameState.currentBid + 10 : gameState.p2Budget < gameState.currentBid + 10} className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 font-bold py-2 rounded text-white text-sm transition-colors">+ $10</button>
+                             </div>
+                             <div className="flex gap-2 mt-2">
+                               <input type="number" placeholder="Custom Bid" value={auctionBidInput} onChange={e => setAuctionBidInput(e.target.value)} className="flex-1 bg-slate-950 border border-slate-700 px-3 rounded text-white" />
+                               <button onClick={() => {
+                                 const val = parseInt(auctionBidInput);
+                                 if (val > gameState.currentBid) { submitAuctionBid(val); setAuctionBidInput(''); }
+                               }} className="bg-indigo-600 px-4 py-2 rounded font-bold hover:bg-indigo-500 text-sm">Bid</button>
+                             </div>
+                             <button onClick={submitAuctionPass} className="w-full mt-2 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 rounded text-sm transition-colors">Pass / Yield</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* P2 Budget */}
+                  <div className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center ${gameState.highestBidder === 2 ? 'border-amber-400 bg-amber-500/10' : 'border-slate-800 bg-slate-900/50'}`}>
+                     <span className="text-xs uppercase font-bold text-slate-500">{gameState.p2?.username}&apos;s Budget</span>
+                     <span className="text-3xl font-black text-emerald-400">${gameState.p2Budget}</span>
+                     {gameState.highestBidder === 2 && <span className="mt-2 text-xs font-black text-amber-400 bg-amber-500/20 px-2 py-1 rounded">WINNING BID</span>}
+                     {gameState.p2Passed && <span className="mt-2 text-xs font-black text-rose-400 bg-rose-500/20 px-2 py-1 rounded">PASSED / FULL</span>}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="flex flex-col gap-4 order-2 lg:order-1">
                 <h3 className="text-xl font-bold text-indigo-400 text-center">{gameState.p1.username}&apos;s Team</h3>
@@ -613,8 +855,9 @@ export default function DraftMode() {
                   {[...Array(6)].map((_, i) => <TeamSlot key={i} data={gameState.p1.team[i]} index={i} playerNum={1} />)}
                 </div>
               </div>
+
               <div className="flex flex-col gap-6 order-1 lg:order-2">
-                {gameState.status === 'DRAFTING' ? (
+                {gameState.gameMode !== 'auction' && gameState.status === 'DRAFTING' ? (
                   <div className="p-6 rounded-2xl border border-indigo-500/30 bg-slate-900/50 flex flex-col">
                     {submitted || mySlot?.ready ? (
                       <div className="flex-1 flex flex-col items-center justify-center text-slate-400 min-h-[300px]">
@@ -628,24 +871,26 @@ export default function DraftMode() {
                           {(myOptions ?? []).map(pk => {
                             const isKeep = keepChoice === pk.id;
                             const isGive = giveChoice === pk.id;
+                            const isBlind = gameState.gameMode === 'blind';
                             return (
-                              <div key={pk.id} className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                              <div key={pk.id} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
                                 isKeep ? 'bg-indigo-500/20 border-indigo-500' : isGive ? 'bg-rose-500/20 border-rose-500' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'
                               }`}>
-                                <div className="flex items-center gap-3">
-                                  <img src={pk.sprite} alt={pk.name} className="w-12 h-12 object-contain" />
-                                  <div>
+                                {isBlind && <BlindAbilityHint id={pk.id} />}
+                                <div className="flex items-center gap-3 relative z-30">
+                                  <img src={pk.sprite} alt={pk.name} className={`w-12 h-12 object-contain ${isBlind ? 'opacity-0' : ''}`} />
+                                  <div className={isBlind ? 'opacity-0' : ''}>
                                     <p className="font-bold text-sm text-white capitalize">{pk.displayName}</p>
                                     <div className="flex gap-1 mt-1">
                                       {pk.types.map(t => <span key={t} style={{ color: TYPE_COLORS[t] }} className="text-[10px] font-bold uppercase">{t}</span>)}
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex flex-col gap-1">
+                                <div className="flex flex-col gap-1 relative z-30">
                                   <button onClick={() => { playHoverTick(); setKeepChoice(pk.id); if (giveChoice === pk.id) setGiveChoice(null); }}
-                                    className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors ${isKeep ? 'bg-indigo-500 text-white' : 'bg-slate-900 text-slate-400 hover:bg-slate-700'}`}>Keep</button>
+                                    className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>Keep</button>
                                   <button onClick={() => { playHoverTick(); setGiveChoice(pk.id); if (keepChoice === pk.id) setKeepChoice(null); }}
-                                    className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors ${isGive ? 'bg-rose-500 text-white' : 'bg-slate-900 text-slate-400 hover:bg-slate-700'}`}>Give</button>
+                                    className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>Give</button>
                                 </div>
                               </div>
                             );
@@ -658,7 +903,7 @@ export default function DraftMode() {
                       </>
                     )}
                   </div>
-                ) : (
+                ) : gameState.status === 'REVEAL' ? (
                   <div className="p-6 rounded-2xl border border-emerald-500/30 flex flex-col items-center justify-center text-center gap-6 bg-slate-900/50">
                     <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-400">
                       <Check className="w-10 h-10" />
@@ -680,8 +925,9 @@ export default function DraftMode() {
                       <p className="text-slate-500 text-sm">Waiting for host to reveal...</p>
                     )}
                   </div>
-                )}
+                ) : null}
               </div>
+
               <div className="flex flex-col gap-4 order-3">
                 <h3 className="text-xl font-bold text-rose-400 text-center">{gameState.p2?.username ?? 'Opponent'}&apos;s Team</h3>
                 <div className="grid grid-cols-2 gap-3">
@@ -692,6 +938,74 @@ export default function DraftMode() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function HeistPhase({ gameState, isHost, myTeam, opponentTeam, myStealIdx, mySwapIdx, setMyStealIdx, setMySwapIdx, heistSubmitted, onSubmit }: any) {
+  const myOpponentReady = isHost ? gameState.p2HeistChoice !== null : gameState.p1HeistChoice !== null;
+  return (
+    <div className="flex flex-col items-center gap-8">
+      <div className="text-center relative">
+        <div className="absolute inset-0 rounded-3xl blur-2xl bg-amber-500/10 pointer-events-none" />
+        <div className="relative">
+          <p className="text-6xl mb-2">💣</p>
+          <h2 className="text-4xl font-black text-amber-400 tracking-tight">THE HEIST</h2>
+          <p className="text-slate-400 mt-2 text-lg">Steal 1 Pokémon from your opponent&apos;s team and swap it with one of yours!</p>
+          <div className="mt-3 flex justify-center gap-3">
+            <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full font-bold uppercase">Step 1: Pick to steal from opponent</span>
+            <span className="text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30 px-3 py-1 rounded-full font-bold uppercase">Step 2: Pick which of yours to give up</span>
+          </div>
+        </div>
+      </div>
+      {heistSubmitted ? (
+        <div className="flex flex-col items-center gap-4 p-8 rounded-2xl border border-amber-500/30 bg-slate-900/50">
+          <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+          <p className="text-amber-300 font-bold text-lg">Heist locked in! Waiting for opponent...</p>
+          {myOpponentReady && <p className="text-emerald-400 text-sm font-bold">Opponent is ready! Resolving heist...</p>}
+        </div>
+      ) : (
+        <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="flex flex-col gap-3">
+            <h3 className="font-black text-amber-400 text-lg flex items-center gap-2">
+              <Sword className="w-5 h-5" /> Steal from {isHost ? gameState.p2?.username : gameState.p1.username}&apos;s Team
+            </h3>
+            <p className="text-xs text-slate-500">Click a card to mark it for stealing</p>
+            <div className="grid grid-cols-3 gap-2">
+              {opponentTeam.map((member: any, i: number) => (
+                <button key={i} onClick={() => { playHoverTick(); setMyStealIdx(myStealIdx === i ? null : i); }}
+                  className={`aspect-square rounded-xl border-2 p-2 flex flex-col items-center justify-center transition-all ${myStealIdx === i ? 'border-amber-400 bg-amber-500/20 scale-95' : 'border-slate-700 bg-slate-900 hover:border-amber-600 hover:bg-amber-500/10'}`}>
+                  <img src={member.actualPk.sprite} alt={member.actualPk.name} className="w-12 h-12 object-contain" />
+                  <p className="text-[9px] font-bold text-slate-300 capitalize mt-1 text-center leading-tight">{member.actualPk.displayName}</p>
+                  {myStealIdx === i && <span className="text-[8px] text-amber-400 font-black mt-0.5">STEAL!</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-3">
+            <h3 className="font-black text-rose-400 text-lg flex items-center gap-2">
+              <Shield className="w-5 h-5" /> Give up from Your Team
+            </h3>
+            <p className="text-xs text-slate-500">Click a card to offer it in exchange</p>
+            <div className="grid grid-cols-3 gap-2">
+              {myTeam.map((member: any, i: number) => (
+                <button key={i} onClick={() => { playHoverTick(); setMySwapIdx(mySwapIdx === i ? null : i); }}
+                  className={`aspect-square rounded-xl border-2 p-2 flex flex-col items-center justify-center transition-all ${mySwapIdx === i ? 'border-rose-400 bg-rose-500/20 scale-95' : 'border-slate-700 bg-slate-900 hover:border-rose-600 hover:bg-rose-500/10'}`}>
+                  <img src={member.actualPk.sprite} alt={member.actualPk.name} className="w-12 h-12 object-contain" />
+                  <p className="text-[9px] font-bold text-slate-300 capitalize mt-1 text-center leading-tight">{member.actualPk.displayName}</p>
+                  {mySwapIdx === i && <span className="text-[8px] text-rose-400 font-black mt-0.5">GIVE</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {!heistSubmitted && (
+        <button onClick={onSubmit} disabled={myStealIdx === null || mySwapIdx === null}
+          className="px-12 py-4 rounded-2xl font-black text-lg uppercase tracking-widest transition-all disabled:bg-slate-800 disabled:text-slate-600 bg-amber-500 hover:bg-amber-400 text-slate-900 shadow-lg shadow-amber-500/30">
+          🦹 Execute Heist!
+        </button>
+      )}
     </div>
   );
 }
@@ -741,6 +1055,7 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
         <div className="absolute inset-0 w-full h-full bg-slate-900/80 border border-slate-700 rounded-2xl p-3 flex flex-col items-center justify-between overflow-hidden"
              style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
           {data.fromOpponent && <span className="absolute top-2 right-2 text-[8px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase z-10">Given</span>}
+          {data.cost !== undefined && <span className="absolute top-2 left-2 text-[8px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-black z-10">${data.cost}</span>}
           <img src={pk.sprite} alt={pk.name} className="w-16 h-16 object-contain z-10 drop-shadow-md" />
           <div className="text-center z-10">
             <p className="font-bold text-xs text-white capitalize">{pk.displayName}</p>
@@ -753,9 +1068,3 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
     </div>
   );
 }
-
-
-
-
-
-

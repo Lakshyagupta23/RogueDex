@@ -101,3 +101,42 @@ export function playPokemonCry(pokemonId: number) {
   audio.volume = 0.5;
   audio.play().catch(e => console.error("Failed to play pokemon cry", e));
 }
+
+export function playHeistAlarm() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  // Dramatic pulsing alarm: 3 descending blurps
+  const freqs = [280, 220, 180];
+  freqs.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const t = ctx.currentTime + i * 0.22;
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq * 1.5, t);
+    osc.frequency.exponentialRampToValueAtTime(freq, t + 0.18);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.18, t + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.22);
+  });
+}
+
+export function playStealSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  // Quick swoosh down (steal/grab feeling)
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(600, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.3);
+  gain.gain.setValueAtTime(0.15, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.3);
+}

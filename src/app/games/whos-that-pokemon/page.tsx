@@ -184,7 +184,7 @@ export default function WhosThatPokemonPage() {
 
             {isRevealed && (
               <button
-                onClick={() => playCry(targetPokemon.speciesId)}
+                onClick={() => playPokemonCry(targetPokemon.id)}
                 className="absolute bottom-4 right-4 p-2 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-350 hover:text-white border border-slate-800 transition-colors z-25"
                 title="Hear Cry"
               >
