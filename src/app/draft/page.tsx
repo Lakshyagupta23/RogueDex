@@ -441,10 +441,29 @@ export default function DraftMode() {
 
   const startDraft = useCallback(() => {
     if (!isHostRef.current || !gameStateRef.current) return;
-    const next: DraftState = { ...gameStateRef.current, status: 'DRAFTING' };
+    const cur = gameStateRef.current;
+    const next: DraftState = { 
+       ...cur, 
+       status: 'DRAFTING',
+       gameMode: selectedMode,
+       blindClueType,
+       optionsPerRound,
+       filters: buildFilters(),
+       round: 1,
+       p1: { ...cur.p1, team: [], ready: false },
+       p2: cur.p2 ? { ...cur.p2, team: [], ready: false } : null,
+       p1HeistChoice: null, p2HeistChoice: null,
+       p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false
+    };
+    p1PendingRef.current = null;
+    p2PendingRef.current = null;
+    p1HeistRef.current = null;
+    p2HeistRef.current = null;
+    setKeepChoice(null); setGiveChoice(null); setSubmitted(false);
+    setMyHeistStealIdx(null); setMyHeistSwapIdx(null); setHeistSubmitted(false);
     generateOptions(next, pokemonList);
     applyState(next); broadcastToGuest(next);
-  }, [generateOptions, applyState, broadcastToGuest, pokemonList]);
+  }, [generateOptions, applyState, broadcastToGuest, pokemonList, selectedMode, blindClueType, optionsPerRound, buildFilters]);
 
   const submitMyChoices = useCallback(() => {
     if (!gameStateRef.current || keepChoice === null || giveChoice === null) return;
@@ -506,6 +525,16 @@ export default function DraftMode() {
     const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
     next.p1.team = next.p1.team.map(m => ({ ...m, isMystery: false }));
     next.p2!.team = next.p2!.team.map(m => ({ ...m, isMystery: false }));
+    applyState(next); broadcastToGuest(next);
+  }, [applyState, broadcastToGuest]);
+
+  const returnToLobby = useCallback(() => {
+    if (!isHostRef.current || !gameStateRef.current) return;
+    const cur = gameStateRef.current;
+    const next: DraftState = {
+      ...cur,
+      status: 'LOBBY',
+    };
     applyState(next); broadcastToGuest(next);
   }, [applyState, broadcastToGuest]);
 
@@ -582,19 +611,28 @@ export default function DraftMode() {
       </div>
 
       <div className="max-w-6xl mx-auto">
-        {!gameState ? (
+        {(!gameState || (gameState.status === 'LOBBY' && isHost)) ? (
           <div className="max-w-xl mx-auto mt-6 flex flex-col gap-4">
             <div className="p-8 rounded-2xl flex flex-col gap-6 border border-slate-800 bg-slate-900/50">
               <div className="text-center">
                 <h2 className="text-2xl font-black text-white mb-2">Multiplayer Draft</h2>
                 <p className="text-sm text-slate-400">Pick for yourself, give to your opponent.</p>
+                {gameState && (
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 mt-4">
+                     <p className="text-sm text-slate-500 uppercase font-bold tracking-widest mb-2">Room Code</p>
+                     <div className="text-3xl font-black font-mono tracking-widest text-indigo-400 select-all cursor-pointer">{gameState.code}</div>
+                     <p className="text-xs text-slate-500 mt-2 font-bold">Opponent Status: <span className={gameState.p2 ? "text-emerald-400" : "text-amber-400"}>{gameState.p2 ? `Joined (${gameState.p2.username})` : 'Waiting...'}</span></p>
+                  </div>
+                )}
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Your Username</label>
-                <input type="text" value={username} onChange={e => setUsername(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
-              </div>
+              {!gameState && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Your Username</label>
+                  <input type="text" value={username} onChange={e => setUsername(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
+                </div>
+              )}
 
               <div className="flex flex-col gap-3">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Game Mode</label>
@@ -638,27 +676,38 @@ export default function DraftMode() {
                     </select>
                   </div>
                 )}
-                <button onClick={handleCreateRoom}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-colors flex justify-center items-center gap-2">
-                  <UserPlus className="w-5 h-5" /> Create Draft Room
-                </button>
+                {gameState ? (
+                  <button onClick={startDraft} disabled={!gameState.p2}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex justify-center items-center gap-2">
+                    <Play className="w-5 h-5" /> Start Draft
+                  </button>
+                ) : (
+                  <button onClick={handleCreateRoom}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-colors flex justify-center items-center gap-2">
+                    <UserPlus className="w-5 h-5" /> Create Draft Room
+                  </button>
+                )}
               </div>
-              <div className="relative flex items-center justify-center">
-                <div className="border-t border-slate-800 absolute w-full" />
-                <span className="bg-slate-900 px-3 text-xs text-slate-500 relative font-bold uppercase">OR</span>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Join a Game</label>
-                <div className="flex gap-2">
-                  <input type="text" placeholder="Room Code" value={joinCode}
-                    onChange={e => setJoinCode(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleJoinRoom(); }}
-                    className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 uppercase font-mono" />
-                  <button onClick={handleJoinRoom}
-                    className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 rounded-xl transition-colors border border-slate-700">Join</button>
-                </div>
-                <p className="text-xs text-slate-600">Enter the code exactly as shown on the host screen</p>
-              </div>
+              {!gameState && (
+                <>
+                  <div className="relative flex items-center justify-center">
+                    <div className="border-t border-slate-800 absolute w-full" />
+                    <span className="bg-slate-900 px-3 text-xs text-slate-500 relative font-bold uppercase">OR</span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Join a Game</label>
+                    <div className="flex gap-2">
+                      <input type="text" placeholder="Room Code" value={joinCode}
+                        onChange={e => setJoinCode(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleJoinRoom(); }}
+                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 uppercase font-mono" />
+                      <button onClick={handleJoinRoom}
+                        className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 rounded-xl transition-colors border border-slate-700">Join</button>
+                    </div>
+                    <p className="text-xs text-slate-600">Enter the code exactly as shown on the host screen</p>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Advanced Filters Panel */}
@@ -800,7 +849,10 @@ export default function DraftMode() {
               {gameState.gameMode === 'blind' && gameState.status === 'DRAFTING' && <p className="text-purple-400 font-bold mt-1 text-sm">👁 BLIND MODE - Pick by abilities!</p>}
               {gameState.gameMode !== 'auction' && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
               {gameState.status === 'REVEAL' && isHost && (
-                <button onClick={restartDraft} className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">🔄 Play Again (Same Room)</button>
+                <button onClick={returnToLobby} className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">🔄 Play Again (Change Settings)</button>
+              )}
+              {gameState.status !== 'REVEAL' && gameState.status !== 'LOBBY' && isHost && (
+                 <button onClick={restartDraft} className="mt-4 inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-rose-500/30">🔄 Reset Draft (Clear Teams)</button>
               )}
               {gameState.status === 'REVEAL' && !isHost && <p className="text-slate-500 text-sm mt-2">Waiting for host to restart...</p>}
             </div>
