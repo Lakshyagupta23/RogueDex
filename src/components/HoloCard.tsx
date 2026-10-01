@@ -53,28 +53,45 @@ export default function HoloCard({ children, className = '', typeColor = '#fff' 
         {children}
       </div>
 
-      {/* Holographic Glossy Overlay */}
+      {/* Holographic Foil Overlay */}
       <div
-        className="absolute inset-0 z-20 pointer-events-none transition-opacity duration-300 rounded-xl"
+        className="absolute inset-0 z-20 pointer-events-none transition-opacity duration-300 rounded-xl mix-blend-color-dodge opacity-0"
         style={{
-          opacity: isHovered ? 1 : 0,
+          opacity: isHovered ? 0.8 : 0,
+          background: `
+            linear-gradient(
+              115deg,
+              transparent 20%,
+              rgba(255, 0, 128, 0.4) 30%,
+              rgba(255, 204, 0, 0.5) 45%,
+              rgba(0, 255, 204, 0.4) 60%,
+              transparent 80%
+            ),
+            repeating-linear-gradient(
+              45deg,
+              rgba(255, 255, 255, 0.1) 0px,
+              rgba(255, 255, 255, 0.1) 2px,
+              transparent 2px,
+              transparent 4px
+            )
+          `,
+          backgroundSize: '300% 300%',
+          backgroundPosition: `${mousePos.x * 2}% ${mousePos.y * 2}%`,
+        }}
+      />
+      
+      {/* Glare/Sheen */}
+      <div
+        className="absolute inset-0 z-30 pointer-events-none transition-opacity duration-300 rounded-xl mix-blend-overlay"
+        style={{
+          opacity: isHovered ? 0.6 : 0,
           background: `
             radial-gradient(
               circle at ${mousePos.x}% ${mousePos.y}%, 
-              rgba(255,255,255,0.4) 0%, 
-              rgba(255,255,255,0) 50%
-            ),
-            linear-gradient(
-              105deg,
-              transparent 20%,
-              rgba(255,255,255,0.2) 25%,
-              rgba(255,255,255,0.5) 45%,
-              transparent 50%
+              rgba(255,255,255,0.8) 0%, 
+              rgba(255,255,255,0) 40%
             )
-          `,
-          backgroundSize: '150% 150%',
-          backgroundPosition: `${100 - mousePos.x}% ${100 - mousePos.y}%`,
-          mixBlendMode: 'overlay',
+          `
         }}
       />
       

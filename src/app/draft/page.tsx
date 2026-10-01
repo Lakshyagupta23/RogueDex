@@ -6,7 +6,7 @@ import { PokemonIndexItem, GameMode, ChaosEventId, DraftTeamMember, PlayerSlot, 
 import { FilterCriteria, filterPokemon } from '@/lib/pokemon/data';
 import { TYPE_COLORS } from '@/lib/pokemon/constants';
 import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp, Eye, Sword, Shield, Skull, Gavel, Infinity as InfinityIcon, Wand2, Zap, Volume2, VolumeX, ClipboardCopy, Timer, Crown, Coins } from 'lucide-react';
-import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemonCry, playHeistAlarm, playStealSound, startAmbientMusic, stopAmbientMusic } from '@/lib/audio';
+import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemonCry, playHeistAlarm, playStealSound, startAmbientMusic, stopAmbientMusic, playThud, playSwish, playSlash, playLegendary } from '@/lib/audio';
 import { CHAOS_EVENTS, getRandomFullyEvolved, getRandomLegendary, getRandomFossil } from '@/lib/pokemon/chaos';
 import Link from 'next/link';
 import HoloCard from '@/components/HoloCard';
@@ -637,18 +637,21 @@ export default function DraftMode() {
 
   const resolveNuzlocke = useCallback((state: DraftState) => {
     // Both submitted
-    // P1 target kills P2's pokemon UNLESS P2 protected it
+    let someoneDied = false;
     if (state.nuzlockeP1Target !== state.nuzlockeP2Protect) {
       if (state.nuzlockeP1Target !== null && state.nuzlockeP1Target !== undefined && state.p2!.team[state.nuzlockeP1Target]) {
         state.p2!.team[state.nuzlockeP1Target].isDead = true;
+        someoneDied = true;
       }
     }
     // P2 target kills P1's pokemon UNLESS P1 protected it
     if (state.nuzlockeP2Target !== state.nuzlockeP1Protect) {
       if (state.nuzlockeP2Target !== null && state.nuzlockeP2Target !== undefined && state.p1.team[state.nuzlockeP2Target]) {
         state.p1.team[state.nuzlockeP2Target].isDead = true;
+        someoneDied = true;
       }
     }
+    if (someoneDied) setTimeout(playSlash, 500);
     
     state.nuzlockeP1Target = null;
     state.nuzlockeP1Protect = null;
@@ -912,6 +915,7 @@ export default function DraftMode() {
 
   const submitMyChoices = useCallback(() => {
     if (keepChoice !== null && giveChoice !== null) {
+      playThud();
       submitChoices(keepChoice, giveChoice);
     }
   }, [keepChoice, giveChoice, submitChoices]);
@@ -1106,7 +1110,12 @@ export default function DraftMode() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0e16] text-slate-200 p-6 font-sans">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-800 via-[#0b0e16] to-black text-slate-200 p-6 font-sans relative overflow-hidden">
+      {/* Dynamic Grid Background Overlay */}
+      <div className="absolute inset-0 z-0 pointer-events-none opacity-20" style={{ backgroundImage: 'linear-gradient(to right, #475569 1px, transparent 1px), linear-gradient(to bottom, #475569 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+      <div className="absolute inset-0 z-0 pointer-events-none opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, transparent 20%, #000 100%)' }}></div>
+      {/* Content Wrapper */}
+      <div className="relative z-10 h-full flex flex-col">
       <AnimatePresence>
         {vsScreenPlaying && (
           <motion.div 
@@ -1676,6 +1685,7 @@ export default function DraftMode() {
         )}
       </div>
     </div>
+    </div>
   );
 }
 
@@ -1824,6 +1834,9 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
       const t = setTimeout(() => {
         setIsFlipped(true);
         playPokemonCry(data.actualPk.id);
+        if (data.actualPk.isLegendary || data.actualPk.isMythical || data.actualPk.isUltraBeast) {
+          setTimeout(playLegendary, 200);
+        }
       }, delay);
       return () => clearTimeout(t);
     } else if (data?.isMystery) {
