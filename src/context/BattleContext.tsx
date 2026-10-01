@@ -321,9 +321,11 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
         // Guest submits draft selection, append to player 2 team
         if (nextState.p2) {
           // Construct placeholder PokemonIndexItem
+          // eslint-disable-next-line react-hooks/purity
+          const randomId = Math.floor(Math.random() * 1000);
           const pkDummy: PokemonIndexItem = {
-            id: Math.floor(Math.random() * 1000),
-            speciesId: Math.floor(Math.random() * 1000),
+            id: randomId,
+            speciesId: randomId,
             name: payload.pokemonName.toLowerCase(),
             displayName: payload.pokemonName,
             types: ['normal'],

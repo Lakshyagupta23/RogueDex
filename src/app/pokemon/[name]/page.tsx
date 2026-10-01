@@ -23,9 +23,7 @@ function DetailContent({ params }: { params: Promise<{ name: string }> }) {
 
   const playCry = () => {
     if (!details) return;
-    const audio = new Audio(`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/cries/latest/${details.speciesId}.ogg`);
-    audio.volume = 0.45;
-    audio.play().catch(e => console.log("Audio play failed:", e));
+    import('@/lib/audio').then(({ playPokemonCry }) => playPokemonCry(details.id));
   };
 
   // 1. Locate baseline Pokemon in cached index list

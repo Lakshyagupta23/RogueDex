@@ -329,10 +329,8 @@ function TeamBuilderContent() {
     setShowExportModal(false);
   };
 
-  const playCry = (speciesId: number) => {
-    const audio = new Audio(`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/cries/latest/${speciesId}.ogg`);
-    audio.volume = 0.45;
-    audio.play().catch(e => console.log("Audio play failed:", e));
+  const playCry = (id: number) => {
+    import('@/lib/audio').then(({ playPokemonCry }) => playPokemonCry(id));
   };
 
   if (loading) {
@@ -584,7 +582,7 @@ function TeamBuilderContent() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          playCry(member.speciesId);
+                          playCry(member.id);
                         }}
                         className="p-1 rounded-full bg-slate-900/60 border border-slate-800/40 text-slate-400 hover:text-slate-100 transition-colors"
                         title="Play Cry"

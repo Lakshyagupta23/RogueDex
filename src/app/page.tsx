@@ -554,10 +554,8 @@ function RandomizerContent() {
     }
   };
 
-  const playCry = (speciesId: number) => {
-    const audio = new Audio(`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/cries/latest/${speciesId}.ogg`);
-    audio.volume = 0.45;
-    audio.play().catch(e => console.log("Audio play failed:", e));
+  const playCry = (id: number) => {
+    import('@/lib/audio').then(({ playPokemonCry }) => playPokemonCry(id));
   };
 
   // Standard loading state
@@ -1041,7 +1039,7 @@ function RandomizerContent() {
                         {currentPokemon.displayName}
                       </h2>
                       <button
-                        onClick={() => playCry(currentPokemon.speciesId)}
+                        onClick={() => playCry(currentPokemon.id)}
                         className="p-1.5 rounded-lg bg-slate-950/40 border border-slate-800/40 hover:bg-slate-900 text-slate-400 hover:text-white transition-colors"
                         title="Listen to cry"
                       >
@@ -1093,6 +1091,8 @@ function RandomizerContent() {
                     <StatBar statKey="hp" value={currentPokemon.stats.hp} />
                     <StatBar statKey="atk" value={currentPokemon.stats.atk} />
                     <StatBar statKey="def" value={currentPokemon.stats.def} />
+                    <StatBar statKey="spAtk" value={currentPokemon.stats.spAtk} />
+                    <StatBar statKey="spDef" value={currentPokemon.stats.spDef} />
                     <StatBar statKey="spe" value={currentPokemon.stats.spe} />
                     <div className="flex justify-between items-center border-t border-slate-800/80 pt-2 text-[10px] font-extrabold font-mono text-slate-550">
                       <span>BASE STAT TOTAL</span>
@@ -1165,7 +1165,7 @@ function RandomizerContent() {
                   {/* Header right icons: Cry playback */}
                   <div className="absolute top-2.5 right-3 z-10 flex gap-1">
                     <button
-                      onClick={() => playCry(slotPk.speciesId)}
+                      onClick={() => playCry(slotPk.id)}
                       className="p-1 rounded-full bg-slate-900/60 border border-slate-850 text-slate-500 hover:text-slate-250 transition-colors"
                       title="Play Cry"
                     >

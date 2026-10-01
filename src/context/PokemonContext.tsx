@@ -35,9 +35,9 @@ export function PokemonProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         setPokemonList(data);
         setLoading(false);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error loading Pokémon index:', err);
-        setError(err.message || 'Unknown database error.');
+        setError(err instanceof Error ? err.message : 'Unknown database error.');
         setLoading(false);
       }
     }
@@ -49,6 +49,7 @@ export function PokemonProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       try {
         const favs = localStorage.getItem('roguedex_favorites');
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (favs) setFavorites(JSON.parse(favs));
 
         const teams = localStorage.getItem('roguedex_teams');
