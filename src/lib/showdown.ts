@@ -45,7 +45,7 @@ export async function generateShowdownExport(pokemonNames: string[]): Promise<st
     
     return pokemonNames.map(rawName => {
       const sdName = formatShowdownName(rawName);
-      let nameKey = sdName.replace(/[^a-zA-Z0-9]/g, '');
+      const nameKey = sdName.replace(/[^a-zA-Z0-9]/g, '');
       
       // Look through generations for a valid set
       let pSet = sets9[nameKey] || sets9[sdName] || sets9[rawName] ||

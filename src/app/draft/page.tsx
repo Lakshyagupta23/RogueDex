@@ -416,8 +416,8 @@ export default function DraftMode() {
     const pkIndex = next.p1Options.findIndex(p => Number(p.id) === Number(pkId));
     if (pkIndex === -1) return;
     
-    let originalPk = next.p1Options[pkIndex];
-    let pk = getActualPk(originalPk, pokemonList);
+    const originalPk = next.p1Options[pkIndex];
+    const pk = getActualPk(originalPk, pokemonList);
     if (!originalPk.isTrap) playLockIn();
     
     if (next.snakeTurn === 1) {
@@ -578,10 +578,10 @@ export default function DraftMode() {
 
     const isBlind = state.gameMode === 'blind';
     
-    let p1k = getActualPk(p1Keep, pokemonList);
-    let p2k = getActualPk(p2Keep, pokemonList);
-    let p1g = getActualPk(p1Give, pokemonList);
-    let p2g = getActualPk(p2Give, pokemonList);
+    const p1k = getActualPk(p1Keep, pokemonList);
+    const p2k = getActualPk(p2Keep, pokemonList);
+    const p1g = getActualPk(p1Give, pokemonList);
+    const p2g = getActualPk(p2Give, pokemonList);
 
     state.p1.team.push({ isMystery: isBlind, actualPk: p1k, fromOpponent: false });
     state.p1.team.push({ isMystery: true,  actualPk: p2g, fromOpponent: true  });
@@ -1613,7 +1613,7 @@ export default function DraftMode() {
                         ))}
                      </div>
                   </div>
-                ) : gameState.gameMode !== 'auction' && gameState.status === 'DRAFTING' ? (
+                ) : gameState.gameMode !== 'auction' && gameState.gameMode !== 'salary_cap' && gameState.status === 'DRAFTING' ? (
                   <div className="p-6 rounded-2xl border border-indigo-500/30 bg-slate-900/50 flex flex-col">
                     {submitted || mySlot?.ready ? (
                       <div className="flex-1 flex flex-col items-center justify-center text-slate-400 min-h-[300px]">
@@ -1636,13 +1636,13 @@ export default function DraftMode() {
                                 exit={{ opacity: 0, x: 50 }}
                                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                               >
-                                <HoloCard typeColor={TYPE_COLORS[pk.types[0]]} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
+                                <HoloCard typeColor={isBlind ? '#a855f7' : TYPE_COLORS[pk.types[0]]} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
                                   isKeep ? 'bg-indigo-500/20 border-indigo-500' : isGive ? 'bg-rose-500/20 border-rose-500' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'
                                 }`}>
                                   {isBlind && <BlindClueHint id={pk.id} speciesId={pk.speciesId} />}
-                                  <div className="flex items-center gap-3 relative z-30">
-                                    <img src={pk.sprite} alt={pk.name} className={`w-12 h-12 object-contain ${isBlind ? 'opacity-0' : ''}`} />
-                                    <div className={isBlind ? 'opacity-0' : ''}>
+                                  <div className={`flex items-center gap-3 relative z-30 ${isBlind ? 'invisible' : ''}`}>
+                                    <img src={pk.sprite} alt={pk.name} className="w-12 h-12 object-contain" />
+                                    <div>
                                       <p className="font-bold text-sm text-white capitalize">{pk.displayName}</p>
                                       <div className="flex gap-1 mt-1">
                                         {pk.types.map(t => <span key={t} style={{ color: TYPE_COLORS[t] }} className="text-[10px] font-bold uppercase">{t}</span>)}
