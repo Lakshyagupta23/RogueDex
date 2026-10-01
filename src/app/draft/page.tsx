@@ -481,14 +481,16 @@ export default function DraftMode() {
         state.status = 'HEIST';
         state.p1HeistChoice = null;
         state.p2HeistChoice = null;
-      } else if (state.gameMode === 'chaos' && state.round === state.totalRounds + 1) {
-        // After last round of chaos draft, trigger an event instead of reveal
-        triggerChaosEvent(state);
       } else {
         state.status = 'REVEAL';
       }
     } else {
-      generateOptions(state, pokemonList);
+      if (state.gameMode === 'chaos' && state.round === state.totalRounds) {
+        // Trigger chaos event instead of generating normal round options for the final round
+        triggerChaosEvent(state);
+      } else {
+        generateOptions(state, pokemonList);
+      }
     }
     applyState({ ...state });
     broadcastToGuest({ ...state });
