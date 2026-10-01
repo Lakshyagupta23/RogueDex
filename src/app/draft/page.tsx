@@ -9,7 +9,8 @@ import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, C
 import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemonCry, playHeistAlarm, playStealSound } from '@/lib/audio';
 import Link from 'next/link';
 
-type GameMode = 'standard' | 'blind' | 'heist' | 'auction' | 'snake' | 'monotype';
+type GameMode = 'standard' | 'blind' | 'heist' | 'auction' | 'snake' | 'monotype' | 'chaos';
+type ChaosEventId = 'rocket' | 'safari' | 'ditto' | 'fossil' | 'celebi' | 'yveltal' | 'wonder' | 'gym' | 'glitch' | 'gamble';
 
 type DraftTeamMember = {
   isMystery: boolean;
@@ -27,7 +28,7 @@ interface PlayerSlot {
 
 interface DraftState {
   code: string;
-  status: 'LOBBY' | 'DRAFTING' | 'HEIST' | 'REVEAL';
+  status: 'LOBBY' | 'DRAFTING' | 'HEIST' | 'REVEAL' | 'CHAOS_EVENT';
   gameMode: GameMode;
   blindClueType?: 'ability' | 'color';
   optionsPerRound: number;
@@ -53,6 +54,15 @@ interface DraftState {
   monotypeType?: string;
   snakeTurn?: 1 | 2;
   snakePickCount?: number;
+  // Chaos Mode State
+  chaosState?: {
+    eventId: ChaosEventId;
+    p1Resolved: boolean;
+    p2Resolved: boolean;
+    data?: any;
+    p1Choice?: any;
+    p2Choice?: any;
+  };
 }
 
 const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison','ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy'];
@@ -60,6 +70,7 @@ const ALL_GENS = [1,2,3,4,5,6,7,8,9];
 
 const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; description: string; color: string; borderColor: string }[] = [
   { id: 'standard', icon: <Shield className="w-6 h-6" />, label: 'Standard Draft', description: 'Classic 3-round draft. Pick to keep, give to opponent.', color: 'text-indigo-400', borderColor: 'border-indigo-500' },
+  { id: 'chaos', icon: <Wand2 className="w-6 h-6" />, label: '🌪 Chaos Draft', description: 'Standard 3-round draft, but Round 3 has a 100% chance to trigger a massive, game-changing random event!', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' },
   { id: 'snake', icon: <InfinityIcon className="w-6 h-6" />, label: '🐍 Snake Draft', description: 'A shared pool of 18 Pokémon. Take turns picking one at a time!', color: 'text-emerald-400', borderColor: 'border-emerald-500' },
   { id: 'monotype', icon: <Sword className="w-6 h-6" />, label: '🔥 Forced Monotype', description: 'A random type is chosen. The entire draft pool is restricted to it!', color: 'text-orange-400', borderColor: 'border-orange-500' },
   { id: 'blind', icon: <Eye className="w-6 h-6" />, label: '🎭 Blind Draft', description: 'Build your team knowing ONLY the abilities of the Pokemon!', color: 'text-purple-400', borderColor: 'border-purple-500' },
@@ -98,6 +109,7 @@ export default function DraftMode() {
   const [optionsPerRound, setOptionsPerRound] = useState(3);
   const [selectedMode, setSelectedMode] = useState<GameMode>('standard');
   const [blindClueType, setBlindClueType] = useState<'ability' | 'color'>('ability');
+  const [wildcardLobby, setWildcardLobby] = useState(false);
 
   // Advanced Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -454,7 +466,7 @@ export default function DraftMode() {
         p2: null, p1Options: [], p2Options: [],
         p1HeistChoice: null, p2HeistChoice: null,
         p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
-        wildcardModifier: false
+        wildcardModifier: wildcardLobby
       };
       applyState(initial);
     } catch (e: any) {
@@ -741,6 +753,10 @@ export default function DraftMode() {
                     </select>
                   </div>
                 )}
+                <label className="flex items-center gap-2 cursor-pointer mt-2 bg-slate-900/50 p-2 rounded-lg border border-fuchsia-500/30">
+                  <input type="checkbox" checked={wildcardLobby} onChange={e => setWildcardLobby(e.target.checked)} className="rounded text-fuchsia-500 focus:ring-fuchsia-500 bg-slate-800 border-slate-600" />
+                  <span className="text-sm text-slate-300 font-bold">🤡 Enable Wildcard Traps (25% chance of Magikarp)</span>
+                </label>
                 {gameState ? (
                   <button onClick={startDraft} disabled={!gameState.p2}
                     className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-colors flex justify-center items-center gap-2">
