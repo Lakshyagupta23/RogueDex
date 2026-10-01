@@ -30,6 +30,7 @@ export interface PokemonIndexItem {
   canEvolve: boolean;
   isFullyEvolved: boolean;
   evolutionChainId?: number;
+  isTrap?: boolean;
 }
 
 export interface PokemonDetails extends PokemonIndexItem {
@@ -64,3 +65,4 @@ export interface SavedTeam {
   generation?: string;
   tags?: string[];
 }
+

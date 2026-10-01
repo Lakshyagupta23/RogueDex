@@ -5,11 +5,11 @@ import { usePokemon } from '@/context/PokemonContext';
 import { PokemonIndexItem } from '@/lib/pokemon/types';
 import { FilterCriteria, filterPokemon } from '@/lib/pokemon/data';
 import { TYPE_COLORS } from '@/lib/pokemon/constants';
-import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp, Eye, Sword, Shield, Skull, Gavel } from 'lucide-react';
+import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp, Eye, Sword, Shield, Skull, Gavel, Infinity as InfinityIcon, Wand2 } from 'lucide-react';
 import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemonCry, playHeistAlarm, playStealSound } from '@/lib/audio';
 import Link from 'next/link';
 
-type GameMode = 'standard' | 'blind' | 'heist' | 'auction';
+type GameMode = 'standard' | 'blind' | 'heist' | 'auction' | 'snake' | 'monotype';
 
 type DraftTeamMember = {
   isMystery: boolean;
@@ -48,6 +48,11 @@ interface DraftState {
   highestBidder: 1 | 2 | null;
   p1Passed: boolean;
   p2Passed: boolean;
+  // New Modifiers & Modes
+  wildcardModifier: boolean;
+  monotypeType?: string;
+  snakeTurn?: 1 | 2;
+  snakePickCount?: number;
 }
 
 const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison','ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy'];
@@ -55,6 +60,8 @@ const ALL_GENS = [1,2,3,4,5,6,7,8,9];
 
 const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; description: string; color: string; borderColor: string }[] = [
   { id: 'standard', icon: <Shield className="w-6 h-6" />, label: 'Standard Draft', description: 'Classic 3-round draft. Pick to keep, give to opponent.', color: 'text-indigo-400', borderColor: 'border-indigo-500' },
+  { id: 'snake', icon: <InfinityIcon className="w-6 h-6" />, label: '🐍 Snake Draft', description: 'A shared pool of 18 Pokémon. Take turns picking one at a time!', color: 'text-emerald-400', borderColor: 'border-emerald-500' },
+  { id: 'monotype', icon: <Sword className="w-6 h-6" />, label: '🔥 Forced Monotype', description: 'A random type is chosen. The entire draft pool is restricted to it!', color: 'text-orange-400', borderColor: 'border-orange-500' },
   { id: 'blind', icon: <Eye className="w-6 h-6" />, label: '🎭 Blind Draft', description: 'Build your team knowing ONLY the abilities of the Pokemon!', color: 'text-purple-400', borderColor: 'border-purple-500' },
   { id: 'heist', icon: <Skull className="w-6 h-6" />, label: '💣 The Heist', description: '3 normal rounds, then steal 1 Pokémon from your opponent!', color: 'text-amber-400', borderColor: 'border-amber-500' },
   { id: 'auction', icon: <Gavel className="w-6 h-6" />, label: '💰 Salary Cap', description: 'Start with $100. Live bid against your opponent!', color: 'text-emerald-400', borderColor: 'border-emerald-500' },
@@ -172,7 +179,14 @@ export default function DraftMode() {
     const pool = filterPokemon(list, state.filters);
     const pickUnique = (count: number): PokemonIndexItem[] => {
       const shuffled = [...pool].sort(() => Math.random() - 0.5);
-      return shuffled.slice(0, Math.min(count, shuffled.length));
+      const selected = shuffled.slice(0, Math.min(count, shuffled.length)).map(p => ({ ...p }));
+      if (state.wildcardModifier && selected.length > 0) {
+        if (Math.random() < 0.25) { // 25% chance of a trap appearing in this batch
+          const trapIndex = Math.floor(Math.random() * selected.length);
+          selected[trapIndex].isTrap = true;
+        }
+      }
+      return selected;
     };
     if (state.gameMode === 'auction') {
       state.p1Options = pickUnique(1);
@@ -181,15 +195,29 @@ export default function DraftMode() {
       state.highestBidder = null;
       state.p1Passed = state.p1.team.length >= 6;
       state.p2Passed = state.p2 ? state.p2.team.length >= 6 : false;
+    } else if (state.gameMode === 'snake') {
+      if (state.round === 1) { // Only generate once for snake
+        state.p1Options = pickUnique(18); // 18 options for 12 picks
+        state.p2Options = [];
+      }
     } else {
       state.p1Options = pickUnique(state.optionsPerRound);
       state.p2Options = pickUnique(state.optionsPerRound);
     }
   }, []);
 
+  const getActualPk = useCallback((pk: PokemonIndexItem, list: PokemonIndexItem[]) => {
+    if (pk.isTrap) {
+      playHeistAlarm();
+      return list.find(p => p.id === 129) || pk;
+    }
+    return pk;
+  }, []);
+
   const resolveAuctionWin = useCallback((state: DraftState, winner: 1 | 2 | null) => {
-    playLockIn();
-    const pk = state.p1Options[0];
+    const pk = getActualPk(state.p1Options[0], pokemonList);
+    if (!state.p1Options[0].isTrap) playLockIn();
+
     if (winner === 1) {
       state.p1Budget -= state.currentBid;
       state.p1.team.push({ isMystery: false, actualPk: pk, fromOpponent: false, cost: state.currentBid });
@@ -207,7 +235,37 @@ export default function DraftMode() {
     }
     applyState({ ...state });
     broadcastToGuest({ ...state });
-  }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
+  }, [applyState, broadcastToGuest, generateOptions, getActualPk, pokemonList]);
+
+  const resolveSnakePick = useCallback((pkId: number) => {
+    if (!isHostRef.current || !gameStateRef.current) return;
+    const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+    const pkIndex = next.p1Options.findIndex(p => p.id === pkId);
+    if (pkIndex === -1) return;
+    
+    let originalPk = next.p1Options[pkIndex];
+    let pk = getActualPk(originalPk, pokemonList);
+    if (!originalPk.isTrap) playLockIn();
+    
+    if (next.snakeTurn === 1) {
+      next.p1.team.push({ isMystery: false, actualPk: pk, fromOpponent: false });
+    } else {
+      next.p2!.team.push({ isMystery: false, actualPk: pk, fromOpponent: false });
+    }
+    
+    next.p1Options.splice(pkIndex, 1);
+    
+    next.snakePickCount = (next.snakePickCount || 0) + 1;
+    const c = next.snakePickCount;
+    if (c >= 12) {
+      next.status = 'REVEAL';
+    } else {
+      const isP1 = [0, 3, 4, 7, 8, 11].includes(c);
+      next.snakeTurn = isP1 ? 1 : 2;
+    }
+    
+    applyState(next); broadcastToGuest(next);
+  }, [applyState, broadcastToGuest, getActualPk, pokemonList]);
 
   // Resolve a standard draft round
   const resolveRound = useCallback((state: DraftState) => {
@@ -219,10 +277,16 @@ export default function DraftMode() {
     const p2Give = state.p2Options.find(p => p.id === act2.giveId)!;
 
     const isBlind = state.gameMode === 'blind';
-    state.p1.team.push({ isMystery: isBlind, actualPk: p1Keep, fromOpponent: false });
-    state.p1.team.push({ isMystery: true,  actualPk: p2Give, fromOpponent: true  });
-    state.p2!.team.push({ isMystery: isBlind, actualPk: p2Keep, fromOpponent: false });
-    state.p2!.team.push({ isMystery: true,  actualPk: p1Give, fromOpponent: true  });
+    
+    let p1k = getActualPk(p1Keep, pokemonList);
+    let p2k = getActualPk(p2Keep, pokemonList);
+    let p1g = getActualPk(p1Give, pokemonList);
+    let p2g = getActualPk(p2Give, pokemonList);
+
+    state.p1.team.push({ isMystery: isBlind, actualPk: p1k, fromOpponent: false });
+    state.p1.team.push({ isMystery: true,  actualPk: p2g, fromOpponent: true  });
+    state.p2!.team.push({ isMystery: isBlind, actualPk: p2k, fromOpponent: false });
+    state.p2!.team.push({ isMystery: true,  actualPk: p1g, fromOpponent: true  });
 
     state.p1.ready = false;
     state.p2!.ready = false;
@@ -389,7 +453,8 @@ export default function DraftMode() {
         p1: { id: pid, username: usernameRef.current, team: [], ready: false },
         p2: null, p1Options: [], p2Options: [],
         p1HeistChoice: null, p2HeistChoice: null,
-        p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false
+        p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
+        wildcardModifier: false
       };
       applyState(initial);
     } catch (e: any) {
@@ -844,14 +909,16 @@ export default function DraftMode() {
           <div className="flex flex-col gap-12">
             <div className="text-center">
               <h2 className="text-3xl font-black text-white">
-                {gameState.status === 'REVEAL' ? 'Final Teams!' : gameState.gameMode === 'auction' ? 'Live Auction' : `Round ${gameState.round} / ${gameState.totalRounds}`}
+                {gameState.status === 'REVEAL' ? 'Final Teams!' : gameState.gameMode === 'auction' ? 'Live Auction' : gameState.gameMode === 'snake' ? 'Snake Draft' : `Round ${gameState.round} / ${gameState.totalRounds}`}
               </h2>
               {gameState.gameMode === 'blind' && gameState.status === 'DRAFTING' && <p className="text-purple-400 font-bold mt-1 text-sm">👁 BLIND MODE - Pick by abilities!</p>}
-              {gameState.gameMode !== 'auction' && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
+              {gameState.gameMode === 'monotype' && gameState.status === 'DRAFTING' && <p className="font-bold mt-1 text-sm" style={{ color: gameState.monotypeType ? TYPE_COLORS[gameState.monotypeType] : '#fb923c' }}>🔥 FORCED MONOTYPE: {gameState.monotypeType?.toUpperCase()}</p>}
+              {gameState.wildcardModifier && gameState.status === 'DRAFTING' && <p className="text-fuchsia-400 font-bold mt-1 text-sm animate-pulse">🤡 WILDCARD TRAPS ARE ACTIVE</p>}
+              {gameState.gameMode !== 'auction' && gameState.gameMode !== 'snake' && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
               {gameState.status === 'REVEAL' && isHost && (
                 <button onClick={returnToLobby} className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">🔄 Play Again (Change Settings)</button>
               )}
-              {gameState.status !== 'REVEAL' && gameState.status !== 'LOBBY' && isHost && (
+              {gameState.status !== 'REVEAL' && isHost && (
                  <button onClick={restartDraft} className="mt-4 inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-rose-500/30">🔄 Reset Draft (Clear Teams)</button>
               )}
               {gameState.status === 'REVEAL' && !isHost && <p className="text-slate-500 text-sm mt-2">Waiting for host to restart...</p>}
@@ -928,7 +995,26 @@ export default function DraftMode() {
               </div>
 
               <div className="flex flex-col gap-6 order-1 lg:order-2">
-                {gameState.gameMode !== 'auction' && gameState.status === 'DRAFTING' ? (
+                {gameState.gameMode === 'snake' && gameState.status === 'DRAFTING' ? (
+                  <div className="p-6 rounded-2xl border border-emerald-500/30 bg-slate-900/50 flex flex-col">
+                     <h3 className={`text-center font-black mb-6 uppercase tracking-widest text-lg ${gameState.snakeTurn === myPlayerNum ? 'text-emerald-400 animate-pulse' : 'text-slate-500'}`}>
+                       {gameState.snakeTurn === myPlayerNum ? "Your Turn to Pick!" : "Opponent's Turn..."}
+                     </h3>
+                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 gap-2">
+                        {gameState.p1Options.map(pk => (
+                          <button key={pk.id} 
+                            disabled={gameState.snakeTurn !== myPlayerNum}
+                            onClick={() => resolveSnakePick(pk.id)}
+                            className={`relative p-2 rounded-xl border flex flex-col items-center justify-center transition-all ${
+                              gameState.snakeTurn === myPlayerNum ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 hover:border-emerald-400 cursor-pointer' : 'bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed'
+                            }`}>
+                            <img src={pk.sprite} className="w-12 h-12 object-contain" />
+                            <span className="text-[10px] font-bold text-white capitalize mt-1 text-center leading-tight truncate w-full px-1">{pk.displayName}</span>
+                          </button>
+                        ))}
+                     </div>
+                  </div>
+                ) : gameState.gameMode !== 'auction' && gameState.status === 'DRAFTING' ? (
                   <div className="p-6 rounded-2xl border border-indigo-500/30 bg-slate-900/50 flex flex-col">
                     {submitted || mySlot?.ready ? (
                       <div className="flex-1 flex flex-col items-center justify-center text-slate-400 min-h-[300px]">
