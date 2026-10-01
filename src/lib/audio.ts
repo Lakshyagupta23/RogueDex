@@ -1,4 +1,7 @@
 let audioCtx: AudioContext | null = null;
+let ambientInterval: NodeJS.Timeout | null = null;
+let ambientOscillators: OscillatorNode[] = [];
+let ambientGains: GainNode[] = [];
 
 function getAudioContext() {
   if (typeof window === 'undefined') return null;
@@ -139,4 +142,73 @@ export function playStealSound() {
   gain.connect(ctx.destination);
   osc.start();
   osc.stop(ctx.currentTime + 0.3);
+}
+
+// ---- AMBIENT PROCEDURAL BACKGROUND MUSIC ----
+const CHORDS = [
+  [220.00, 277.18, 329.63], // A Major
+  [196.00, 246.94, 293.66], // G Major
+  [174.61, 220.00, 261.63], // F Major
+  [164.81, 196.00, 246.94], // E Minor
+];
+
+export function startAmbientMusic() {
+  const ctx = getAudioContext();
+  if (!ctx || ambientInterval) return;
+  
+  if (ctx.state === 'suspended') ctx.resume();
+
+  let chordIndex = 0;
+  
+  const playChord = () => {
+    const chord = CHORDS[chordIndex];
+    chordIndex = (chordIndex + 1) % CHORDS.length;
+    
+    // Clear old oscillators
+    ambientOscillators.forEach(o => o.stop(ctx.currentTime + 2));
+    ambientOscillators = [];
+    ambientGains = [];
+    
+    chord.forEach(freq => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      
+      // Slow fade in and out for ambient feel
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.03, ctx.currentTime + 2); // very quiet
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 6);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(ctx.currentTime);
+      
+      ambientOscillators.push(osc);
+      ambientGains.push(gain);
+    });
+  };
+  
+  playChord();
+  ambientInterval = setInterval(playChord, 5000);
+}
+
+export function stopAmbientMusic() {
+  if (ambientInterval) {
+    clearInterval(ambientInterval);
+    ambientInterval = null;
+  }
+  const ctx = getAudioContext();
+  if (ctx) {
+    ambientOscillators.forEach(o => {
+      try { o.stop(ctx.currentTime + 1); } catch (e) {}
+    });
+    ambientGains.forEach(g => {
+      try { g.gain.linearRampToValueAtTime(0, ctx.currentTime + 1); } catch (e) {}
+    });
+  }
+  ambientOscillators = [];
+  ambientGains = [];
 }

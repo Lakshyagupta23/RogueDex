@@ -5,10 +5,12 @@ import { usePokemon } from '@/context/PokemonContext';
 import { PokemonIndexItem, GameMode, ChaosEventId, DraftTeamMember, PlayerSlot, DraftState } from '@/lib/pokemon/types';
 import { FilterCriteria, filterPokemon } from '@/lib/pokemon/data';
 import { TYPE_COLORS } from '@/lib/pokemon/constants';
-import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp, Eye, Sword, Shield, Skull, Gavel, Infinity as InfinityIcon, Wand2, Zap } from 'lucide-react';
-import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemonCry, playHeistAlarm, playStealSound } from '@/lib/audio';
+import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp, Eye, Sword, Shield, Skull, Gavel, Infinity as InfinityIcon, Wand2, Zap, Volume2, VolumeX, ClipboardCopy, Timer, Crown, Coins } from 'lucide-react';
+import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemonCry, playHeistAlarm, playStealSound, startAmbientMusic, stopAmbientMusic } from '@/lib/audio';
 import { CHAOS_EVENTS, getRandomFullyEvolved, getRandomLegendary, getRandomFossil } from '@/lib/pokemon/chaos';
 import Link from 'next/link';
+import HoloCard from '@/components/HoloCard';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison','ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy'];
 const ALL_GENS = [1,2,3,4,5,6,7,8,9];
@@ -21,7 +23,10 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'monotype', icon: <Sword className="w-6 h-6" />, label: '🔥 Forced Monotype', description: 'A random type is chosen. The entire draft pool is restricted to it!', color: 'text-orange-400', borderColor: 'border-orange-500' },
   { id: 'blind', icon: <Eye className="w-6 h-6" />, label: '🎭 Blind Draft', description: 'Build your team knowing ONLY the abilities of the Pokemon!', color: 'text-purple-400', borderColor: 'border-purple-500' },
   { id: 'heist', icon: <Skull className="w-6 h-6" />, label: '💣 The Heist', description: '3 normal rounds, then steal 1 Pokémon from your opponent!', color: 'text-amber-400', borderColor: 'border-amber-500' },
-  { id: 'auction', icon: <Gavel className="w-6 h-6" />, label: '💰 Salary Cap', description: 'Start with $100. Live bid against your opponent!', color: 'text-emerald-400', borderColor: 'border-emerald-500' },
+  { id: 'auction', icon: <Gavel className="w-6 h-6" />, label: '💰 Simple Auction', description: 'Start with $100. Live bid against your opponent!', color: 'text-emerald-400', borderColor: 'border-emerald-500' },
+  { id: 'speedrun', icon: <Timer className="w-6 h-6" />, label: '⏱️ Speedrun', description: '7 seconds per pick. If time runs out, the worst Pokémon is auto-picked!', color: 'text-red-400', borderColor: 'border-red-500' },
+  { id: 'vip', icon: <Crown className="w-6 h-6" />, label: '👑 Protect the King', description: 'Round 1 is your VIP. All other picks must share a type with it!', color: 'text-yellow-400', borderColor: 'border-yellow-500' },
+  { id: 'salary_cap', icon: <Coins className="w-6 h-6" />, label: '🏛️ Salary Cap (Nomination)', description: 'Take turns nominating Pokémon for bidding. Don\'t run out of money!', color: 'text-green-400', borderColor: 'border-green-500' },
 ];
 
 function BlindClueHint({ id, speciesId, clueType }: { id: number, speciesId: number, clueType?: 'ability' | 'color' }) {
@@ -44,6 +49,50 @@ function BlindClueHint({ id, speciesId, clueType }: { id: number, speciesId: num
       <Eye className="w-6 h-6 text-purple-500 mb-2 opacity-50" />
       <span className="text-[10px] uppercase font-bold text-slate-500">{clueType === 'color' ? 'Color Clue' : 'Ability Clue'}</span>
       <span className="text-sm font-black text-purple-400 text-center capitalize leading-tight mt-1">{clue}</span>
+    </div>
+  );
+}
+
+function MonotypeRoulettePanel({ gameState, isHost, onComplete }: { gameState: DraftState, isHost: boolean, onComplete: () => void }) {
+  const [currentType, setCurrentType] = useState<string>(ALL_TYPES[0]);
+  const [isDone, setIsDone] = useState(false);
+  
+  useEffect(() => {
+    let tick = 0;
+    const maxTicks = 40;
+    const interval = setInterval(() => {
+      tick++;
+      setCurrentType(ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)]);
+      if (tick >= maxTicks) {
+        clearInterval(interval);
+        setCurrentType(gameState.monotypeType || 'normal');
+        setIsDone(true);
+        if (isHost) {
+          setTimeout(() => onComplete(), 3000);
+        }
+      }
+    }, 50);
+    return () => clearInterval(interval);
+  }, [gameState.monotypeType, isHost, onComplete]);
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[50vh]">
+      <h2 className="text-3xl font-black text-white mb-8">Rolling Monotype...</h2>
+      <motion.div 
+        key={currentType}
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: isDone ? 1.5 : 1, opacity: 1 }}
+        className="w-48 h-48 rounded-2xl flex flex-col items-center justify-center border-4"
+        style={{ 
+          backgroundColor: `${TYPE_COLORS[currentType]}20`,
+          borderColor: TYPE_COLORS[currentType],
+          boxShadow: isDone ? `0 0 40px ${TYPE_COLORS[currentType]}` : 'none'
+        }}
+      >
+        <span className="text-4xl font-black uppercase tracking-widest" style={{ color: TYPE_COLORS[currentType] }}>
+          {currentType}
+        </span>
+      </motion.div>
     </div>
   );
 }
@@ -154,6 +203,16 @@ export default function DraftMode() {
   const [optionsPerRound, setOptionsPerRound] = useState(3);
   const [selectedMode, setSelectedMode] = useState<GameMode>('standard');
   const [blindClueType, setBlindClueType] = useState<'ability' | 'color'>('ability');
+  const [musicOn, setMusicOn] = useState(false);
+
+  useEffect(() => {
+    if (musicOn) {
+      startAmbientMusic();
+    } else {
+      stopAmbientMusic();
+    }
+    return () => stopAmbientMusic();
+  }, [musicOn]);
 
   // Advanced Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -232,9 +291,9 @@ export default function DraftMode() {
        excludeUltraBeast, excludeAlolan, excludeGalarian, excludeHisuian, excludePaldean, fullyEvolvedOnly]);
 
   const generateOptions = useCallback((state: DraftState, list: PokemonIndexItem[]) => {
-    const pool = filterPokemon(list, state.filters);
-    const pickUnique = (count: number): PokemonIndexItem[] => {
-      const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    const basePool = filterPokemon(list, state.filters);
+    const pickUnique = (count: number, poolToUse: PokemonIndexItem[]): PokemonIndexItem[] => {
+      const shuffled = [...poolToUse].sort(() => Math.random() - 0.5);
       const selected = shuffled.slice(0, Math.min(count, shuffled.length)).map(p => ({ ...p }));
       if (state.gameMode === 'wildcard' && selected.length > 0) {
         const trapIndex = Math.floor(Math.random() * selected.length);
@@ -242,21 +301,46 @@ export default function DraftMode() {
       }
       return selected;
     };
-    if (state.gameMode === 'auction') {
-      state.p1Options = pickUnique(1);
+
+    let p1Pool = basePool;
+    let p2Pool = basePool;
+    if (state.gameMode === 'vip' && state.round > 1) {
+      if (state.p1.team.length > 0) {
+        const p1Type = state.p1.team[0].actualPk.types[0];
+        p1Pool = basePool.filter(p => p.types.includes(p1Type));
+        if (p1Pool.length === 0) p1Pool = basePool; // fallback
+      }
+      if (state.p2?.team && state.p2.team.length > 0) {
+        const p2Type = state.p2.team[0].actualPk.types[0];
+        p2Pool = basePool.filter(p => p.types.includes(p2Type));
+        if (p2Pool.length === 0) p2Pool = basePool; // fallback
+      }
+    }
+
+    if (state.gameMode === 'auction' || state.gameMode === 'salary_cap') {
       state.p2Options = [];
       state.currentBid = 0;
       state.highestBidder = null;
       state.p1Passed = state.p1.team.length >= 6;
       state.p2Passed = state.p2 ? state.p2.team.length >= 6 : false;
+      
+      if (state.gameMode === 'salary_cap') {
+        state.p1Options = pickUnique(6, basePool); // options to nominate
+        state.salaryPhase = 'NOMINATING';
+        state.salaryNominationTurn = state.salaryNominationTurn === 1 ? 2 : 1;
+        if (state.salaryNominationTurn === 1 && state.p1Passed) state.salaryNominationTurn = 2;
+        if (state.salaryNominationTurn === 2 && state.p2Passed) state.salaryNominationTurn = 1;
+      } else {
+        state.p1Options = pickUnique(1, basePool);
+      }
     } else if (state.gameMode === 'snake') {
       if (state.round === 1) { // Only generate once for snake
-        state.p1Options = pickUnique(18); // 18 options for 12 picks
+        state.p1Options = pickUnique(18, basePool); 
         state.p2Options = [];
       }
     } else {
-      state.p1Options = pickUnique(state.optionsPerRound);
-      state.p2Options = pickUnique(state.optionsPerRound);
+      state.p1Options = pickUnique(state.optionsPerRound, p1Pool);
+      state.p2Options = pickUnique(state.optionsPerRound, p2Pool);
     }
   }, []);
 
@@ -549,6 +633,15 @@ export default function DraftMode() {
     if (data.type === 'chaos_choice') {
       resolveChaosChoice(2, data.choice);
     }
+    if (data.type === 'nominate_salary_cap') {
+      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      const pk = next.p1Options.find((p: any) => p.id === data.pkId);
+      if (pk) {
+        next.p1Options = [pk];
+        next.salaryPhase = 'BIDDING';
+        applyState(next); broadcastToGuest(next);
+      }
+    }
     if (data.type === 'auction_bid') {
       const next: DraftState = JSON.parse(JSON.stringify(cur));
       const budget = data.playerNum === 1 ? next.p1Budget : next.p2Budget;
@@ -700,9 +793,10 @@ export default function DraftMode() {
   const startDraft = useCallback(() => {
     if (!isHostRef.current || !gameStateRef.current) return;
     const cur = gameStateRef.current;
+    const initialStatus = selectedMode === 'monotype' ? 'MONOTYPE_ROULETTE' : 'DRAFTING';
     const next: DraftState = { 
        ...cur, 
-       status: 'DRAFTING',
+       status: initialStatus,
        gameMode: selectedMode,
        blindClueType,
        optionsPerRound,
@@ -714,6 +808,11 @@ export default function DraftMode() {
        p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
        snakeTurn: 1, snakePickCount: 0
     };
+    if (selectedMode === 'monotype') {
+       next.monotypeType = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       next.filters.types = [next.monotypeType]; // enforce filter for all pokemon
+    }
+    
     p1PendingRef.current = null;
     p2PendingRef.current = null;
     p1HeistRef.current = null;
@@ -724,22 +823,53 @@ export default function DraftMode() {
     applyState(next); broadcastToGuest(next);
   }, [generateOptions, applyState, broadcastToGuest, pokemonList, selectedMode, blindClueType, optionsPerRound, buildFilters]);
 
-  const submitMyChoices = useCallback(() => {
-    if (!gameStateRef.current || keepChoice === null || giveChoice === null) return;
+  const submitChoices = useCallback((kId: number, gId: number) => {
+    if (!gameStateRef.current) return;
     playLockIn();
     setSubmitted(true);
+    setKeepChoice(kId);
+    setGiveChoice(gId);
     if (isHostRef.current) {
-      p1PendingRef.current = { keepId: keepChoice, giveId: giveChoice };
+      p1PendingRef.current = { keepId: kId, giveId: gId };
       const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
       next.p1.ready = true;
       if (p2PendingRef.current) { resolveRound(next); } else { applyState(next); broadcastToGuest(next); }
     } else {
       const conn = hostConnRef.current;
       if (conn && conn.open) {
-        conn.send({ type: 'submit_choices', keepId: keepChoice, giveId: giveChoice });
+        conn.send({ type: 'submit_choices', keepId: kId, giveId: gId });
       } else { alert('Lost connection to host!'); setSubmitted(false); }
     }
-  }, [keepChoice, giveChoice, applyState, broadcastToGuest, resolveRound]);
+  }, [applyState, broadcastToGuest, resolveRound]);
+
+  const submitMyChoices = useCallback(() => {
+    if (keepChoice !== null && giveChoice !== null) {
+      submitChoices(keepChoice, giveChoice);
+    }
+  }, [keepChoice, giveChoice, submitChoices]);
+
+  const [speedrunTimer, setSpeedrunTimer] = useState(7);
+  useEffect(() => {
+    if (gameState?.gameMode === 'speedrun' && gameState.status === 'DRAFTING' && !submitted && !mySlot?.ready) {
+      setSpeedrunTimer(7);
+      const interval = setInterval(() => {
+        setSpeedrunTimer(t => {
+          if (t <= 1) {
+            if (myOptions && myOptions.length >= 2) {
+               const sorted = [...myOptions].sort((a, b) => a.stats.total - b.stats.total);
+               const worst = sorted[0];
+               const best = sorted[sorted.length - 1]; 
+               submitChoices(worst.id, best.id);
+            }
+            clearInterval(interval);
+            return 0;
+          }
+          return t - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [gameState?.round, gameState?.status, gameState?.gameMode, submitted, mySlot?.ready, myOptions, submitChoices]);
 
   const submitMyHeist = useCallback(() => {
     if (!gameStateRef.current || myHeistStealIdx === null || myHeistSwapIdx === null) return;
@@ -794,6 +924,25 @@ export default function DraftMode() {
     next.p2!.team = next.p2!.team.map(m => ({ ...m, isMystery: false }));
     applyState(next); broadcastToGuest(next);
   }, [applyState, broadcastToGuest]);
+
+  const exportToShowdown = useCallback(() => {
+    if (!gameStateRef.current) return;
+    const team = isHostRef.current ? gameStateRef.current.p1.team : gameStateRef.current.p2?.team;
+    if (!team) return;
+    
+    const showdownText = team.filter(m => !m.isMystery).map(m => {
+      const pk = m.actualPk;
+      const ability = pk.abilities && pk.abilities.length > 0 ? pk.abilities[0] : 'Unknown';
+      return `${pk.displayName}\nAbility: ${ability}\n`;
+    }).join('\n');
+    
+    navigator.clipboard.writeText(showdownText).then(() => {
+      playHoverTick();
+      alert('Team copied to clipboard in Showdown format!');
+    }).catch(err => {
+      console.error('Failed to copy team: ', err);
+    });
+  }, []);
 
   const returnToLobby = useCallback(() => {
     if (!isHostRef.current || !gameStateRef.current) return;
@@ -876,6 +1025,16 @@ export default function DraftMode() {
             <Users className="w-5 h-5 text-indigo-400" /> Clash Draft
           </h1>
         </div>
+        <button 
+          onClick={() => setMusicOn(!musicOn)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-bold transition-all text-sm ${
+            musicOn ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:text-slate-200'
+          }`}
+          title="Toggle Ambient Lofi"
+        >
+          {musicOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          {musicOn ? 'Vibing' : 'Music Off'}
+        </button>
       </div>
 
       <div className="max-w-6xl mx-auto">
@@ -1106,6 +1265,12 @@ export default function DraftMode() {
               </div>
             )}
           </div>
+        ) : gameState.status === 'MONOTYPE_ROULETTE' ? (
+          <MonotypeRoulettePanel gameState={gameState} isHost={isHost} onComplete={() => {
+             const next = JSON.parse(JSON.stringify(gameStateRef.current));
+             next.status = 'DRAFTING';
+             applyState(next); broadcastToGuest(next);
+          }} />
         ) : gameState.status === 'HEIST' ? (
           <HeistPhase gameState={gameState} isHost={isHost} myTeam={mySlot?.team ?? []} opponentTeam={opponentSlot?.team ?? []} myStealIdx={myHeistStealIdx} mySwapIdx={myHeistSwapIdx} setMyStealIdx={setMyHeistStealIdx} setMySwapIdx={setMyHeistSwapIdx} heistSubmitted={heistSubmitted} onSubmit={submitMyHeist} />
         ) : gameState.status === 'CHAOS_EVENT' ? (
@@ -1130,6 +1295,16 @@ export default function DraftMode() {
               {gameState.gameMode === 'blind' && gameState.status === 'DRAFTING' && <p className="text-purple-400 font-bold mt-1 text-sm">👁 BLIND MODE - Pick by abilities!</p>}
               {gameState.gameMode === 'monotype' && gameState.status === 'DRAFTING' && <p className="font-bold mt-1 text-sm" style={{ color: gameState.monotypeType ? TYPE_COLORS[gameState.monotypeType] : '#fb923c' }}>🔥 FORCED MONOTYPE: {gameState.monotypeType?.toUpperCase()}</p>}
               {gameState.gameMode === 'wildcard' && gameState.status === 'DRAFTING' && <p className="text-fuchsia-400 font-bold mt-1 text-sm animate-pulse">🃏 WILDCARD MODE: 1 of these is a trap!</p>}
+              {gameState.gameMode === 'vip' && gameState.status === 'DRAFTING' && gameState.round > 1 && <p className="text-yellow-400 font-bold mt-1 text-sm">👑 PROTECT THE KING: Only {mySlot?.team[0]?.actualPk.types[0]?.toUpperCase() ?? ''} types available!</p>}
+              {gameState.gameMode === 'vip' && gameState.status === 'DRAFTING' && gameState.round === 1 && <p className="text-yellow-400 font-bold mt-1 text-sm">👑 PROTECT THE KING: Choose your VIP!</p>}
+              {gameState.gameMode === 'speedrun' && gameState.status === 'DRAFTING' && !submitted && !mySlot?.ready && (
+                <div className="mt-4 flex flex-col items-center">
+                  <div className="text-4xl font-black text-red-500 animate-pulse bg-red-950/50 px-6 py-2 rounded-xl border-2 border-red-500/50">
+                    00:0{speedrunTimer}
+                  </div>
+                  <p className="text-red-400 text-xs font-bold mt-2 uppercase tracking-widest">Pick fast or get the worst!</p>
+                </div>
+              )}
               {gameState.gameMode !== 'auction' && gameState.gameMode !== 'snake' && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
               {gameState.status === 'REVEAL' && isHost && (
                 <button onClick={returnToLobby} className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">🔄 Play Again (Change Settings)</button>
@@ -1143,7 +1318,43 @@ export default function DraftMode() {
               {gameState.status === 'REVEAL' && !isHost && <p className="text-slate-500 text-sm mt-2">Waiting for host to restart...</p>}
             </div>
             
-            {gameState.gameMode === 'auction' && gameState.status === 'DRAFTING' && (
+            {gameState.gameMode === 'salary_cap' && gameState.status === 'DRAFTING' && gameState.salaryPhase === 'NOMINATING' && (
+              <div className="max-w-4xl mx-auto w-full mb-4">
+                <h3 className="text-center text-xl font-bold mb-4 text-emerald-400">
+                  {gameState.salaryNominationTurn === myPlayerNum ? "Your Turn to Nominate!" : "Opponent is Nominating..."}
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {gameState.p1Options.map(pk => (
+                    <button 
+                       key={pk.id}
+                       onClick={() => {
+                          if (gameState.salaryNominationTurn === myPlayerNum) {
+                            playSelectClick();
+                            if (isHostRef.current) {
+                              const next = JSON.parse(JSON.stringify(gameStateRef.current));
+                              next.p1Options = [pk];
+                              next.salaryPhase = 'BIDDING';
+                              applyState(next); broadcastToGuest(next);
+                            } else {
+                              hostConnRef.current?.send({ type: 'nominate_salary_cap', pkId: pk.id });
+                            }
+                          }
+                       }}
+                       disabled={gameState.salaryNominationTurn !== myPlayerNum}
+                       className={`p-4 rounded-xl border flex flex-col items-center justify-center transition-all ${gameState.salaryNominationTurn === myPlayerNum ? 'bg-slate-900 hover:bg-slate-800 cursor-pointer border-emerald-500/50 hover:border-emerald-400' : 'bg-slate-900/50 opacity-50 cursor-not-allowed border-slate-800'}`}
+                    >
+                       <img src={pk.sprite} className="w-16 h-16 object-contain drop-shadow-md mb-2" />
+                       <div className="font-bold text-sm text-center capitalize">{pk.displayName}</div>
+                       <div className="flex gap-1 mt-1">
+                         {pk.types.map(t => <span key={t} style={{ color: TYPE_COLORS[t] }} className="text-[10px] font-bold uppercase">{t}</span>)}
+                       </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {(gameState.gameMode === 'auction' || (gameState.gameMode === 'salary_cap' && gameState.salaryPhase === 'BIDDING')) && gameState.status === 'DRAFTING' && (
               <div className="max-w-4xl mx-auto w-full mb-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* P1 Budget */}
@@ -1249,26 +1460,34 @@ export default function DraftMode() {
                             const isGive = giveChoice === pk.id;
                             const isBlind = gameState.gameMode === 'blind';
                             return (
-                              <div key={pk.id} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
-                                isKeep ? 'bg-indigo-500/20 border-indigo-500' : isGive ? 'bg-rose-500/20 border-rose-500' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'
-                              }`}>
-                                {isBlind && <BlindClueHint id={pk.id} speciesId={pk.speciesId} clueType={gameState.blindClueType} />}
-                                <div className="flex items-center gap-3 relative z-30">
-                                  <img src={pk.sprite} alt={pk.name} className={`w-12 h-12 object-contain ${isBlind ? 'opacity-0' : ''}`} />
-                                  <div className={isBlind ? 'opacity-0' : ''}>
-                                    <p className="font-bold text-sm text-white capitalize">{pk.displayName}</p>
-                                    <div className="flex gap-1 mt-1">
-                                      {pk.types.map(t => <span key={t} style={{ color: TYPE_COLORS[t] }} className="text-[10px] font-bold uppercase">{t}</span>)}
+                              <motion.div
+                                key={pk.id}
+                                initial={{ opacity: 0, x: -50 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: 50 }}
+                                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                              >
+                                <HoloCard typeColor={TYPE_COLORS[pk.types[0]]} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
+                                  isKeep ? 'bg-indigo-500/20 border-indigo-500' : isGive ? 'bg-rose-500/20 border-rose-500' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'
+                                }`}>
+                                  {isBlind && <BlindClueHint id={pk.id} speciesId={pk.speciesId} clueType={gameState.blindClueType} />}
+                                  <div className="flex items-center gap-3 relative z-30">
+                                    <img src={pk.sprite} alt={pk.name} className={`w-12 h-12 object-contain ${isBlind ? 'opacity-0' : ''}`} />
+                                    <div className={isBlind ? 'opacity-0' : ''}>
+                                      <p className="font-bold text-sm text-white capitalize">{pk.displayName}</p>
+                                      <div className="flex gap-1 mt-1">
+                                        {pk.types.map(t => <span key={t} style={{ color: TYPE_COLORS[t] }} className="text-[10px] font-bold uppercase">{t}</span>)}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                                <div className="flex flex-col gap-1 relative z-30">
-                                  <button onClick={() => { playHoverTick(); setKeepChoice(pk.id); if (giveChoice === pk.id) setGiveChoice(null); }}
-                                    className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>Keep</button>
-                                  <button onClick={() => { playHoverTick(); setGiveChoice(pk.id); if (keepChoice === pk.id) setKeepChoice(null); }}
-                                    className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>Give</button>
-                                </div>
-                              </div>
+                                  <div className="flex flex-col gap-1 relative z-30">
+                                    <button onClick={() => { playHoverTick(); setKeepChoice(pk.id); if (giveChoice === pk.id) setGiveChoice(null); }}
+                                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>Keep</button>
+                                    <button onClick={() => { playHoverTick(); setGiveChoice(pk.id); if (keepChoice === pk.id) setKeepChoice(null); }}
+                                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>Give</button>
+                                  </div>
+                                </HoloCard>
+                              </motion.div>
                             );
                           })}
                         </div>
@@ -1288,18 +1507,23 @@ export default function DraftMode() {
                       <h3 className="text-2xl font-black text-white mb-2">Draft Complete!</h3>
                       <p className="text-slate-400">Both players have built their teams.</p>
                     </div>
-                    {isHost ? (
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <button onClick={revealCards} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">
-                          Reveal All Cards
-                        </button>
-                        <button onClick={restartDraft} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">
-                          🔄 Restart Draft
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="text-slate-500 text-sm">Waiting for host to reveal...</p>
-                    )}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      {isHost ? (
+                        <>
+                          <button onClick={revealCards} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-3 rounded-xl transition-colors">
+                            Reveal All Cards
+                          </button>
+                          <button onClick={restartDraft} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-xl transition-colors">
+                            🔄 Restart Draft
+                          </button>
+                        </>
+                      ) : (
+                        <p className="text-slate-500 text-sm flex items-center h-full px-4">Waiting for host to reveal...</p>
+                      )}
+                      <button onClick={exportToShowdown} className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold px-6 py-3 rounded-xl transition-colors flex items-center gap-2">
+                        <ClipboardCopy className="w-5 h-5" /> Export to Showdown
+                      </button>
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -1413,11 +1637,18 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
   const pk = data.actualPk;
   
   return (
-    <div className="aspect-square w-full h-full relative" style={{ perspective: '1000px' }}>
-      <div 
-        className="w-full h-full relative rounded-2xl transition-transform duration-700"
-        style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
-      >
+    <motion.div
+      initial={{ opacity: 0, scale: 0.5, y: 50 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.5 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20, delay: index * 0.1 }}
+      className="w-full h-full"
+    >
+      <HoloCard typeColor={TYPE_COLORS[pk.types[0]]} className="aspect-square w-full h-full relative">
+        <div 
+          className="w-full h-full relative rounded-2xl transition-transform duration-700"
+          style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
+        >
         {/* FRONT: MYSTERY */}
         <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl flex flex-col items-center justify-center overflow-hidden"
              style={{ backfaceVisibility: 'hidden' }}>
@@ -1441,6 +1672,7 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
           </div>
         </div>
       </div>
-    </div>
+      </HoloCard>
+    </motion.div>
   );
 }

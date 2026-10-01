@@ -66,7 +66,7 @@ export interface SavedTeam {
   tags?: string[];
 }
 
-export type GameMode = 'standard' | 'blind' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos';
+export type GameMode = 'standard' | 'blind' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos' | 'speedrun' | 'vip' | 'salary_cap';
 export type ChaosEventId = 'rocket' | 'safari' | 'ditto' | 'fossil' | 'celebi' | 'yveltal' | 'wonder' | 'gym' | 'glitch' | 'gamble';
 
 export type DraftTeamMember = {
@@ -85,7 +85,7 @@ export interface PlayerSlot {
 
 export interface DraftState {
   code: string;
-  status: 'LOBBY' | 'DRAFTING' | 'HEIST' | 'REVEAL' | 'CHAOS_EVENT';
+  status: 'LOBBY' | 'MONOTYPE_ROULETTE' | 'DRAFTING' | 'HEIST' | 'REVEAL' | 'CHAOS_EVENT';
   gameMode: GameMode;
   blindClueType?: 'ability' | 'color';
   optionsPerRound: number;
@@ -111,6 +111,11 @@ export interface DraftState {
   monotypeType?: string;
   snakeTurn?: 1 | 2;
   snakePickCount?: number;
+  vipType?: string;
+  speedrunDeadline?: number;
+  salaryNominee?: PokemonIndexItem | null;
+  salaryNominationTurn?: 1 | 2;
+  salaryPhase?: 'NOMINATING' | 'BIDDING';
   // Chaos State
   chaosState?: {
     eventId: ChaosEventId;
