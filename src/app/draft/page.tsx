@@ -110,16 +110,15 @@ export default function DraftMode() {
 
   const generateOptions = useCallback((state: DraftState, list: PokemonIndexItem[]) => {
     const pool = filterPokemon(list, state.filters);
+    // Never fall back to full list - if pool is empty, keep it empty so host knows filters are too strict
     const src = pool.length > 0 ? pool : list;
-    const rand = () => src[Math.floor(Math.random() * src.length)];
-    const p1Opts: PokemonIndexItem[] = [];
-    const p2Opts: PokemonIndexItem[] = [];
-    for (let i = 0; i < state.optionsPerRound; i++) {
-      p1Opts.push(rand());
-      p2Opts.push(rand());
-    }
-    state.p1Options = p1Opts;
-    state.p2Options = p2Opts;
+    // Shuffle and pick unique options
+    const pickUnique = (count: number): PokemonIndexItem[] => {
+      const shuffled = [...src].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, Math.min(count, shuffled.length));
+    };
+    state.p1Options = pickUnique(state.optionsPerRound);
+    state.p2Options = pickUnique(state.optionsPerRound);
   }, []);
 
   const resolveRound = useCallback((state: DraftState) => {
@@ -172,9 +171,16 @@ export default function DraftMode() {
           config: {
             iceServers: [
               { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:global.stun.twilio.com:3478' },
-              { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-              { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+              { urls: 'stun:stun1.l.google.com:19302' },
+              { urls: 'stun:stun2.l.google.com:19302' },
+              {
+                urls: [
+                  'turn:relay1.expressturn.com:3478',
+                  'turn:relay1.expressturn.com:3478?transport=tcp'
+                ],
+                username: 'efKVVZXMPVLEWKFNEW',
+                credential: 'qA0S6sn0zxWM2v3N'
+              },
               { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
             ]
           }
@@ -285,6 +291,25 @@ export default function DraftMode() {
     next.p2!.team = next.p2!.team.map(m => ({ ...m, isMystery: false }));
     applyState(next); broadcastToGuest(next);
   }, [applyState, broadcastToGuest]);
+
+  const restartDraft = useCallback(() => {
+    if (!isHostRef.current || !gameStateRef.current) return;
+    const cur = gameStateRef.current;
+    const next: DraftState = {
+      ...cur,
+      status: 'DRAFTING',
+      round: 1,
+      p1: { ...cur.p1, team: [], ready: false },
+      p2: cur.p2 ? { ...cur.p2, team: [], ready: false } : null,
+      p1Options: [],
+      p2Options: [],
+    };
+    p1PendingRef.current = null;
+    p2PendingRef.current = null;
+    setKeepChoice(null); setGiveChoice(null); setSubmitted(false);
+    generateOptions(next, pokemonList);
+    applyState(next); broadcastToGuest(next);
+  }, [generateOptions, applyState, broadcastToGuest, pokemonList]);
 
   useEffect(() => { setKeepChoice(null); setGiveChoice(null); setSubmitted(false); }, [gameState?.round]);
   useEffect(() => { return () => { peerRef.current?.destroy(); peerRef.current = null; }; }, []);
@@ -570,6 +595,14 @@ export default function DraftMode() {
                 {gameState.status === 'REVEAL' ? 'Final Teams!' : `Round ${gameState.round} / 3`}
               </h2>
               {gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
+              {gameState.status === 'REVEAL' && isHost && (
+                <button onClick={restartDraft} className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">
+                  🔄 Play Again (Same Room)
+                </button>
+              )}
+              {gameState.status === 'REVEAL' && !isHost && (
+                <p className="text-slate-500 text-sm mt-2">Waiting for host to restart...</p>
+              )}
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="flex flex-col gap-4 order-2 lg:order-1">
@@ -633,7 +666,14 @@ export default function DraftMode() {
                       <p className="text-slate-400">Both players have built their teams.</p>
                     </div>
                     {isHost ? (
-                      <button onClick={revealCards} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-8 py-3 rounded-xl">Reveal All Cards</button>
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <button onClick={revealCards} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">
+                          Reveal All Cards
+                        </button>
+                        <button onClick={restartDraft} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">
+                          🔄 Restart Draft
+                        </button>
+                      </div>
                     ) : (
                       <p className="text-slate-500 text-sm">Waiting for host to reveal...</p>
                     )}
