@@ -1,4 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+
+export const viewport: Viewport = {
+  themeColor: "#0b0e16",
+};
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { PokemonProvider } from "@/context/PokemonContext";
@@ -20,6 +24,7 @@ export const metadata: Metadata = {
   description: "Randomize Pokémon, generate teams, complete custom challenge runs, analyze type weaknesses, and export competitive sets to Pokémon Showdown.",
   keywords: ["pokemon", "randomizer", "team builder", "nuzlocke", "showdown export", "pokedex", "type coverage", "pokemon challenge"],
   authors: [{ name: "RogueDex Team" }],
+  manifest: "/manifest.json",
   openGraph: {
     title: "RogueDex - Pokémon Randomizer & Team Builder",
     description: "Build teams, randomize Pokémon, and run challenges with RogueDex.",

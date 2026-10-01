@@ -1,0 +1,16 @@
+{
+  "name": "RogueDex",
+  "short_name": "RogueDex",
+  "description": "The ultimate Pokémon utility: Drafts, Randomizers, and Team Builders.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0e16",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

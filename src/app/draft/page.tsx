@@ -6,6 +6,7 @@ import { PokemonIndexItem } from '@/lib/pokemon/types';
 import { FilterCriteria, filterPokemon } from '@/lib/pokemon/data';
 import { TYPE_COLORS } from '@/lib/pokemon/constants';
 import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
+import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemonCry } from '@/lib/audio';
 import Link from 'next/link';
 
 type DraftTeamMember = {
@@ -269,6 +270,7 @@ export default function DraftMode() {
 
   const submitMyChoices = useCallback(() => {
     if (!gameStateRef.current || keepChoice === null || giveChoice === null) return;
+    playLockIn();
     setSubmitted(true);
     if (isHostRef.current) {
       p1PendingRef.current = { keepId: keepChoice, giveId: giveChoice };
@@ -285,6 +287,7 @@ export default function DraftMode() {
 
   const revealCards = useCallback(() => {
     if (!isHostRef.current || !gameStateRef.current) return;
+    playRevealChime();
     const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
     next.p1.team = next.p1.team.map(m => ({ ...m, isMystery: false }));
     next.p2!.team = next.p2!.team.map(m => ({ ...m, isMystery: false }));
@@ -607,7 +610,7 @@ export default function DraftMode() {
               <div className="flex flex-col gap-4 order-2 lg:order-1">
                 <h3 className="text-xl font-bold text-indigo-400 text-center">{gameState.p1.username}&apos;s Team</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {[...Array(6)].map((_, i) => <TeamSlot key={i} data={gameState.p1.team[i]} />)}
+                  {[...Array(6)].map((_, i) => <TeamSlot key={i} data={gameState.p1.team[i]} index={i} playerNum={1} />)}
                 </div>
               </div>
               <div className="flex flex-col gap-6 order-1 lg:order-2">
@@ -639,9 +642,9 @@ export default function DraftMode() {
                                   </div>
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                  <button onClick={() => { setKeepChoice(pk.id); if (giveChoice === pk.id) setGiveChoice(null); }}
+                                  <button onClick={() => { playHoverTick(); setKeepChoice(pk.id); if (giveChoice === pk.id) setGiveChoice(null); }}
                                     className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors ${isKeep ? 'bg-indigo-500 text-white' : 'bg-slate-900 text-slate-400 hover:bg-slate-700'}`}>Keep</button>
-                                  <button onClick={() => { setGiveChoice(pk.id); if (keepChoice === pk.id) setKeepChoice(null); }}
+                                  <button onClick={() => { playHoverTick(); setGiveChoice(pk.id); if (keepChoice === pk.id) setKeepChoice(null); }}
                                     className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors ${isGive ? 'bg-rose-500 text-white' : 'bg-slate-900 text-slate-400 hover:bg-slate-700'}`}>Give</button>
                                 </div>
                               </div>
@@ -682,7 +685,7 @@ export default function DraftMode() {
               <div className="flex flex-col gap-4 order-3">
                 <h3 className="text-xl font-bold text-rose-400 text-center">{gameState.p2?.username ?? 'Opponent'}&apos;s Team</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {[...Array(6)].map((_, i) => <TeamSlot key={i} data={gameState.p2?.team[i]} />)}
+                  {[...Array(6)].map((_, i) => <TeamSlot key={i} data={gameState.p2?.team[i]} index={i} playerNum={2} />)}
                 </div>
               </div>
             </div>
@@ -693,7 +696,22 @@ export default function DraftMode() {
   );
 }
 
-function TeamSlot({ data }: { data?: DraftTeamMember }) {
+function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: number, playerNum: 1 | 2 }) {
+  const [isFlipped, setIsFlipped] = useState(!data?.isMystery);
+
+  useEffect(() => {
+    if (data && !data.isMystery && !isFlipped) {
+      const delay = (index * 800) + (playerNum === 2 ? 400 : 0);
+      const t = setTimeout(() => {
+        setIsFlipped(true);
+        playPokemonCry(data.actualPk.id);
+      }, delay);
+      return () => clearTimeout(t);
+    } else if (data?.isMystery) {
+      setIsFlipped(false);
+    }
+  }, [data, isFlipped, index, playerNum]);
+
   if (!data) {
     return (
       <div className="aspect-square bg-slate-900/50 border-2 border-slate-800 border-dashed rounded-2xl flex items-center justify-center">
@@ -701,25 +719,35 @@ function TeamSlot({ data }: { data?: DraftTeamMember }) {
       </div>
     );
   }
-  if (data.isMystery) {
-    return (
-      <div className="aspect-square bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #334155 1px, transparent 1px)', backgroundSize: '10px 10px' }} />
-        <HelpCircle className="w-12 h-12 text-slate-600 mb-2 relative z-10 animate-pulse" />
-        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest relative z-10">Mystery</span>
-        {data.fromOpponent && <span className="absolute top-2 right-2 text-[8px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase">Given</span>}
-      </div>
-    );
-  }
+
   const pk = data.actualPk;
+  
   return (
-    <div className="aspect-square bg-slate-900/80 border border-slate-700 rounded-2xl p-3 flex flex-col items-center justify-between relative overflow-hidden">
-      {data.fromOpponent && <span className="absolute top-2 right-2 text-[8px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase z-10">Given</span>}
-      <img src={pk.sprite} alt={pk.name} className="w-16 h-16 object-contain z-10 drop-shadow-md" />
-      <div className="text-center z-10">
-        <p className="font-bold text-xs text-white capitalize">{pk.displayName}</p>
-        <div className="flex gap-1 justify-center mt-1">
-          {pk.types.map(t => <div key={t} style={{ backgroundColor: TYPE_COLORS[t] }} className="w-2 h-2 rounded-full" />)}
+    <div className="aspect-square w-full h-full relative" style={{ perspective: '1000px' }}>
+      <div 
+        className="w-full h-full relative rounded-2xl transition-transform duration-700"
+        style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
+      >
+        {/* FRONT: MYSTERY */}
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl flex flex-col items-center justify-center overflow-hidden"
+             style={{ backfaceVisibility: 'hidden' }}>
+          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #334155 1px, transparent 1px)', backgroundSize: '10px 10px' }} />
+          <HelpCircle className="w-12 h-12 text-slate-600 mb-2 relative z-10 animate-pulse" />
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest relative z-10">Mystery</span>
+          {data.fromOpponent && <span className="absolute top-2 right-2 text-[8px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase z-10">Given</span>}
+        </div>
+
+        {/* BACK: POKEMON */}
+        <div className="absolute inset-0 w-full h-full bg-slate-900/80 border border-slate-700 rounded-2xl p-3 flex flex-col items-center justify-between overflow-hidden"
+             style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+          {data.fromOpponent && <span className="absolute top-2 right-2 text-[8px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase z-10">Given</span>}
+          <img src={pk.sprite} alt={pk.name} className="w-16 h-16 object-contain z-10 drop-shadow-md" />
+          <div className="text-center z-10">
+            <p className="font-bold text-xs text-white capitalize">{pk.displayName}</p>
+            <div className="flex gap-1 justify-center mt-1">
+              {pk.types.map(t => <div key={t} style={{ backgroundColor: TYPE_COLORS[t] }} className="w-2 h-2 rounded-full" />)}
+            </div>
+          </div>
         </div>
       </div>
     </div>

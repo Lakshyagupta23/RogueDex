@@ -7,6 +7,7 @@ import { usePokemon } from '@/context/PokemonContext';
 import { PokemonIndexItem } from '@/lib/pokemon/types';
 import confetti from 'canvas-confetti';
 import { TYPE_COLORS } from '@/lib/pokemon/constants';
+import { playPokemonCry, playHoverTick, playSelectClick } from '@/lib/audio';
 
 export default function WhosThatPokemonPage() {
   const router = useRouter();
@@ -66,11 +67,6 @@ export default function WhosThatPokemonPage() {
     }
   }, [pokemonList, targetPokemon]);
 
-  const playCry = (speciesId: number) => {
-    const audio = new Audio(`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/cries/latest/${speciesId}.ogg`);
-    audio.volume = 0.45;
-    audio.play().catch(e => console.log('Cry playback failed:', e));
-  };
 
   const handleGuess = (guess: string) => {
     if (isRevealed || !targetPokemon) return;
@@ -88,7 +84,7 @@ export default function WhosThatPokemonPage() {
       }
 
       // Play audio cry
-      playCry(targetPokemon.speciesId);
+      playPokemonCry(targetPokemon.speciesId);
 
       // Trigger Confetti Celebration!
       confetti({
@@ -209,7 +205,7 @@ export default function WhosThatPokemonPage() {
                       <button
                         key={idx}
                         disabled={isIncorrect}
-                        onClick={() => handleGuess(optionName)}
+                        onClick={() => { playHoverTick(); handleGuess(optionName); }}
                         className={`w-full py-3.5 px-5 rounded-2xl border text-sm font-bold transition-all text-center ${
                           isIncorrect
                             ? 'bg-rose-500/10 border-rose-500/20 text-rose-500 cursor-not-allowed opacity-50'
@@ -234,7 +230,7 @@ export default function WhosThatPokemonPage() {
                     Give Up & Reveal
                   </button>
                   <button
-                    onClick={handleSkip}
+                    onClick={() => { playHoverTick(); handleSkip(); }}
                     className="px-5 py-2.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-xs font-bold rounded-full transition-all"
                   >
                     Skip & Reset
@@ -285,7 +281,7 @@ export default function WhosThatPokemonPage() {
                     View Dex Profile
                   </a>
                   <button
-                    onClick={startNewRound}
+                    onClick={() => { playSelectClick(); startNewRound(); }}
                     className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold rounded-xl transition-all active:scale-98"
                   >
                     Next Pokémon
