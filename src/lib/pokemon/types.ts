@@ -66,3 +66,59 @@ export interface SavedTeam {
   tags?: string[];
 }
 
+export type GameMode = 'standard' | 'blind' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos';
+export type ChaosEventId = 'rocket' | 'safari' | 'ditto' | 'fossil' | 'celebi' | 'yveltal' | 'wonder' | 'gym' | 'glitch' | 'gamble';
+
+export type DraftTeamMember = {
+  isMystery: boolean;
+  actualPk: PokemonIndexItem;
+  fromOpponent: boolean;
+  cost?: number;
+};
+
+export interface PlayerSlot {
+  id: string;
+  username: string;
+  team: DraftTeamMember[];
+  ready: boolean;
+}
+
+export interface DraftState {
+  code: string;
+  status: 'LOBBY' | 'DRAFTING' | 'HEIST' | 'REVEAL' | 'CHAOS_EVENT';
+  gameMode: GameMode;
+  blindClueType?: 'ability' | 'color';
+  optionsPerRound: number;
+  round: number;
+  totalRounds: number;
+  filters: any; // FilterCriteria is imported in page.tsx, we'll keep as any here to avoid circular dep if any, or just import it.
+  p1: PlayerSlot;
+  p2: PlayerSlot | null;
+  p1Options: PokemonIndexItem[];
+  p2Options: PokemonIndexItem[];
+  // Heist state
+  p1HeistChoice: number | null;
+  p2HeistChoice: number | null;
+  // Auction state
+  p1Budget: number;
+  p2Budget: number;
+  currentBid: number;
+  highestBidder: 1 | 2 | null;
+  p1Passed: boolean;
+  p2Passed: boolean;
+  // Modifiers
+  wildcardModifier?: boolean;
+  monotypeType?: string;
+  snakeTurn?: 1 | 2;
+  snakePickCount?: number;
+  // Chaos State
+  chaosState?: {
+    eventId: ChaosEventId;
+    p1Resolved: boolean;
+    p2Resolved: boolean;
+    data?: any;
+    p1Choice?: any;
+    p2Choice?: any;
+  };
+}
+

@@ -2,68 +2,13 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usePokemon } from '@/context/PokemonContext';
-import { PokemonIndexItem } from '@/lib/pokemon/types';
+import { PokemonIndexItem, GameMode, ChaosEventId, DraftTeamMember, PlayerSlot, DraftState } from '@/lib/pokemon/types';
 import { FilterCriteria, filterPokemon } from '@/lib/pokemon/data';
 import { TYPE_COLORS } from '@/lib/pokemon/constants';
-import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp, Eye, Sword, Shield, Skull, Gavel, Infinity as InfinityIcon, Wand2 } from 'lucide-react';
+import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp, Eye, Sword, Shield, Skull, Gavel, Infinity as InfinityIcon, Wand2, Zap } from 'lucide-react';
 import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemonCry, playHeistAlarm, playStealSound } from '@/lib/audio';
+import { CHAOS_EVENTS, getRandomFullyEvolved, getRandomLegendary, getRandomFossil } from '@/lib/pokemon/chaos';
 import Link from 'next/link';
-
-type GameMode = 'standard' | 'blind' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos';
-type ChaosEventId = 'rocket' | 'safari' | 'ditto' | 'fossil' | 'celebi' | 'yveltal' | 'wonder' | 'gym' | 'glitch' | 'gamble';
-
-type DraftTeamMember = {
-  isMystery: boolean;
-  actualPk: PokemonIndexItem;
-  fromOpponent: boolean;
-  cost?: number;
-};
-
-interface PlayerSlot {
-  id: string;
-  username: string;
-  team: DraftTeamMember[];
-  ready: boolean;
-}
-
-interface DraftState {
-  code: string;
-  status: 'LOBBY' | 'DRAFTING' | 'HEIST' | 'REVEAL' | 'CHAOS_EVENT';
-  gameMode: GameMode;
-  blindClueType?: 'ability' | 'color';
-  optionsPerRound: number;
-  round: number;
-  totalRounds: number;
-  filters: FilterCriteria;
-  p1: PlayerSlot;
-  p2: PlayerSlot | null;
-  p1Options: PokemonIndexItem[];
-  p2Options: PokemonIndexItem[];
-  // Heist state
-  p1HeistChoice: number | null;
-  p2HeistChoice: number | null;
-  // Auction state
-  p1Budget: number;
-  p2Budget: number;
-  currentBid: number;
-  highestBidder: 1 | 2 | null;
-  p1Passed: boolean;
-  p2Passed: boolean;
-  // New Modifiers & Modes
-  wildcardModifier: boolean;
-  monotypeType?: string;
-  snakeTurn?: 1 | 2;
-  snakePickCount?: number;
-  // Chaos Mode State
-  chaosState?: {
-    eventId: ChaosEventId;
-    p1Resolved: boolean;
-    p2Resolved: boolean;
-    data?: any;
-    p1Choice?: any;
-    p2Choice?: any;
-  };
-}
 
 const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison','ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy'];
 const ALL_GENS = [1,2,3,4,5,6,7,8,9];
@@ -99,6 +44,105 @@ function BlindClueHint({ id, speciesId, clueType }: { id: number, speciesId: num
       <Eye className="w-6 h-6 text-purple-500 mb-2 opacity-50" />
       <span className="text-[10px] uppercase font-bold text-slate-500">{clueType === 'color' ? 'Color Clue' : 'Ability Clue'}</span>
       <span className="text-sm font-black text-purple-400 text-center capitalize leading-tight mt-1">{clue}</span>
+    </div>
+  );
+}
+
+function ChaosEventPanel({ gameState, myPlayerNum, onChoice }: {
+  gameState: DraftState;
+  myPlayerNum: 1 | 2 | null;
+  isHost: boolean;
+  onChoice: (choice: any) => void;
+}) {
+  const cs = gameState.chaosState!;
+  const eventMeta = CHAOS_EVENTS.find(e => e.id === cs.eventId);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+
+  const myTeam = myPlayerNum === 1 ? gameState.p1.team : (gameState.p2?.team ?? []);
+  const myResolved = myPlayerNum === 1 ? cs.p1Resolved : cs.p2Resolved;
+  const myFossil = myPlayerNum === 1 ? cs.data?.p1Fossil : cs.data?.p2Fossil;
+
+  const handleSubmit = (choice: any) => {
+    setSubmitted(true);
+    onChoice(choice);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85">
+      <div className="w-full max-w-2xl rounded-3xl border-2 border-fuchsia-500/60 bg-slate-900 p-8 flex flex-col items-center gap-6 shadow-2xl shadow-fuchsia-900/40">
+        <div className="flex flex-col items-center gap-2">
+          <div className="text-6xl">{eventMeta?.title.split(' ')[0]}</div>
+          <h2 className="text-2xl font-black text-fuchsia-400 text-center tracking-tight">{eventMeta?.title.slice(3)}</h2>
+          <p className="text-slate-300 text-center text-sm max-w-sm">{eventMeta?.description}</p>
+        </div>
+
+        {!myResolved && !submitted ? (
+          <>
+            {cs.eventId === 'fossil' && myFossil && (
+              <div className="flex flex-col items-center gap-4 w-full">
+                <div className="flex flex-col items-center bg-slate-800 border border-amber-500/40 rounded-2xl p-4">
+                  <img src={myFossil.sprite} className="w-20 h-20 object-contain" alt={myFossil.displayName} />
+                  <span className="font-black text-white capitalize mt-1">{myFossil.displayName}</span>
+                  <div className="flex gap-1 mt-1">{myFossil.types.map((t: string) => <span key={t} className="text-[10px] font-bold uppercase" style={{ color: TYPE_COLORS[t] }}>{t}</span>)}</div>
+                  <span className="text-xs text-amber-400 font-bold mt-1">BST: {myFossil.stats.total}</span>
+                </div>
+                <p className="text-slate-400 text-sm">Pick which team slot to replace — or skip</p>
+                <div className="grid grid-cols-3 gap-2 w-full">
+                  {myTeam.map((m, i) => (
+                    <button key={i} onClick={() => setSelectedIdx(i === selectedIdx ? null : i)}
+                      className={`p-2 rounded-xl border flex flex-col items-center transition-all ${selectedIdx === i ? 'border-fuchsia-500 bg-fuchsia-900/30' : 'border-slate-700 bg-slate-800 hover:border-fuchsia-400'}`}>
+                      <img src={m.actualPk.sprite} className="w-10 h-10 object-contain" alt={m.actualPk.displayName} />
+                      <span className="text-[10px] font-bold text-white capitalize truncate w-full text-center">{m.actualPk.displayName}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-3 w-full">
+                  <button onClick={() => handleSubmit(-1)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-3 rounded-xl">Skip</button>
+                  <button onClick={() => { if (selectedIdx !== null) handleSubmit(selectedIdx); }} disabled={selectedIdx === null}
+                    className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl">Accept Fossil!</button>
+                </div>
+              </div>
+            )}
+
+            {cs.eventId === 'wonder' && (
+              <div className="flex flex-col items-center gap-4 w-full">
+                <p className="text-slate-400 text-sm text-center">Select a Pokémon to throw into the Wonder Trade. You&apos;ll get a random fully evolved one back!</p>
+                <div className="grid grid-cols-3 gap-2 w-full">
+                  {myTeam.map((m, i) => (
+                    <button key={i} onClick={() => setSelectedIdx(i === selectedIdx ? null : i)}
+                      className={`p-2 rounded-xl border flex flex-col items-center transition-all ${selectedIdx === i ? 'border-fuchsia-500 bg-fuchsia-900/30' : 'border-slate-700 bg-slate-800 hover:border-fuchsia-400'}`}>
+                      <img src={m.actualPk.sprite} className="w-10 h-10 object-contain" alt={m.actualPk.displayName} />
+                      <span className="text-[10px] font-bold text-white capitalize truncate w-full text-center">{m.actualPk.displayName}</span>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => { if (selectedIdx !== null) handleSubmit(selectedIdx); }} disabled={selectedIdx === null}
+                  className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl">Send to Wonder Trade!</button>
+              </div>
+            )}
+
+            {cs.eventId === 'gamble' && (
+              <div className="flex flex-col items-center gap-6 w-full">
+                <div className="text-4xl font-black text-amber-400 animate-pulse">🎰 SPIN THE WHEEL?</div>
+                <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 text-center text-sm text-slate-300 w-full">
+                  <p><span className="text-emerald-400 font-black">WIN (50%):</span> Steal a random Pokémon from your opponent!</p>
+                  <p className="mt-1"><span className="text-rose-400 font-black">LOSE (50%):</span> Your best Pokémon is replaced by a random fully evolved one!</p>
+                </div>
+                <div className="flex gap-4 w-full">
+                  <button onClick={() => handleSubmit(false)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-4 rounded-xl text-lg">🛡 Play it safe</button>
+                  <button onClick={() => handleSubmit(true)} className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-black py-4 rounded-xl text-lg">🎰 GAMBLE!</button>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-col items-center gap-3 text-slate-400">
+            <Loader2 className="w-8 h-8 animate-spin text-fuchsia-500" />
+            <p className="font-bold">{submitted ? 'Waiting for opponent...' : 'Event resolved! Continuing draft...'}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -279,6 +323,133 @@ export default function DraftMode() {
   }, [applyState, broadcastToGuest, getActualPk, pokemonList]);
 
   // Resolve a standard draft round
+  const triggerChaosEvent = useCallback((state: DraftState) => {
+    const CHAOS_EVENT_IDS: ChaosEventId[] = ['rocket','safari','ditto','fossil','celebi','yveltal','wonder','gym','glitch','gamble'];
+    const eventId = CHAOS_EVENT_IDS[Math.floor(Math.random() * CHAOS_EVENT_IDS.length)];
+    playHeistAlarm();
+
+    const p1Team = state.p1.team;
+    const p2Team = state.p2!.team;
+
+    // Events that need no player choice — resolve immediately
+    if (eventId === 'rocket') {
+      // Swap strongest pokemon between teams
+      const getBest = (team: DraftTeamMember[]) => team.reduce((a, b) => (b.actualPk.stats.total > a.actualPk.stats.total ? b : a), team[0]);
+      if (p1Team.length && p2Team.length) {
+        const b1 = getBest(p1Team);
+        const b2 = getBest(p2Team);
+        const i1 = p1Team.indexOf(b1); const i2 = p2Team.indexOf(b2);
+        state.p1.team[i1] = { ...b2, fromOpponent: true };
+        state.p2!.team[i2] = { ...b1, fromOpponent: true };
+      }
+      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { resolved: true } };
+      state.status = 'DRAFTING';
+      generateOptions(state, pokemonList);
+    } else if (eventId === 'safari') {
+      // Next round ignores filters — generate from full pool
+      const fullPool = pokemonList.filter(p => p.id < 10000 && !p.isMega);
+      const shuffled = [...fullPool].sort(() => Math.random() - 0.5);
+      state.p1Options = shuffled.slice(0, state.optionsPerRound).map(p => ({ ...p }));
+      state.p2Options = shuffled.slice(state.optionsPerRound, state.optionsPerRound * 2).map(p => ({ ...p }));
+      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { resolved: true } };
+      state.status = 'DRAFTING';
+    } else if (eventId === 'ditto') {
+      const ditto = pokemonList.find(p => p.id === 132);
+      if (ditto) {
+        state.p1Options = Array(state.optionsPerRound).fill(null).map(() => ({ ...ditto }));
+        state.p2Options = Array(state.optionsPerRound).fill(null).map(() => ({ ...ditto }));
+      }
+      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { resolved: true } };
+      state.status = 'DRAFTING';
+    } else if (eventId === 'celebi') {
+      const tmp = state.p1.team;
+      state.p1.team = state.p2!.team.map(m => ({ ...m }));
+      state.p2!.team = tmp.map(m => ({ ...m }));
+      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { resolved: true } };
+      state.status = 'DRAFTING';
+      generateOptions(state, pokemonList);
+    } else if (eventId === 'yveltal') {
+      const getBest = (team: DraftTeamMember[]) => team.length ? team.reduce((a, b) => b.actualPk.stats.total > a.actualPk.stats.total ? b : a, team[0]) : null;
+      const b1 = getBest(p1Team); const b2 = getBest(p2Team);
+      if (b1) { const i = p1Team.indexOf(b1); state.p1.team[i] = { ...b1, actualPk: getRandomFullyEvolved(pokemonList) }; }
+      if (b2) { const i = p2Team.indexOf(b2); state.p2!.team[i] = { ...b2, actualPk: getRandomFullyEvolved(pokemonList) }; }
+      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { resolved: true } };
+      state.status = 'DRAFTING';
+      generateOptions(state, pokemonList);
+    } else if (eventId === 'gym') {
+      const randomType = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+      const typePool = pokemonList.filter(p => p.types.includes(randomType) && p.id < 10000 && !p.isMega);
+      const shuffled = [...typePool].sort(() => Math.random() - 0.5);
+      state.p1Options = shuffled.slice(0, state.optionsPerRound).map(p => ({ ...p }));
+      state.p2Options = shuffled.slice(state.optionsPerRound, state.optionsPerRound * 2).map(p => ({ ...p }));
+      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { lockedType: randomType, resolved: true } };
+      state.status = 'DRAFTING';
+    } else if (eventId === 'glitch') {
+      const getBest = (team: DraftTeamMember[]) => team.length ? { m: team.reduce((a, b) => b.actualPk.stats.total > a.actualPk.stats.total ? b : a, team[0]), i: 0 } : null;
+      if (p1Team.length) { const idx = p1Team.indexOf(p1Team.reduce((a,b) => b.actualPk.stats.total > a.actualPk.stats.total ? b : a, p1Team[0])); state.p1.team[idx] = { ...p1Team[idx], actualPk: getRandomLegendary(pokemonList) }; }
+      if (p2Team.length) { const idx = p2Team.indexOf(p2Team.reduce((a,b) => b.actualPk.stats.total > a.actualPk.stats.total ? b : a, p2Team[0])); state.p2!.team[idx] = { ...p2Team[idx], actualPk: getRandomLegendary(pokemonList) }; }
+      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { resolved: true } };
+      state.status = 'DRAFTING';
+      generateOptions(state, pokemonList);
+    } else {
+      // Events requiring player choice: fossil, wonder, gamble
+      const eventData: any = {};
+      if (eventId === 'fossil') {
+        eventData.p1Fossil = getRandomFossil(pokemonList);
+        eventData.p2Fossil = getRandomFossil(pokemonList);
+      }
+      state.chaosState = { eventId, p1Resolved: false, p2Resolved: false, data: eventData };
+      state.status = 'CHAOS_EVENT';
+    }
+  }, [generateOptions, pokemonList]);
+
+  const resolveChaosChoice = useCallback((playerNum: 1 | 2, choice: any) => {
+    if (!isHostRef.current || !gameStateRef.current) return;
+    const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+    const cs = next.chaosState!;
+    if (playerNum === 1) { cs.p1Choice = choice; cs.p1Resolved = true; }
+    else { cs.p2Choice = choice; cs.p2Resolved = true; }
+
+    if (cs.p1Resolved && cs.p2Resolved) {
+      const eventId = cs.eventId;
+      if (eventId === 'fossil') {
+        // p1Choice = index to replace (-1 = skip), p2Choice same
+        if (cs.p1Choice >= 0 && next.p1.team[cs.p1Choice]) next.p1.team[cs.p1Choice] = { isMystery: false, actualPk: cs.data.p1Fossil, fromOpponent: false };
+        if (cs.p2Choice >= 0 && next.p2!.team[cs.p2Choice]) next.p2!.team[cs.p2Choice] = { isMystery: false, actualPk: cs.data.p2Fossil, fromOpponent: false };
+      } else if (eventId === 'wonder') {
+        // p1Choice = index to trade
+        if (cs.p1Choice >= 0 && next.p1.team[cs.p1Choice]) next.p1.team[cs.p1Choice] = { isMystery: false, actualPk: getRandomFullyEvolved(pokemonList), fromOpponent: false };
+        if (cs.p2Choice >= 0 && next.p2!.team[cs.p2Choice]) next.p2!.team[cs.p2Choice] = { isMystery: false, actualPk: getRandomFullyEvolved(pokemonList), fromOpponent: false };
+      } else if (eventId === 'gamble') {
+        // p1Choice / p2Choice = true (gamble) or false (keep)
+        const getBestIdx = (team: DraftTeamMember[]) => team.length ? team.indexOf(team.reduce((a, b) => b.actualPk.stats.total > a.actualPk.stats.total ? b : a, team[0])) : -1;
+        if (cs.p1Choice === true) {
+          const win = Math.random() < 0.5;
+          const bestIdx = getBestIdx(next.p1.team);
+          if (win && next.p2!.team.length) {
+            const stealIdx = Math.floor(Math.random() * next.p2!.team.length);
+            if (bestIdx >= 0) next.p1.team[bestIdx] = { ...next.p2!.team[stealIdx], fromOpponent: true };
+          } else if (!win && bestIdx >= 0) {
+            next.p1.team[bestIdx] = { ...next.p1.team[bestIdx], actualPk: getRandomFullyEvolved(pokemonList) };
+          }
+        }
+        if (cs.p2Choice === true) {
+          const win = Math.random() < 0.5;
+          const bestIdx = getBestIdx(next.p2!.team);
+          if (win && next.p1.team.length) {
+            const stealIdx = Math.floor(Math.random() * next.p1.team.length);
+            if (bestIdx >= 0) next.p2!.team[bestIdx] = { ...next.p1.team[stealIdx], fromOpponent: true };
+          } else if (!win && bestIdx >= 0) {
+            next.p2!.team[bestIdx] = { ...next.p2!.team[bestIdx], actualPk: getRandomFullyEvolved(pokemonList) };
+          }
+        }
+      }
+      next.status = 'DRAFTING';
+      generateOptions(next, pokemonList);
+    }
+    applyState(next); broadcastToGuest(next);
+  }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
+
   const resolveRound = useCallback((state: DraftState) => {
     const act1 = p1PendingRef.current!;
     const act2 = p2PendingRef.current!;
@@ -310,6 +481,9 @@ export default function DraftMode() {
         state.status = 'HEIST';
         state.p1HeistChoice = null;
         state.p2HeistChoice = null;
+      } else if (state.gameMode === 'chaos' && state.round === state.totalRounds + 1) {
+        // After last round of chaos draft, trigger an event instead of reveal
+        triggerChaosEvent(state);
       } else {
         state.status = 'REVEAL';
       }
@@ -318,7 +492,7 @@ export default function DraftMode() {
     }
     applyState({ ...state });
     broadcastToGuest({ ...state });
-  }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
+  }, [applyState, broadcastToGuest, generateOptions, pokemonList, triggerChaosEvent, getActualPk]);
 
   // Resolve the Heist round
   const resolveHeist = useCallback((state: DraftState) => {
@@ -370,6 +544,9 @@ export default function DraftMode() {
       p2HeistRef.current = { stealIdx: data.stealIdx, swapIdx: data.swapIdx };
       if (p1HeistRef.current !== null) { resolveHeist(next); } else { applyState(next); broadcastToGuest(next); }
     }
+    if (data.type === 'chaos_choice') {
+      resolveChaosChoice(2, data.choice);
+    }
     if (data.type === 'auction_bid') {
       const next: DraftState = JSON.parse(JSON.stringify(cur));
       const budget = data.playerNum === 1 ? next.p1Budget : next.p2Budget;
@@ -402,7 +579,7 @@ export default function DraftMode() {
         applyState(next); broadcastToGuest(next);
       }
     }
-  }, [applyState, broadcastToGuest, resolveRound, resolveHeist, resolveAuctionWin]);
+  }, [applyState, broadcastToGuest, resolveRound, resolveHeist, resolveAuctionWin, resolveChaosChoice]);
 
   const stateDiscardAndDraw = useCallback((next: DraftState) => {
      next.round += 1;
@@ -916,6 +1093,19 @@ export default function DraftMode() {
           </div>
         ) : gameState.status === 'HEIST' ? (
           <HeistPhase gameState={gameState} isHost={isHost} myTeam={mySlot?.team ?? []} opponentTeam={opponentSlot?.team ?? []} myStealIdx={myHeistStealIdx} mySwapIdx={myHeistSwapIdx} setMyStealIdx={setMyHeistStealIdx} setMySwapIdx={setMyHeistSwapIdx} heistSubmitted={heistSubmitted} onSubmit={submitMyHeist} />
+        ) : gameState.status === 'CHAOS_EVENT' ? (
+          <ChaosEventPanel
+            gameState={gameState}
+            myPlayerNum={myPlayerNum}
+            isHost={isHost}
+            onChoice={(choice: any) => {
+              if (isHostRef.current) {
+                resolveChaosChoice(1, choice);
+              } else {
+                hostConnRef.current?.send({ type: 'chaos_choice', choice });
+              }
+            }}
+          />
         ) : (
           <div className="flex flex-col gap-12">
             <div className="text-center">
