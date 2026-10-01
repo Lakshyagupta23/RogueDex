@@ -709,7 +709,8 @@ export default function DraftMode() {
        p1: { ...cur.p1, team: [], ready: false },
        p2: cur.p2 ? { ...cur.p2, team: [], ready: false } : null,
        p1HeistChoice: null, p2HeistChoice: null,
-       p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false
+       p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
+       snakeTurn: 1, snakePickCount: 0
     };
     p1PendingRef.current = null;
     p2PendingRef.current = null;
@@ -814,7 +815,8 @@ export default function DraftMode() {
       p1Options: [],
       p2Options: [],
       p1HeistChoice: null, p2HeistChoice: null,
-      p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false
+      p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
+      snakeTurn: 1, snakePickCount: 0
     };
     p1PendingRef.current = null;
     p2PendingRef.current = null;
