@@ -110,8 +110,7 @@ export default function DraftMode() {
 
   const generateOptions = useCallback((state: DraftState, list: PokemonIndexItem[]) => {
     const pool = filterPokemon(list, state.filters);
-    // Never fall back to full list - if pool is empty, keep it empty so host knows filters are too strict
-    const src = pool.length > 0 ? pool : list;
+    const src = pool; // Strictly enforce filters, even if empty
     // Shuffle and pick unique options
     const pickUnique = (count: number): PokemonIndexItem[] => {
       const shuffled = [...src].sort(() => Math.random() - 0.5);
