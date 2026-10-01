@@ -1131,7 +1131,10 @@ export default function DraftMode() {
                 <button onClick={returnToLobby} className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">🔄 Play Again (Change Settings)</button>
               )}
               {gameState.status !== 'REVEAL' && isHost && (
-                 <button onClick={restartDraft} className="mt-4 inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-rose-500/30">🔄 Reset Draft (Clear Teams)</button>
+                 <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                   <button onClick={returnToLobby} className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-indigo-400 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-indigo-500/30">⬅️ Back to Lobby (Change Mode)</button>
+                   <button onClick={restartDraft} className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-rose-500/30">🔄 Reset Draft (Clear Teams)</button>
+                 </div>
               )}
               {gameState.status === 'REVEAL' && !isHost && <p className="text-slate-500 text-sm mt-2">Waiting for host to restart...</p>}
             </div>
