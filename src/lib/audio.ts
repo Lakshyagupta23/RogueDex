@@ -99,6 +99,7 @@ export function playRevealChime() {
 
 export function playPokemonCry(pokemonId: number) {
   if (typeof window === 'undefined') return;
+  if (localStorage.getItem('mutePokemonCries') === 'true') return;
   
   const audio = new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${pokemonId}.ogg`);
   audio.volume = 0.5;

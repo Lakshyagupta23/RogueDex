@@ -1083,6 +1083,11 @@ function RandomizerContent() {
                           REGIONAL
                         </span>
                       )}
+                      {currentPokemon.isParadox && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-pink-500/15 border border-pink-500/20 text-pink-400">
+                          PARADOX
+                        </span>
+                      )}
                     </div>
                   </div>
 

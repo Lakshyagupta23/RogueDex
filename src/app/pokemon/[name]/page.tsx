@@ -246,6 +246,11 @@ function DetailContent({ params }: { params: Promise<{ name: string }> }) {
                     LEGENDARY
                   </span>
                 )}
+                {details.isParadox && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-pink-500/15 border border-pink-500/25 text-pink-400">
+                    PARADOX
+                  </span>
+                )}
                 {details.isMythical && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/25 text-emerald-400">
                     MYTHICAL

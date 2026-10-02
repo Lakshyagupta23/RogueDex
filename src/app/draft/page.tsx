@@ -43,13 +43,12 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'nuzlocke', icon: <Skull className="w-6 h-6" />, label: '☠️ Nuzlocke Draft', description: 'Draft a team of 6, then each player assassinates 1 opponent Pokémon! Guess their target to save it.', color: 'text-rose-400', borderColor: 'border-rose-500' }
 ];
 
-function ShadowClueHint({ id, speciesId }: { id: number, speciesId: number }) {
+function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
   const [clue, setClue] = useState<string>('Loading...');
   const [clueLabel, setClueLabel] = useState<string>('Analyzing...');
 
   useEffect(() => {
-    const types = ['weight', 'height', 'shape', 'habitat'];
-    const chosenType = types[Math.floor(Math.random() * types.length)];
+    const chosenType = type;
     
     if (['shape', 'habitat'].includes(chosenType)) {
       fetch(`https://pokeapi.co/api/v2/pokemon-species/${speciesId}/`)
@@ -81,12 +80,12 @@ function ShadowClueHint({ id, speciesId }: { id: number, speciesId: number }) {
   );
 }
 
-function BlindClueHint({ id, speciesId }: { id: number, speciesId: number }) {
+function BlindClueHint({ id, speciesId, type }: { id: number, speciesId: number, type?: 'ability' | 'color' }) {
   const [clue, setClue] = useState<string>('Loading...');
   const [clueLabel, setClueLabel] = useState<string>('Analyzing...');
 
   useEffect(() => {
-    const chosenType = Math.random() > 0.5 ? 'color' : 'ability';
+    const chosenType = type || (Math.random() > 0.5 ? 'color' : 'ability');
     if (chosenType === 'color') {
       fetch(`https://pokeapi.co/api/v2/pokemon-species/${speciesId}/`)
         .then(r => r.json())
@@ -118,8 +117,7 @@ function BlindClueHint({ id, speciesId }: { id: number, speciesId: number }) {
 }
 
 function MonotypeRoulettePanel({ gameState, isHost, onComplete }: { gameState: DraftState, isHost: boolean, onComplete: () => void }) {
-  const [currentTypeP1, setCurrentTypeP1] = useState<string>(ALL_TYPES[0]);
-  const [currentTypeP2, setCurrentTypeP2] = useState<string>(ALL_TYPES[1]);
+  const [currentType, setCurrentType] = useState<string>(ALL_TYPES[0]);
   const [isDone, setIsDone] = useState(false);
   const onCompleteRef = useRef(onComplete);
   
@@ -132,12 +130,10 @@ function MonotypeRoulettePanel({ gameState, isHost, onComplete }: { gameState: D
     const maxTicks = 40;
     const interval = setInterval(() => {
       tick++;
-      setCurrentTypeP1(ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)]);
-      setCurrentTypeP2(ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)]);
+      setCurrentType(ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)]);
       if (tick >= maxTicks) {
         clearInterval(interval);
-        setCurrentTypeP1(gameState.monotypeP1 || 'normal');
-        setCurrentTypeP2(gameState.monotypeP2 || 'normal');
+        setCurrentType(gameState.monotypeP1 || 'normal');
         setIsDone(true);
         if (isHost) {
           setTimeout(() => onCompleteRef.current(), 3000);
@@ -145,50 +141,28 @@ function MonotypeRoulettePanel({ gameState, isHost, onComplete }: { gameState: D
       }
     }, 50);
     return () => clearInterval(interval);
-  }, [gameState.monotypeP1, gameState.monotypeP2, isHost]);
+  }, [gameState.monotypeP1, isHost]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh]">
-      <h2 className="text-3xl font-black text-white mb-8">Rolling Monotypes...</h2>
-      <div className="flex gap-8">
-        <div className="flex flex-col items-center gap-2">
-          <span className="text-slate-400 font-bold">{gameState.p1.username}&apos;s Type</span>
-          <motion.div 
-            key={currentTypeP1}
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: isDone ? 1.2 : 1, opacity: 1 }}
-            className="w-40 h-40 rounded-2xl flex flex-col items-center justify-center border-4"
-            style={{ 
-              backgroundColor: `${TYPE_COLORS[currentTypeP1]}20`,
-              borderColor: TYPE_COLORS[currentTypeP1],
-              boxShadow: isDone ? `0 0 40px ${TYPE_COLORS[currentTypeP1]}` : 'none'
-            }}
-          >
-            <span className="text-3xl font-black uppercase tracking-widest" style={{ color: TYPE_COLORS[currentTypeP1] }}>
-              {currentTypeP1}
-            </span>
-          </motion.div>
-        </div>
-        {gameState.p2 && (
-          <div className="flex flex-col items-center gap-2">
-            <span className="text-slate-400 font-bold">{gameState.p2.username}&apos;s Type</span>
-            <motion.div 
-              key={currentTypeP2}
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: isDone ? 1.2 : 1, opacity: 1 }}
-              className="w-40 h-40 rounded-2xl flex flex-col items-center justify-center border-4"
-              style={{ 
-                backgroundColor: `${TYPE_COLORS[currentTypeP2]}20`,
-                borderColor: TYPE_COLORS[currentTypeP2],
-                boxShadow: isDone ? `0 0 40px ${TYPE_COLORS[currentTypeP2]}` : 'none'
-              }}
-            >
-              <span className="text-3xl font-black uppercase tracking-widest" style={{ color: TYPE_COLORS[currentTypeP2] }}>
-                {currentTypeP2}
-              </span>
-            </motion.div>
-          </div>
-        )}
+      <h2 className="text-3xl font-black text-white mb-8">Rolling Draft Type...</h2>
+      <div className="flex flex-col items-center gap-2">
+        <span className="text-slate-400 font-bold">Draft Pool Restricted To</span>
+        <motion.div 
+          key={currentType}
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: isDone ? 1.2 : 1, opacity: 1 }}
+          className="w-48 h-48 rounded-2xl flex flex-col items-center justify-center border-4"
+          style={{ 
+            backgroundColor: `${TYPE_COLORS[currentType]}20`,
+            borderColor: TYPE_COLORS[currentType],
+            boxShadow: isDone ? `0 0 40px ${TYPE_COLORS[currentType]}` : 'none'
+          }}
+        >
+          <span className="text-4xl font-black uppercase tracking-widest" style={{ color: TYPE_COLORS[currentType] }}>
+            {currentType}
+          </span>
+        </motion.div>
       </div>
     </div>
   );
@@ -325,6 +299,8 @@ export default function DraftMode() {
   
   // Track XP awarded for current draft session
   const [draftRewardGivenForId, setDraftRewardGivenForId] = useState<string | null>(null);
+  
+  const [blindClueType, setBlindClueType] = useState<'ability' | 'color'>('ability');
 
   useEffect(() => {
     if (musicOn) {
@@ -471,9 +447,9 @@ export default function DraftMode() {
 
     let p1Pool = basePool;
     let p2Pool = basePool;
-    if (state.gameMode === 'monotype' && state.monotypeP1 && state.monotypeP2) {
+    if (state.gameMode === 'monotype' && state.monotypeP1) {
       p1Pool = basePool.filter(p => p.types.includes(state.monotypeP1!));
-      p2Pool = basePool.filter(p => p.types.includes(state.monotypeP2!));
+      p2Pool = basePool.filter(p => p.types.includes(state.monotypeP1!));
       if (p1Pool.length === 0) p1Pool = basePool;
       if (p2Pool.length === 0) p2Pool = basePool;
     }
@@ -1048,11 +1024,13 @@ export default function DraftMode() {
        p2: cur.p2 ? { ...cur.p2, team: [], ready: false } : null,
        p1HeistChoice: null, p2HeistChoice: null,
        p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
-       snakeTurn: 1, snakePickCount: 0
+       snakeTurn: 1, snakePickCount: 0,
+       blindClueType: selectedMode === 'blind' ? blindClueType : undefined
     };
     if (selectedMode === 'monotype') {
-       next.monotypeP1 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
-       next.monotypeP2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       const sharedType = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       next.monotypeP1 = sharedType;
+       next.monotypeP2 = sharedType;
     }
     
     p1PendingRef.current = null;
@@ -1436,6 +1414,26 @@ export default function DraftMode() {
                 </div>
               </div>
 
+              {selectedMode === 'blind' && (
+                <div className="flex flex-col gap-3 pt-4 border-t border-slate-800">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Blind Clue Type</label>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => { playHoverTick(); setBlindClueType('ability'); }}
+                      className={`flex-1 py-2 rounded-lg font-bold text-sm border transition-all ${blindClueType === 'ability' ? 'bg-purple-500/20 text-purple-400 border-purple-500' : 'bg-slate-900 border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300'}`}
+                    >
+                      By Ability
+                    </button>
+                    <button 
+                      onClick={() => { playHoverTick(); setBlindClueType('color'); }}
+                      className={`flex-1 py-2 rounded-lg font-bold text-sm border transition-all ${blindClueType === 'color' ? 'bg-purple-500/20 text-purple-400 border-purple-500' : 'bg-slate-900 border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300'}`}
+                    >
+                      By Color
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col gap-3 pt-4 border-t border-slate-800">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Host a Game</label>
                 {selectedMode !== 'auction' && selectedMode !== 'wildcard' && (
@@ -1644,10 +1642,7 @@ export default function DraftMode() {
               {gameState.gameMode === 'monotype' && gameState.status === 'DRAFTING' && (
                 <div className="flex gap-4 mt-1 justify-center">
                   <p className="font-bold text-sm" style={{ color: gameState.monotypeP1 ? TYPE_COLORS[gameState.monotypeP1] : '#fb923c' }}>
-                    🔥 P1: {gameState.monotypeP1?.toUpperCase()}
-                  </p>
-                  <p className="font-bold text-sm" style={{ color: gameState.monotypeP2 ? TYPE_COLORS[gameState.monotypeP2] : '#fb923c' }}>
-                    🔥 P2: {gameState.monotypeP2?.toUpperCase()}
+                    🔥 Forced Type: {gameState.monotypeP1?.toUpperCase()}
                   </p>
                 </div>
               )}
@@ -1814,6 +1809,9 @@ export default function DraftMode() {
                             const isShadow = gameState.gameMode === 'shadow';
                             const isVip = gameState.gameMode === 'vip';
                             
+                            const shadowTypes = ['height', 'weight', 'habitat', 'shape'];
+                            const currentShadowType = shadowTypes[(gameState.round - 1) % shadowTypes.length];
+                            
                             // In Blind mode, we only hide the image/name/types, but color remains accurate
                             // In Shadow mode, the color is hidden (purple)
                             const cardColor = isShadow ? '#64748b' : TYPE_COLORS[pk.types[0]];
@@ -1831,9 +1829,9 @@ export default function DraftMode() {
                                 }`}>
                                   <div className="flex items-center gap-3 relative z-30">
                                     {isBlind ? (
-                                      <BlindClueHint id={pk.id} speciesId={pk.speciesId} />
+                                      <BlindClueHint id={pk.id} speciesId={pk.speciesId} type={gameState.blindClueType} />
                                     ) : isShadow ? (
-                                      <ShadowClueHint id={pk.id} speciesId={pk.speciesId} />
+                                      <ShadowClueHint id={pk.id} speciesId={pk.speciesId} type={currentShadowType} />
                                     ) : (
                                       <>
                                         <img src={pk.sprite} alt={pk.name} className="w-12 h-12 object-contain" />
