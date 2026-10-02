@@ -31,9 +31,9 @@ function formatShowdownName(name: string): string {
   return name;
 }
 
-function calculateSmartEVs(pk: PokemonIndexItem | string, roleName: string | null): string {
+function calculateSmartEVsAndNature(pk: PokemonIndexItem | string, roleName: string | null): { evs: string, nature: string } {
   if (typeof pk === 'string' || !pk.stats) {
-    return '85 HP / 85 Atk / 85 Def / 85 SpA / 85 SpD / 85 Spe';
+    return { evs: '85 HP / 85 Atk / 85 Def / 85 SpA / 85 SpD / 85 Spe', nature: 'Hardy' };
   }
 
   let primary: keyof typeof pk.stats | null = null;
@@ -107,7 +107,30 @@ function calculateSmartEVs(pk: PokemonIndexItem | string, roleName: string | nul
   if (evMap.spD > 0) evParts.push(`${evMap.spD} SpD`);
   if (evMap.spe > 0) evParts.push(`${evMap.spe} Spe`);
   
-  return evParts.join(' / ');
+  // Deduce Nature
+  let boostedStat = primary;
+  if (primary === 'hp') {
+    boostedStat = secondary || 'def'; // HP cannot be boosted by nature, so boost the secondary stat
+  }
+  
+  // Decreased stat is usually the unused attacking stat
+  let decreasedStat: 'atk' | 'spAtk' = isPhysical ? 'spAtk' : 'atk';
+  
+  // Nature lookup table: [Boosted][Decreased]
+  const natureMatrix: Record<string, Record<string, string>> = {
+    atk: { spAtk: 'Adamant', atk: 'Hardy' },
+    def: { spAtk: 'Impish', atk: 'Bold' },
+    spAtk: { atk: 'Modest', spAtk: 'Hardy' },
+    spDef: { spAtk: 'Careful', atk: 'Calm' },
+    spe: { spAtk: 'Jolly', atk: 'Timid' }
+  };
+  
+  let nature = 'Hardy';
+  if (boostedStat && natureMatrix[boostedStat] && natureMatrix[boostedStat][decreasedStat]) {
+    nature = natureMatrix[boostedStat][decreasedStat];
+  }
+  
+  return { evs: evParts.join(' / '), nature };
 }
 
 export async function generateShowdownExport(pokemonInput: (PokemonIndexItem | string)[]): Promise<string> {
@@ -141,8 +164,8 @@ export async function generateShowdownExport(pokemonInput: (PokemonIndexItem | s
       }
       
       if (!pSet) {
-         const evs = calculateSmartEVs(pk, null);
-         return `${sdName}\nEVs: ${evs}\n`;
+         const { evs, nature } = calculateSmartEVsAndNature(pk, null);
+         return `${sdName}\nAbility: Unknown\nEVs: ${evs}\n${nature} Nature\n`;
       }
       
       const roles = Object.keys(pSet.roles || {});
@@ -167,9 +190,9 @@ export async function generateShowdownExport(pokemonInput: (PokemonIndexItem | s
       moves = moves.sort(() => 0.5 - Math.random()).slice(0, 4);
       
       const abilityLine = ability && ability !== 'Unknown' ? `\nAbility: ${ability}` : '';
-      const evs = calculateSmartEVs(pk, roleName);
+      const { evs, nature } = calculateSmartEVsAndNature(pk, roleName);
       
-      return `${sdName} @ ${item}${abilityLine}\nLevel: ${pSet.level || 80}\nTera Type: ${teraType}\nEVs: ${evs}\n${moves.map((mv: string) => '- ' + mv).join('\n')}\n`;
+      return `${sdName} @ ${item}${abilityLine}\nLevel: ${pSet.level || 80}\nTera Type: ${teraType}\nEVs: ${evs}\n${nature} Nature\n${moves.map((mv: string) => '- ' + mv).join('\n')}\n`;
     }).join('\n');
   } catch (err) {
     console.error('Failed to generate showdown sets:', err);
