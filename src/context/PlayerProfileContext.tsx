@@ -172,8 +172,6 @@ export function PlayerProfileProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  if (!isLoaded) return <>{children}</>;
-
   return (
     <PlayerProfileContext.Provider value={{
       ...state,
