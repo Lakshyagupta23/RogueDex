@@ -1755,14 +1755,18 @@ export default function DraftMode() {
                                 }`}>
                                   {isBlind && <BlindClueHint id={pk.id} speciesId={pk.speciesId} />}
                                   {isShadow && <ShadowClueHint id={pk.id} speciesId={pk.speciesId} />}
-                                  <div className={`flex items-center gap-3 relative z-30 ${isBlind || isShadow ? 'invisible' : ''}`}>
-                                    <img src={pk.sprite} alt={pk.name} className="w-12 h-12 object-contain" />
-                                    <div>
-                                      <p className="font-bold text-sm text-white capitalize">{pk.displayName}</p>
-                                      <div className="flex gap-1 mt-1">
-                                        {pk.types.map(t => <span key={t} style={{ color: TYPE_COLORS[t] }} className="text-[10px] font-bold uppercase">{t}</span>)}
-                                      </div>
-                                    </div>
+                                  <div className={`flex items-center gap-3 relative z-30 ${isBlind || isShadow ? 'invisible opacity-0' : ''}`}>
+                                    {(!isBlind && !isShadow) && (
+                                      <>
+                                        <img src={pk.sprite} alt={pk.name} className="w-12 h-12 object-contain" />
+                                        <div>
+                                          <p className="font-bold text-sm text-white capitalize">{pk.displayName}</p>
+                                          <div className="flex gap-1 mt-1">
+                                            {pk.types.map(t => <span key={t} style={{ color: TYPE_COLORS[t] }} className="text-[10px] font-bold uppercase">{t}</span>)}
+                                          </div>
+                                        </div>
+                                      </>
+                                    )}
                                   </div>
                                   <div className="flex flex-col gap-1 relative z-30">
                                     <button onClick={() => { playHoverTick(); setKeepChoice(pk.id); if (giveChoice === pk.id) setGiveChoice(null); }}
@@ -2025,7 +2029,7 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
         >
         {/* FRONT: MYSTERY */}
         <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl flex flex-col items-center justify-center overflow-hidden"
-             style={{ backfaceVisibility: 'hidden' }}>
+             style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #334155 1px, transparent 1px)', backgroundSize: '10px 10px' }} />
           <HelpCircle className="w-12 h-12 text-slate-600 mb-2 relative z-10 animate-pulse" />
           <span className="text-xs font-bold text-slate-500 uppercase tracking-widest relative z-10">Mystery</span>
@@ -2034,17 +2038,22 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
 
         {/* BACK: POKEMON */}
         <div className={`absolute inset-0 w-full h-full border rounded-2xl p-3 flex flex-col items-center justify-between overflow-hidden transition-all ${data.isDead ? 'bg-slate-900 border-rose-900/50 grayscale' : 'bg-slate-900/80 border-slate-700'}`}
-             style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+             style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
           {data.fromOpponent && <span className="absolute top-2 right-2 text-[8px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase z-10">Given</span>}
           {data.cost !== undefined && <span className="absolute top-2 left-2 text-[8px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-black z-10">${data.cost}</span>}
           {data.isDead && <div className="absolute inset-0 z-20 flex items-center justify-center bg-rose-950/40 backdrop-blur-[1px]"><span className="text-4xl">☠️</span></div>}
-          <img src={pk.sprite} alt={pk.name} className={`w-16 h-16 object-contain z-10 drop-shadow-md ${data.isDead ? 'opacity-50 mix-blend-luminosity' : ''}`} />
-          <div className="text-center z-10">
-            <p className={`font-bold text-xs capitalize ${data.isDead ? 'text-slate-500 line-through' : 'text-white'}`}>{pk.displayName}</p>
-            <div className="flex gap-1 justify-center mt-1">
-              {pk.types.map(t => <div key={t} style={{ backgroundColor: TYPE_COLORS[t] }} className={`w-2 h-2 rounded-full ${data.isDead ? 'opacity-20' : ''}`} />)}
-            </div>
-          </div>
+          
+          {!data.isMystery && (
+            <>
+              <img src={pk.sprite} alt={pk.name} className={`w-16 h-16 object-contain z-10 drop-shadow-md ${data.isDead ? 'opacity-50 mix-blend-luminosity' : ''}`} />
+              <div className="text-center z-10">
+                <p className={`font-bold text-xs capitalize ${data.isDead ? 'text-slate-500 line-through' : 'text-white'}`}>{pk.displayName}</p>
+                <div className="flex gap-1 justify-center mt-1">
+                  {pk.types.map(t => <div key={t} style={{ backgroundColor: TYPE_COLORS[t] }} className={`w-2 h-2 rounded-full ${data.isDead ? 'opacity-20' : ''}`} />)}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
       </HoloCard>
