@@ -948,12 +948,28 @@ export default function DraftMode() {
           conn.on('open', () => {
             if (gameStateRef.current) conn.send({ type: 'sync_state', state: gameStateRef.current });
           });
-          conn.on('data', (d: any) => handleHostReceiveData(d));
+          conn.on('data', (d: any) => {
+            if (d.type === 'ping') return;
+            handleHostReceiveData(d);
+          });
           conn.on('error', (err: any) => console.error('Host conn error:', err));
           conn.on('close', () => {
-            alert('Guest disconnected. The room will reset.');
-            window.location.reload();
+            console.error('Guest disconnected.');
+            // Only alert if we are not already done
+            if (gameStateRef.current && gameStateRef.current.status !== 'LOBBY' && gameStateRef.current.status !== 'REVEAL') {
+              alert('Guest disconnected. The game cannot continue.');
+              window.location.reload();
+            }
           });
+          
+          // Send periodic keepalive ping to prevent WebRTC timeout
+          const pingInterval = setInterval(() => {
+            if (conn && conn.open) {
+              conn.send({ type: 'ping' });
+            } else {
+              clearInterval(pingInterval);
+            }
+          }, 3000);
         });
         peer.on('error', (err: any) => { console.error('PeerJS error:', err); reject(err); });
       }).catch(reject);
@@ -1009,6 +1025,7 @@ export default function DraftMode() {
         conn.send({ type: 'guest_join', playerId: guestId, username: uname });
       });
       conn.on('data', (data: any) => {
+        if (data.type === 'ping') { conn.send({ type: 'ping' }); return; }
         if (data.type === 'sync_state') { applyState(data.state); setSubmitted(false); }
       });
       conn.on('error', (err: any) => {
@@ -1017,8 +1034,11 @@ export default function DraftMode() {
         alert('Connection error: ' + (err.message || String(err)));
       });
       conn.on('close', () => {
-        alert('Host disconnected. Returning to lobby.');
-        window.location.reload();
+        console.error('Host disconnected.');
+        if (gameStateRef.current && gameStateRef.current.status !== 'LOBBY' && gameStateRef.current.status !== 'REVEAL') {
+          alert('Host disconnected. The game cannot continue.');
+          window.location.reload();
+        }
       });
       const peerErrorHandler = (err: any) => {
         if (err.type === 'peer-unavailable') {
@@ -1042,6 +1062,7 @@ export default function DraftMode() {
        optionsPerRound,
        filters: buildFilters(),
        round: 1,
+       totalRounds: selectedMode === 'vip' ? 6 : 3,
        p1: { ...cur.p1, team: [], ready: false },
        p2: cur.p2 ? { ...cur.p2, team: [], ready: false } : null,
        p1HeistChoice: null, p2HeistChoice: null,
