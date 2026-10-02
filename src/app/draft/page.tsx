@@ -104,7 +104,8 @@ function BlindClueHint({ id, speciesId }: { id: number, speciesId: number }) {
 }
 
 function MonotypeRoulettePanel({ gameState, isHost, onComplete }: { gameState: DraftState, isHost: boolean, onComplete: () => void }) {
-  const [currentType, setCurrentType] = useState<string>(ALL_TYPES[0]);
+  const [currentTypeP1, setCurrentTypeP1] = useState<string>(ALL_TYPES[0]);
+  const [currentTypeP2, setCurrentTypeP2] = useState<string>(ALL_TYPES[1]);
   const [isDone, setIsDone] = useState(false);
   const onCompleteRef = useRef(onComplete);
   
@@ -117,10 +118,12 @@ function MonotypeRoulettePanel({ gameState, isHost, onComplete }: { gameState: D
     const maxTicks = 40;
     const interval = setInterval(() => {
       tick++;
-      setCurrentType(ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)]);
+      setCurrentTypeP1(ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)]);
+      setCurrentTypeP2(ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)]);
       if (tick >= maxTicks) {
         clearInterval(interval);
-        setCurrentType(gameState.monotypeType || 'normal');
+        setCurrentTypeP1(gameState.monotypeP1 || 'normal');
+        setCurrentTypeP2(gameState.monotypeP2 || 'normal');
         setIsDone(true);
         if (isHost) {
           setTimeout(() => onCompleteRef.current(), 3000);
@@ -128,26 +131,51 @@ function MonotypeRoulettePanel({ gameState, isHost, onComplete }: { gameState: D
       }
     }, 50);
     return () => clearInterval(interval);
-  }, [gameState.monotypeType, isHost]);
+  }, [gameState.monotypeP1, gameState.monotypeP2, isHost]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh]">
-      <h2 className="text-3xl font-black text-white mb-8">Rolling Monotype...</h2>
-      <motion.div 
-        key={currentType}
-        initial={{ scale: 0.5, opacity: 0 }}
-        animate={{ scale: isDone ? 1.5 : 1, opacity: 1 }}
-        className="w-48 h-48 rounded-2xl flex flex-col items-center justify-center border-4"
-        style={{ 
-          backgroundColor: `${TYPE_COLORS[currentType]}20`,
-          borderColor: TYPE_COLORS[currentType],
-          boxShadow: isDone ? `0 0 40px ${TYPE_COLORS[currentType]}` : 'none'
-        }}
-      >
-        <span className="text-4xl font-black uppercase tracking-widest" style={{ color: TYPE_COLORS[currentType] }}>
-          {currentType}
-        </span>
-      </motion.div>
+      <h2 className="text-3xl font-black text-white mb-8">Rolling Monotypes...</h2>
+      <div className="flex gap-8">
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-slate-400 font-bold">{gameState.p1.username}&apos;s Type</span>
+          <motion.div 
+            key={currentTypeP1}
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: isDone ? 1.2 : 1, opacity: 1 }}
+            className="w-40 h-40 rounded-2xl flex flex-col items-center justify-center border-4"
+            style={{ 
+              backgroundColor: `${TYPE_COLORS[currentTypeP1]}20`,
+              borderColor: TYPE_COLORS[currentTypeP1],
+              boxShadow: isDone ? `0 0 40px ${TYPE_COLORS[currentTypeP1]}` : 'none'
+            }}
+          >
+            <span className="text-3xl font-black uppercase tracking-widest" style={{ color: TYPE_COLORS[currentTypeP1] }}>
+              {currentTypeP1}
+            </span>
+          </motion.div>
+        </div>
+        {gameState.p2 && (
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-slate-400 font-bold">{gameState.p2.username}&apos;s Type</span>
+            <motion.div 
+              key={currentTypeP2}
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: isDone ? 1.2 : 1, opacity: 1 }}
+              className="w-40 h-40 rounded-2xl flex flex-col items-center justify-center border-4"
+              style={{ 
+                backgroundColor: `${TYPE_COLORS[currentTypeP2]}20`,
+                borderColor: TYPE_COLORS[currentTypeP2],
+                boxShadow: isDone ? `0 0 40px ${TYPE_COLORS[currentTypeP2]}` : 'none'
+              }}
+            >
+              <span className="text-3xl font-black uppercase tracking-widest" style={{ color: TYPE_COLORS[currentTypeP2] }}>
+                {currentTypeP2}
+              </span>
+            </motion.div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -239,6 +267,14 @@ function ChaosEventPanel({ gameState, myPlayerNum, onChoice }: {
                 </div>
               </div>
             )}
+
+            {!['fossil', 'wonder', 'gamble'].includes(cs.eventId) && (
+              <div className="flex flex-col items-center gap-4 w-full mt-4">
+                <button onClick={() => handleSubmit('continue')} className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold py-4 rounded-xl text-lg">
+                  Continue
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex flex-col items-center gap-3 text-slate-400">
@@ -260,6 +296,18 @@ export default function DraftMode() {
   const [optionsPerRound, setOptionsPerRound] = useState(3);
   const [selectedMode, setSelectedMode] = useState<GameMode>('standard');
   const [musicOn, setMusicOn] = useState(false);
+  const [criesOn, setCriesOn] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('mutePokemonCries') !== 'true';
+    }
+    return true;
+  });
+
+  const toggleCries = () => {
+    const newVal = !criesOn;
+    setCriesOn(newVal);
+    localStorage.setItem('mutePokemonCries', (!newVal).toString());
+  };
   
   // Track XP awarded for current draft session
   const [draftRewardGivenForId, setDraftRewardGivenForId] = useState<string | null>(null);
@@ -411,6 +459,13 @@ export default function DraftMode() {
 
     let p1Pool = basePool;
     let p2Pool = basePool;
+    if (state.gameMode === 'monotype' && state.monotypeP1 && state.monotypeP2) {
+      p1Pool = basePool.filter(p => p.types.includes(state.monotypeP1!));
+      p2Pool = basePool.filter(p => p.types.includes(state.monotypeP2!));
+      if (p1Pool.length === 0) p1Pool = basePool;
+      if (p2Pool.length === 0) p2Pool = basePool;
+    }
+    
     if (state.gameMode === 'vip' && state.round > 1) {
       if (state.p1.team.length > 0) {
         const p1Type = state.p1.team[0].actualPk.types[0];
@@ -538,55 +593,51 @@ export default function DraftMode() {
         state.p1.team[i1] = { ...b2, fromOpponent: true };
         state.p2!.team[i2] = { ...b1, fromOpponent: true };
       }
-      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { resolved: true } };
-      state.status = 'DRAFTING';
-      generateOptions(state, pokemonList);
+      state.chaosState = { eventId, p1Resolved: false, p2Resolved: false, data: { resolved: true } };
+      state.status = 'CHAOS_EVENT';
     } else if (eventId === 'safari') {
       // Next round ignores filters — generate from full pool
       const fullPool = pokemonList.filter(p => p.id < 10000 && !p.isMega);
       const shuffled = [...fullPool].sort(() => Math.random() - 0.5);
       state.p1Options = shuffled.slice(0, state.optionsPerRound).map(p => ({ ...p }));
       state.p2Options = shuffled.slice(state.optionsPerRound, state.optionsPerRound * 2).map(p => ({ ...p }));
-      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { resolved: true } };
-      state.status = 'DRAFTING';
+      state.chaosState = { eventId, p1Resolved: false, p2Resolved: false, data: { resolved: true, generated: true } };
+      state.status = 'CHAOS_EVENT';
     } else if (eventId === 'ditto') {
       const ditto = pokemonList.find(p => p.id === 132);
       if (ditto) {
         state.p1Options = Array(state.optionsPerRound).fill(null).map(() => ({ ...ditto }));
         state.p2Options = Array(state.optionsPerRound).fill(null).map(() => ({ ...ditto }));
       }
-      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { resolved: true } };
-      state.status = 'DRAFTING';
+      state.chaosState = { eventId, p1Resolved: false, p2Resolved: false, data: { resolved: true, generated: true } };
+      state.status = 'CHAOS_EVENT';
     } else if (eventId === 'celebi') {
       const tmp = state.p1.team;
       state.p1.team = state.p2!.team.map(m => ({ ...m }));
       state.p2!.team = tmp.map(m => ({ ...m }));
-      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { resolved: true } };
-      state.status = 'DRAFTING';
-      generateOptions(state, pokemonList);
+      state.chaosState = { eventId, p1Resolved: false, p2Resolved: false, data: { resolved: true } };
+      state.status = 'CHAOS_EVENT';
     } else if (eventId === 'yveltal') {
       const getBest = (team: DraftTeamMember[]) => team.length ? team.reduce((a, b) => b.actualPk.stats.total > a.actualPk.stats.total ? b : a, team[0]) : null;
       const b1 = getBest(p1Team); const b2 = getBest(p2Team);
       if (b1) { const i = p1Team.indexOf(b1); state.p1.team[i] = { ...b1, actualPk: getRandomFullyEvolved(pokemonList) }; }
       if (b2) { const i = p2Team.indexOf(b2); state.p2!.team[i] = { ...b2, actualPk: getRandomFullyEvolved(pokemonList) }; }
-      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { resolved: true } };
-      state.status = 'DRAFTING';
-      generateOptions(state, pokemonList);
+      state.chaosState = { eventId, p1Resolved: false, p2Resolved: false, data: { resolved: true } };
+      state.status = 'CHAOS_EVENT';
     } else if (eventId === 'gym') {
       const randomType = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
       const typePool = pokemonList.filter(p => p.types.includes(randomType) && p.id < 10000 && !p.isMega);
       const shuffled = [...typePool].sort(() => Math.random() - 0.5);
       state.p1Options = shuffled.slice(0, state.optionsPerRound).map(p => ({ ...p }));
       state.p2Options = shuffled.slice(state.optionsPerRound, state.optionsPerRound * 2).map(p => ({ ...p }));
-      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { lockedType: randomType, resolved: true } };
-      state.status = 'DRAFTING';
+      state.chaosState = { eventId, p1Resolved: false, p2Resolved: false, data: { lockedType: randomType, resolved: true, generated: true } };
+      state.status = 'CHAOS_EVENT';
     } else if (eventId === 'glitch') {
       const getBest = (team: DraftTeamMember[]) => team.length ? { m: team.reduce((a, b) => b.actualPk.stats.total > a.actualPk.stats.total ? b : a, team[0]), i: 0 } : null;
       if (p1Team.length) { const idx = p1Team.indexOf(p1Team.reduce((a,b) => b.actualPk.stats.total > a.actualPk.stats.total ? b : a, p1Team[0])); state.p1.team[idx] = { ...p1Team[idx], actualPk: getRandomLegendary(pokemonList) }; }
       if (p2Team.length) { const idx = p2Team.indexOf(p2Team.reduce((a,b) => b.actualPk.stats.total > a.actualPk.stats.total ? b : a, p2Team[0])); state.p2!.team[idx] = { ...p2Team[idx], actualPk: getRandomLegendary(pokemonList) }; }
-      state.chaosState = { eventId, p1Resolved: true, p2Resolved: true, data: { resolved: true } };
-      state.status = 'DRAFTING';
-      generateOptions(state, pokemonList);
+      state.chaosState = { eventId, p1Resolved: false, p2Resolved: false, data: { resolved: true } };
+      state.status = 'CHAOS_EVENT';
     } else {
       // Events requiring player choice: fossil, wonder, gamble
       const eventData: any = {};
@@ -640,8 +691,12 @@ export default function DraftMode() {
           }
         }
       }
+      
       next.status = 'DRAFTING';
-      generateOptions(next, pokemonList);
+      // Only generate options if the event didn't already generate them (like safari, ditto, gym)
+      if (!cs.data?.generated) {
+        generateOptions(next, pokemonList);
+      }
     }
     applyState(next); broadcastToGuest(next);
   }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
@@ -994,8 +1049,8 @@ export default function DraftMode() {
        snakeTurn: 1, snakePickCount: 0
     };
     if (selectedMode === 'monotype') {
-       next.monotypeType = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
-       next.filters.types = [next.monotypeType]; // enforce filter for all pokemon
+       next.monotypeP1 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       next.monotypeP2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
     }
     
     p1PendingRef.current = null;
@@ -1169,7 +1224,7 @@ export default function DraftMode() {
     const cur = gameStateRef.current;
     const next: DraftState = {
       ...cur,
-      status: 'DRAFTING',
+      status: cur.gameMode === 'monotype' ? 'MONOTYPE_ROULETTE' : 'DRAFTING',
       round: 1,
       p1: { ...cur.p1, team: [], ready: false },
       p2: cur.p2 ? { ...cur.p2, team: [], ready: false } : null,
@@ -1311,6 +1366,16 @@ export default function DraftMode() {
               <div className="hidden md:block w-px h-6 bg-slate-800 mx-1"></div>
             </>
           )}
+          <button 
+            onClick={toggleCries}
+            className={`whitespace-nowrap flex items-center gap-1.5 px-3 py-2 rounded-lg border font-bold transition-all text-xs ${
+              criesOn ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
+            }`}
+            title="Toggle Pokemon Cries"
+          >
+            {criesOn ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            {criesOn ? 'Cries On' : 'Cries Off'}
+          </button>
           <button 
             onClick={() => setMusicOn(!musicOn)}
             className={`whitespace-nowrap flex items-center gap-1.5 px-3 py-2 rounded-lg border font-bold transition-all text-xs ${
@@ -1574,7 +1639,16 @@ export default function DraftMode() {
               </h2>
               {gameState.gameMode === 'blind' && gameState.status === 'DRAFTING' && <p className="text-purple-400 font-bold mt-1 text-sm">👁 BLIND MODE - Pick by abilities!</p>}
               {gameState.gameMode === 'shadow' && gameState.status === 'DRAFTING' && <p className="text-slate-400 font-bold mt-1 text-sm">🌑 SHADOW PROTOCOL - Pick by clues!</p>}
-              {gameState.gameMode === 'monotype' && gameState.status === 'DRAFTING' && <p className="font-bold mt-1 text-sm" style={{ color: gameState.monotypeType ? TYPE_COLORS[gameState.monotypeType] : '#fb923c' }}>🔥 FORCED MONOTYPE: {gameState.monotypeType?.toUpperCase()}</p>}
+              {gameState.gameMode === 'monotype' && gameState.status === 'DRAFTING' && (
+                <div className="flex gap-4 mt-1 justify-center">
+                  <p className="font-bold text-sm" style={{ color: gameState.monotypeP1 ? TYPE_COLORS[gameState.monotypeP1] : '#fb923c' }}>
+                    🔥 P1: {gameState.monotypeP1?.toUpperCase()}
+                  </p>
+                  <p className="font-bold text-sm" style={{ color: gameState.monotypeP2 ? TYPE_COLORS[gameState.monotypeP2] : '#fb923c' }}>
+                    🔥 P2: {gameState.monotypeP2?.toUpperCase()}
+                  </p>
+                </div>
+              )}
               {gameState.gameMode === 'wildcard' && gameState.status === 'DRAFTING' && <p className="text-fuchsia-400 font-bold mt-1 text-sm animate-pulse">🃏 WILDCARD MODE: 1 of these is a trap!</p>}
               {gameState.gameMode === 'vip' && gameState.status === 'DRAFTING' && gameState.round > 1 && <p className="text-yellow-400 font-bold mt-1 text-sm">👑 PROTECT THE KING: Pick 1 to join your {mySlot?.team[0]?.actualPk.types[0]?.toUpperCase() ?? ''} King!</p>}
               {gameState.gameMode === 'vip' && gameState.status === 'DRAFTING' && gameState.round === 1 && <p className="text-yellow-400 font-bold mt-1 text-sm">👑 PROTECT THE KING: Choose your VIP! Your entire team will share their type!</p>}

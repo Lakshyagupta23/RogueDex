@@ -110,7 +110,8 @@ export interface DraftState {
   p2Passed: boolean;
   // Modifiers
   wildcardModifier?: boolean;
-  monotypeType?: string;
+  monotypeP1?: string;
+  monotypeP2?: string;
   snakeTurn?: 1 | 2;
   snakePickCount?: number;
   vipType?: string;
