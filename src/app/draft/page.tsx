@@ -61,10 +61,12 @@ function ShadowClueHint({ id, speciesId }: { id: number, speciesId: number }) {
   }, [id, speciesId]);
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center p-2 bg-[#0b0e16] border border-slate-500/30 rounded-xl z-20 shadow-[inset_0_0_20px_rgba(100,116,139,0.15)]">
-      <Eye className="w-8 h-8 text-slate-500 mb-2 opacity-50" />
-      <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">{clueLabel}</span>
-      <span className="text-base font-black text-slate-400 text-center capitalize leading-tight mt-1">{clue}</span>
+    <div className="flex flex-col justify-center py-2 relative z-30">
+      <div className="flex items-center gap-2 mb-1">
+        <Eye className="w-4 h-4 text-slate-500 opacity-50" />
+        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">{clueLabel}</span>
+      </div>
+      <span className="text-sm font-black text-slate-400 capitalize leading-tight">{clue}</span>
     </div>
   );
 }
@@ -95,10 +97,12 @@ function BlindClueHint({ id, speciesId }: { id: number, speciesId: number }) {
   }, [id, speciesId]);
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center p-2 bg-[#0b0e16] border border-purple-500/30 rounded-xl z-20 shadow-[inset_0_0_20px_rgba(168,85,247,0.15)]">
-      <Eye className="w-8 h-8 text-purple-500 mb-2 opacity-50" />
-      <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">{clueLabel}</span>
-      <span className="text-base font-black text-purple-400 text-center capitalize leading-tight mt-1">{clue}</span>
+    <div className="flex flex-col justify-center py-2 relative z-30">
+      <div className="flex items-center gap-2 mb-1">
+        <Eye className="w-4 h-4 text-purple-500 opacity-50" />
+        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">{clueLabel}</span>
+      </div>
+      <span className="text-sm font-black text-purple-400 capitalize leading-tight">{clue}</span>
     </div>
   );
 }
@@ -654,8 +658,18 @@ export default function DraftMode() {
     if (!isHostRef.current || !gameStateRef.current) return;
     const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
     const cs = next.chaosState!;
-    if (playerNum === 1) { cs.p1Choice = choice; cs.p1Resolved = true; }
-    else { cs.p2Choice = choice; cs.p2Resolved = true; }
+    const eventMeta = CHAOS_EVENTS.find(e => e.id === cs.eventId);
+    const requiresChoice = eventMeta?.requiresChoice ?? true;
+
+    if (playerNum === 1) { 
+      cs.p1Choice = choice; 
+      cs.p1Resolved = true; 
+      if (!requiresChoice) cs.p2Resolved = true;
+    } else { 
+      cs.p2Choice = choice; 
+      cs.p2Resolved = true; 
+      if (!requiresChoice) cs.p1Resolved = true;
+    }
 
     if (cs.p1Resolved && cs.p2Resolved) {
       const eventId = cs.eventId;
@@ -821,7 +835,7 @@ export default function DraftMode() {
     state.status = 'REVEAL';
     applyState({ ...state });
     broadcastToGuest({ ...state });
-  }, [applyState, broadcastToGuest]);
+  }, [applyState, broadcastToGuest, pokemonList, getRandomWeakFullyEvolved]);
 
   const handleHostReceiveData = useCallback((data: any) => {
     const cur = gameStateRef.current;
@@ -909,7 +923,7 @@ export default function DraftMode() {
     if (data.type === 'snake_pick') {
       resolveSnakePick(data.pkId);
     }
-  }, [applyState, broadcastToGuest, resolveRound, resolveHeist, resolveAuctionWin, resolveChaosChoice, resolveSnakePick]);
+  }, [applyState, broadcastToGuest, resolveRound, resolveHeist, resolveAuctionWin, resolveChaosChoice, resolveSnakePick, resolveNuzlocke]);
 
   const stateDiscardAndDraw = useCallback((next: DraftState) => {
      next.round += 1;
@@ -1848,10 +1862,12 @@ export default function DraftMode() {
                                 <HoloCard typeColor={cardColor} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
                                   isKeep ? 'bg-indigo-500/20 border-indigo-500' : isGive ? 'bg-rose-500/20 border-rose-500' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'
                                 }`}>
-                                  {isBlind && <BlindClueHint id={pk.id} speciesId={pk.speciesId} />}
-                                  {isShadow && <ShadowClueHint id={pk.id} speciesId={pk.speciesId} />}
-                                  <div className={`flex items-center gap-3 relative z-30 ${isBlind || isShadow ? 'invisible opacity-0' : ''}`}>
-                                    {(!isBlind && !isShadow) && (
+                                  <div className="flex items-center gap-3 relative z-30">
+                                    {isBlind ? (
+                                      <BlindClueHint id={pk.id} speciesId={pk.speciesId} />
+                                    ) : isShadow ? (
+                                      <ShadowClueHint id={pk.id} speciesId={pk.speciesId} />
+                                    ) : (
                                       <>
                                         <img src={pk.sprite} alt={pk.name} className="w-12 h-12 object-contain" />
                                         <div>
