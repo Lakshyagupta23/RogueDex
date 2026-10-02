@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, X, Shield, Heart, Zap, Layers, Sparkles, BookOpen, Smile, Calculator, Grid, HeartHandshake, ChevronLeft, ChevronRight, Scale, Users } from 'lucide-react';
 import SearchBar from './SearchBar';
+import ProfileWidget from './ProfileWidget';
 
 const NAV_ITEMS = [
   { href: '/randomizer', label: 'Randomizer', icon: Zap },
@@ -65,6 +66,9 @@ export default function Sidebar() {
         <div className="w-48 sm:w-60">
           <SearchBar />
         </div>
+        <div className="hidden sm:block">
+          <ProfileWidget collapsed={true} />
+        </div>
       </header>
 
       {/* Mobile Drawer (Left slide-over overlay) */}
@@ -90,6 +94,10 @@ export default function Sidebar() {
               </button>
             </div>
             
+            <div className="mb-4">
+              <ProfileWidget />
+            </div>
+
             {/* Scrollable list */}
             <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-1">
               {NAV_ITEMS.map((item) => {
@@ -134,6 +142,15 @@ export default function Sidebar() {
               </span>
             )}
           </Link>
+        </div>
+
+        {/* Profile Widget */}
+        <div className="p-3 border-b border-slate-900/60">
+           {isCollapsed ? (
+             <div className="flex justify-center"><ProfileWidget collapsed={true} /></div>
+           ) : (
+             <ProfileWidget />
+           )}
         </div>
 
         {/* Global Search Bar (Only shown if sidebar is expanded) */}

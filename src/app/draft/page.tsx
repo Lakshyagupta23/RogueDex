@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usePokemon } from '@/context/PokemonContext';
+import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { PokemonIndexItem, GameMode, ChaosEventId, DraftTeamMember, PlayerSlot, DraftState } from '@/lib/pokemon/types';
 import { FilterCriteria, filterPokemon } from '@/lib/pokemon/data';
 import { TYPE_COLORS } from '@/lib/pokemon/constants';
@@ -22,7 +23,8 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'chaos', icon: <Wand2 className="w-6 h-6" />, label: '🌪 Chaos Draft', description: 'Standard 3-round draft, but Round 3 has a 100% chance to trigger a massive, game-changing random event!', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' },
   { id: 'snake', icon: <InfinityIcon className="w-6 h-6" />, label: '🐍 Snake Draft', description: 'A shared pool of 18 Pokémon. Take turns picking one at a time!', color: 'text-emerald-400', borderColor: 'border-emerald-500' },
   { id: 'monotype', icon: <Sword className="w-6 h-6" />, label: '🔥 Forced Monotype', description: 'A random type is chosen. The entire draft pool is restricted to it!', color: 'text-orange-400', borderColor: 'border-orange-500' },
-  { id: 'blind', icon: <Eye className="w-6 h-6" />, label: '🎭 Blind Draft', description: 'Build your team knowing ONLY the abilities of the Pokemon!', color: 'text-purple-400', borderColor: 'border-purple-500' },
+  { id: 'blind', icon: <Eye className="w-6 h-6" />, label: '🎭 Blind Draft', description: 'Build your team knowing ONLY the color and abilities of the Pokemon!', color: 'text-purple-400', borderColor: 'border-purple-500' },
+  { id: 'shadow', icon: <Eye className="w-6 h-6" />, label: '🌑 Shadow Protocol', description: 'Pokémon are hidden! Use obscure cues like weight, height, or habitat to draft.', color: 'text-slate-400', borderColor: 'border-slate-500' },
   { id: 'heist', icon: <Skull className="w-6 h-6" />, label: '💣 The Heist', description: '3 normal rounds, then steal 1 Pokémon from your opponent!', color: 'text-amber-400', borderColor: 'border-amber-500' },
   { id: 'auction', icon: <Gavel className="w-6 h-6" />, label: '💰 Simple Auction', description: 'Start with $100. Live bid against your opponent!', color: 'text-emerald-400', borderColor: 'border-emerald-500' },
   { id: 'speedrun', icon: <Timer className="w-6 h-6" />, label: '⏱️ Speedrun', description: '7 seconds per pick. If time runs out, the worst Pokémon is auto-picked!', color: 'text-red-400', borderColor: 'border-red-500' },
@@ -31,19 +33,18 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'nuzlocke', icon: <Skull className="w-6 h-6" />, label: '☠️ Nuzlocke Draft', description: 'Draft a team of 6, then each player assassinates 1 opponent Pokémon! Guess their target to save it.', color: 'text-rose-400', borderColor: 'border-rose-500' }
 ];
 
-function BlindClueHint({ id, speciesId }: { id: number, speciesId: number }) {
+function ShadowClueHint({ id, speciesId }: { id: number, speciesId: number }) {
   const [clue, setClue] = useState<string>('Loading...');
   const [clueLabel, setClueLabel] = useState<string>('Analyzing...');
 
   useEffect(() => {
-    const types = ['weight', 'height', 'color', 'ability', 'shape', 'habitat'];
+    const types = ['weight', 'height', 'shape', 'habitat'];
     const chosenType = types[Math.floor(Math.random() * types.length)];
     
-    if (['color', 'shape', 'habitat'].includes(chosenType)) {
+    if (['shape', 'habitat'].includes(chosenType)) {
       fetch(`https://pokeapi.co/api/v2/pokemon-species/${speciesId}/`)
         .then(r => r.json())
         .then(d => {
-          if (chosenType === 'color') { setClueLabel('Color'); setClue(d.color?.name || 'Unknown'); }
           if (chosenType === 'shape') { setClueLabel('Shape'); setClue(d.shape?.name || 'Unknown'); }
           if (chosenType === 'habitat') { setClueLabel('Habitat'); setClue(d.habitat?.name || 'Unknown'); }
         })
@@ -54,7 +55,40 @@ function BlindClueHint({ id, speciesId }: { id: number, speciesId: number }) {
         .then(d => {
           if (chosenType === 'weight') { setClueLabel('Weight'); setClue(`${d.weight / 10} kg`); }
           if (chosenType === 'height') { setClueLabel('Height'); setClue(`${d.height / 10} m`); }
-          if (chosenType === 'ability') { setClueLabel('Ability'); setClue(d.abilities[0]?.ability?.name?.replace(/-/g, ' ') || 'Unknown'); }
+        })
+        .catch(() => { setClueLabel('Error'); setClue('???'); });
+    }
+  }, [id, speciesId]);
+
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center p-2 bg-[#0b0e16] border border-slate-500/30 rounded-xl z-20 shadow-[inset_0_0_20px_rgba(100,116,139,0.15)]">
+      <Eye className="w-8 h-8 text-slate-500 mb-2 opacity-50" />
+      <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">{clueLabel}</span>
+      <span className="text-base font-black text-slate-400 text-center capitalize leading-tight mt-1">{clue}</span>
+    </div>
+  );
+}
+
+function BlindClueHint({ id, speciesId }: { id: number, speciesId: number }) {
+  const [clue, setClue] = useState<string>('Loading...');
+  const [clueLabel, setClueLabel] = useState<string>('Analyzing...');
+
+  useEffect(() => {
+    const chosenType = Math.random() > 0.5 ? 'color' : 'ability';
+    if (chosenType === 'color') {
+      fetch(`https://pokeapi.co/api/v2/pokemon-species/${speciesId}/`)
+        .then(r => r.json())
+        .then(d => {
+          setClueLabel('Color');
+          setClue(d.color?.name || 'Unknown');
+        })
+        .catch(() => { setClueLabel('Error'); setClue('???'); });
+    } else {
+      fetch(`https://pokeapi.co/api/v2/pokemon/${id}/`)
+        .then(r => r.json())
+        .then(d => {
+          setClueLabel('Ability');
+          setClue(d.abilities[0]?.ability?.name?.replace(/-/g, ' ') || 'Unknown');
         })
         .catch(() => { setClueLabel('Error'); setClue('???'); });
     }
@@ -219,11 +253,16 @@ function ChaosEventPanel({ gameState, myPlayerNum, onChoice }: {
 
 export default function DraftMode() {
   const { pokemonList, loading } = usePokemon();
+  const { addXp, unlockAchievement, unlockedAchievements } = usePlayerProfile();
+  
   const [username, setUsername] = useState('Trainer');
   const [joinCode, setJoinCode] = useState('');
   const [optionsPerRound, setOptionsPerRound] = useState(3);
   const [selectedMode, setSelectedMode] = useState<GameMode>('standard');
   const [musicOn, setMusicOn] = useState(false);
+  
+  // Track XP awarded for current draft session
+  const [draftRewardGivenForId, setDraftRewardGivenForId] = useState<string | null>(null);
 
   useEffect(() => {
     if (musicOn) {
@@ -276,6 +315,40 @@ export default function DraftMode() {
   const [myHeistStealIdx, setMyHeistStealIdx] = useState<number | null>(null);
   const [myHeistSwapIdx, setMyHeistSwapIdx] = useState<number | null>(null);
   const [heistSubmitted, setHeistSubmitted] = useState(false);
+
+  // XP & Achievement Logic
+  useEffect(() => {
+    if (gameState?.status === 'REVEAL' && gameState.code !== draftRewardGivenForId) {
+      setDraftRewardGivenForId(gameState.code);
+      
+      // Award base XP
+      addXp(100, 'Draft Completed');
+      
+      // Achievements
+      unlockAchievement('first_draft');
+      
+      if (gameState.gameMode === 'nuzlocke') {
+        addXp(50, 'Nuzlocke Assassin');
+      }
+      if (gameState.gameMode === 'heist') {
+        unlockAchievement('heist_master');
+      }
+      if (gameState.gameMode === 'monotype') {
+        unlockAchievement('monotype_expert');
+      }
+      
+      // Check Legendary Team
+      const myPlayerNumEffect = isHostRef.current ? 1 : 2;
+      const myTeam = myPlayerNumEffect === 1 ? gameState.p1.team : (gameState.p2?.team || []);
+      const hasLegendary = myTeam.some(m => m.actualPk.isLegendary || m.actualPk.isMythical || m.actualPk.isUltraBeast);
+      if (hasLegendary) {
+        unlockAchievement('legendary_hunter');
+      }
+    } else if (gameState?.status !== 'REVEAL' && draftRewardGivenForId !== null) {
+      setDraftRewardGivenForId(null);
+    }
+  }, [gameState?.status, gameState?.code, draftRewardGivenForId, gameState?.gameMode, gameState?.p1, gameState?.p2, addXp, unlockAchievement]);
+
   const [myNuzlockeTargetIdx, setMyNuzlockeTargetIdx] = useState<number | null>(null);
   const [myNuzlockeProtectIdx, setMyNuzlockeProtectIdx] = useState<number | null>(null);
   const [nuzlockeSubmitted, setNuzlockeSubmitted] = useState(false);
@@ -385,6 +458,11 @@ export default function DraftMode() {
       return fe[Math.floor(Math.random() * fe.length)] || pk;
     }
     return pk;
+  }, []);
+
+  const getRandomWeakFullyEvolved = useCallback((list: PokemonIndexItem[]) => {
+    const fe = list.filter(p => p.isFullyEvolved && p.id < 10000 && !p.isMega && p.stats.total <= 480);
+    return fe[Math.floor(Math.random() * fe.length)] || list[0];
   }, []);
 
   const resolveAuctionWin = useCallback((state: DraftState, winner: 1 | 2 | null) => {
@@ -580,13 +658,16 @@ export default function DraftMode() {
     
     const p1k = getActualPk(p1Keep, pokemonList);
     const p2k = getActualPk(p2Keep, pokemonList);
-    const p1g = getActualPk(p1Give, pokemonList);
-    const p2g = getActualPk(p2Give, pokemonList);
+    const p1g = p1Give ? getActualPk(p1Give, pokemonList) : null;
+    const p2g = p2Give ? getActualPk(p2Give, pokemonList) : null;
 
-    state.p1.team.push({ isMystery: isBlind, actualPk: p1k, fromOpponent: false });
-    state.p1.team.push({ isMystery: true,  actualPk: p2g, fromOpponent: true  });
-    state.p2!.team.push({ isMystery: isBlind, actualPk: p2k, fromOpponent: false });
-    state.p2!.team.push({ isMystery: true,  actualPk: p1g, fromOpponent: true  });
+    state.p1.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p1k, fromOpponent: false });
+    state.p2!.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p2k, fromOpponent: false });
+    
+    if (state.gameMode !== 'vip') {
+      if (p2g) state.p1.team.push({ isMystery: true,  actualPk: p2g, fromOpponent: true  });
+      if (p1g) state.p2!.team.push({ isMystery: true,  actualPk: p1g, fromOpponent: true  });
+    }
 
     state.p1.ready = false;
     state.p2!.ready = false;
@@ -655,14 +736,24 @@ export default function DraftMode() {
     let someoneDied = false;
     if (state.nuzlockeP1Target !== state.nuzlockeP2Protect) {
       if (state.nuzlockeP1Target !== null && state.nuzlockeP1Target !== undefined && state.p2!.team[state.nuzlockeP1Target]) {
-        state.p2!.team[state.nuzlockeP1Target].isDead = true;
+        state.p2!.team[state.nuzlockeP1Target] = { 
+          ...state.p2!.team[state.nuzlockeP1Target], 
+          actualPk: getRandomWeakFullyEvolved(pokemonList),
+          isDead: false,
+          wasAssassinated: true
+        };
         someoneDied = true;
       }
     }
     // P2 target kills P1's pokemon UNLESS P1 protected it
     if (state.nuzlockeP2Target !== state.nuzlockeP1Protect) {
       if (state.nuzlockeP2Target !== null && state.nuzlockeP2Target !== undefined && state.p1.team[state.nuzlockeP2Target]) {
-        state.p1.team[state.nuzlockeP2Target].isDead = true;
+        state.p1.team[state.nuzlockeP2Target] = { 
+          ...state.p1.team[state.nuzlockeP2Target], 
+          actualPk: getRandomWeakFullyEvolved(pokemonList),
+          isDead: false,
+          wasAssassinated: true
+        };
         someoneDied = true;
       }
     }
@@ -804,6 +895,10 @@ export default function DraftMode() {
           });
           conn.on('data', (d: any) => handleHostReceiveData(d));
           conn.on('error', (err: any) => console.error('Host conn error:', err));
+          conn.on('close', () => {
+            alert('Guest disconnected. The room will reset.');
+            window.location.reload();
+          });
         });
         peer.on('error', (err: any) => { console.error('PeerJS error:', err); reject(err); });
       }).catch(reject);
@@ -818,10 +913,11 @@ export default function DraftMode() {
       const peer = await initPeer(pid);
       const code = peer.id.toUpperCase();
       const filters = buildFilters();
-      const totalRounds = 3; 
+      const isVip = selectedMode === 'vip';
+      const totalRounds = isVip ? 6 : 3; 
       const initial: DraftState = {
         code, status: 'LOBBY', gameMode: selectedMode,
-        optionsPerRound: selectedMode === 'wildcard' ? 3 : optionsPerRound, round: 1, totalRounds, filters,
+        optionsPerRound: selectedMode === 'wildcard' || isVip ? 3 : optionsPerRound, round: 1, totalRounds, filters,
         p1: { id: pid, username: usernameRef.current, team: [], ready: false },
         p2: null, p1Options: [], p2Options: [],
         p1HeistChoice: null, p2HeistChoice: null,
@@ -864,6 +960,10 @@ export default function DraftMode() {
         clearTimeout(timeout);
         console.error('Guest conn error:', err);
         alert('Connection error: ' + (err.message || String(err)));
+      });
+      conn.on('close', () => {
+        alert('Host disconnected. Returning to lobby.');
+        window.location.reload();
       });
       const peerErrorHandler = (err: any) => {
         if (err.type === 'peer-unavailable') {
@@ -928,11 +1028,11 @@ export default function DraftMode() {
   }, [applyState, broadcastToGuest, resolveRound]);
 
   const submitMyChoices = useCallback(() => {
-    if (keepChoice !== null && giveChoice !== null) {
+    if (keepChoice !== null && (giveChoice !== null || gameState?.gameMode === 'vip')) {
       playThud();
-      submitChoices(keepChoice, giveChoice);
+      submitChoices(keepChoice, giveChoice ?? -1); // send -1 or some dummy value for giveChoice
     }
-  }, [keepChoice, giveChoice, submitChoices]);
+  }, [keepChoice, giveChoice, gameState?.gameMode, submitChoices]);
 
   const [speedrunTimer, setSpeedrunTimer] = useState(7);
   useEffect(() => {
@@ -1186,24 +1286,42 @@ export default function DraftMode() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="max-w-6xl mx-auto flex items-center justify-between mb-8 pb-4 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="text-xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">RogueDex</Link>
-          <span className="text-slate-600 font-bold">/</span>
-          <h1 className="text-lg font-bold text-slate-300 flex items-center gap-2">
-            <Users className="w-5 h-5 text-indigo-400" /> Clash Draft
-          </h1>
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between mb-8 pb-4 border-b border-slate-800 gap-4">
+        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="text-xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">RogueDex</Link>
+            <span className="text-slate-600 font-bold hidden sm:inline">/</span>
+            <h1 className="text-lg font-bold text-slate-300 flex items-center gap-2">
+              <Users className="w-5 h-5 text-indigo-400 hidden sm:block" /> <span className="hidden sm:inline">Clash Draft</span>
+            </h1>
+          </div>
         </div>
-        <button 
-          onClick={() => setMusicOn(!musicOn)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-bold transition-all text-sm ${
-            musicOn ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:text-slate-200'
-          }`}
-          title="Toggle Ambient Lofi"
-        >
-          {musicOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-          {musicOn ? 'Vibing' : 'Music Off'}
-        </button>
+        <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 w-full md:w-auto">
+          {gameState && isHost && gameState.status !== 'LOBBY' && (
+            <>
+              <select
+                value={gameState.gameMode}
+                onChange={changeModeMidDraft}
+                className="bg-slate-900 text-fuchsia-400 font-bold px-3 py-2 rounded-lg text-xs transition-colors border border-slate-700 outline-none cursor-pointer hover:border-slate-500"
+              >
+                {GAME_MODES.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+              <button onClick={restartDraft} className="whitespace-nowrap inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-rose-400 font-bold px-3 py-2 rounded-lg text-xs transition-colors border border-slate-700 hover:border-rose-500/50">🔄 Reset</button>
+              <button onClick={returnToLobby} className="whitespace-nowrap inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-indigo-400 font-bold px-3 py-2 rounded-lg text-xs transition-colors border border-slate-700 hover:border-indigo-500/50">⬅️ Lobby</button>
+              <div className="hidden md:block w-px h-6 bg-slate-800 mx-1"></div>
+            </>
+          )}
+          <button 
+            onClick={() => setMusicOn(!musicOn)}
+            className={`whitespace-nowrap flex items-center gap-1.5 px-3 py-2 rounded-lg border font-bold transition-all text-xs ${
+              musicOn ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
+            }`}
+            title="Toggle Ambient Lofi"
+          >
+            {musicOn ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            {musicOn ? 'Vibing' : 'Music Off'}
+          </button>
+        </div>
       </div>
 
       <div className="max-w-6xl mx-auto">
@@ -1455,9 +1573,11 @@ export default function DraftMode() {
                 {gameState.status === 'REVEAL' ? 'Final Teams!' : gameState.gameMode === 'auction' ? 'Live Auction' : gameState.gameMode === 'snake' ? 'Snake Draft' : `Round ${gameState.round} / ${gameState.totalRounds}`}
               </h2>
               {gameState.gameMode === 'blind' && gameState.status === 'DRAFTING' && <p className="text-purple-400 font-bold mt-1 text-sm">👁 BLIND MODE - Pick by abilities!</p>}
+              {gameState.gameMode === 'shadow' && gameState.status === 'DRAFTING' && <p className="text-slate-400 font-bold mt-1 text-sm">🌑 SHADOW PROTOCOL - Pick by clues!</p>}
               {gameState.gameMode === 'monotype' && gameState.status === 'DRAFTING' && <p className="font-bold mt-1 text-sm" style={{ color: gameState.monotypeType ? TYPE_COLORS[gameState.monotypeType] : '#fb923c' }}>🔥 FORCED MONOTYPE: {gameState.monotypeType?.toUpperCase()}</p>}
               {gameState.gameMode === 'wildcard' && gameState.status === 'DRAFTING' && <p className="text-fuchsia-400 font-bold mt-1 text-sm animate-pulse">🃏 WILDCARD MODE: 1 of these is a trap!</p>}
-              {gameState.gameMode === 'vip' && gameState.status === 'DRAFTING' && gameState.round > 1 && <p className="text-yellow-400 font-bold mt-1 text-sm">👑 PROTECT THE KING: Only {mySlot?.team[0]?.actualPk.types[0]?.toUpperCase() ?? ''} types available!</p>}
+              {gameState.gameMode === 'vip' && gameState.status === 'DRAFTING' && gameState.round > 1 && <p className="text-yellow-400 font-bold mt-1 text-sm">👑 PROTECT THE KING: Pick 1 to join your {mySlot?.team[0]?.actualPk.types[0]?.toUpperCase() ?? ''} King!</p>}
+              {gameState.gameMode === 'vip' && gameState.status === 'DRAFTING' && gameState.round === 1 && <p className="text-yellow-400 font-bold mt-1 text-sm">👑 PROTECT THE KING: Choose your VIP! Your entire team will share their type!</p>}
               {gameState.gameMode === 'vip' && gameState.status === 'DRAFTING' && gameState.round === 1 && <p className="text-yellow-400 font-bold mt-1 text-sm">👑 PROTECT THE KING: Choose your VIP!</p>}
               {gameState.gameMode === 'speedrun' && gameState.status === 'DRAFTING' && !submitted && !mySlot?.ready && (
                 <div className="mt-4 flex flex-col items-center">
@@ -1467,22 +1587,9 @@ export default function DraftMode() {
                   <p className="text-red-400 text-xs font-bold mt-2 uppercase tracking-widest">Pick fast or get the worst!</p>
                 </div>
               )}
-              {gameState.gameMode !== 'auction' && gameState.gameMode !== 'snake' && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
+              {gameState.gameMode !== 'auction' && gameState.gameMode !== 'snake' && gameState.gameMode !== 'vip' && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
               {gameState.status === 'REVEAL' && isHost && (
                 <button onClick={returnToLobby} className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">🔄 Play Again (Change Settings)</button>
-              )}
-              {gameState.status !== 'REVEAL' && isHost && (
-                 <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                   <button onClick={returnToLobby} className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-indigo-400 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-indigo-500/30">⬅️ Back to Lobby (Reset)</button>
-                   <select
-                     value={gameState.gameMode}
-                     onChange={changeModeMidDraft}
-                     className="bg-slate-800 text-fuchsia-400 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-fuchsia-500/30 outline-none cursor-pointer"
-                   >
-                     {GAME_MODES.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-                   </select>
-                   <button onClick={restartDraft} className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold px-4 py-2 rounded-xl text-sm transition-colors border border-rose-500/30">🔄 Reset Teams</button>
-                 </div>
               )}
               {gameState.status === 'REVEAL' && !isHost && <p className="text-slate-500 text-sm mt-2">Waiting for host to restart...</p>}
             </div>
@@ -1628,6 +1735,13 @@ export default function DraftMode() {
                             const isKeep = keepChoice === pk.id;
                             const isGive = giveChoice === pk.id;
                             const isBlind = gameState.gameMode === 'blind';
+                            const isShadow = gameState.gameMode === 'shadow';
+                            const isVip = gameState.gameMode === 'vip';
+                            
+                            // In Blind mode, we only hide the image/name/types, but color remains accurate
+                            // In Shadow mode, the color is hidden (purple)
+                            const cardColor = isShadow ? '#64748b' : TYPE_COLORS[pk.types[0]];
+                            
                             return (
                               <motion.div
                                 key={pk.id}
@@ -1636,11 +1750,12 @@ export default function DraftMode() {
                                 exit={{ opacity: 0, x: 50 }}
                                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                               >
-                                <HoloCard typeColor={isBlind ? '#a855f7' : TYPE_COLORS[pk.types[0]]} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
+                                <HoloCard typeColor={cardColor} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
                                   isKeep ? 'bg-indigo-500/20 border-indigo-500' : isGive ? 'bg-rose-500/20 border-rose-500' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'
                                 }`}>
                                   {isBlind && <BlindClueHint id={pk.id} speciesId={pk.speciesId} />}
-                                  <div className={`flex items-center gap-3 relative z-30 ${isBlind ? 'invisible' : ''}`}>
+                                  {isShadow && <ShadowClueHint id={pk.id} speciesId={pk.speciesId} />}
+                                  <div className={`flex items-center gap-3 relative z-30 ${isBlind || isShadow ? 'invisible' : ''}`}>
                                     <img src={pk.sprite} alt={pk.name} className="w-12 h-12 object-contain" />
                                     <div>
                                       <p className="font-bold text-sm text-white capitalize">{pk.displayName}</p>
@@ -1651,16 +1766,18 @@ export default function DraftMode() {
                                   </div>
                                   <div className="flex flex-col gap-1 relative z-30">
                                     <button onClick={() => { playHoverTick(); setKeepChoice(pk.id); if (giveChoice === pk.id) setGiveChoice(null); }}
-                                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>Keep</button>
-                                    <button onClick={() => { playHoverTick(); setGiveChoice(pk.id); if (keepChoice === pk.id) setKeepChoice(null); }}
-                                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>Give</button>
+                                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>{isVip ? 'Draft' : 'Keep'}</button>
+                                    {!isVip && (
+                                      <button onClick={() => { playHoverTick(); setGiveChoice(pk.id); if (keepChoice === pk.id) setKeepChoice(null); }}
+                                        className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>Give</button>
+                                    )}
                                   </div>
                                 </HoloCard>
                               </motion.div>
                             );
                           })}
                         </div>
-                        <button onClick={submitMyChoices} disabled={keepChoice === null || giveChoice === null}
+                        <button onClick={submitMyChoices} disabled={keepChoice === null || (gameState.gameMode !== 'vip' && giveChoice === null)}
                           className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold py-3 rounded-xl transition-colors">
                           Confirm Selection
                         </button>
@@ -1880,13 +1997,28 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
   
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.5, y: 50 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
+      key={`${pk.id}-${data.wasAssassinated}`}
+      initial={data.wasAssassinated ? { opacity: 0, scale: 0.1, rotate: -45, y: -100 } : { opacity: 0, scale: 0.5, y: 50 }}
+      animate={{ opacity: 1, scale: 1, y: 0, rotate: 0 }}
       exit={{ opacity: 0, scale: 0.5 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20, delay: index * 0.1 }}
-      className="w-full h-full"
+      transition={data.wasAssassinated 
+        ? { type: 'spring', stiffness: 200, damping: 10, mass: 1, delay: 0.5 + index * 0.1 }
+        : { type: 'spring', stiffness: 300, damping: 20, delay: index * 0.1 }
+      }
+      className="w-full h-full relative"
     >
-      <HoloCard typeColor={TYPE_COLORS[pk.types[0]]} className="aspect-square w-full h-full relative">
+      {data.wasAssassinated && (
+        <motion.div
+          initial={{ opacity: 1, scale: 0.5 }}
+          animate={{ opacity: 0, scale: 2 }}
+          transition={{ duration: 0.8, delay: 0.5 + index * 0.1 }}
+          className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none"
+        >
+          <div className="w-full h-full border-4 border-rose-500 rounded-2xl shadow-[0_0_50px_rgba(244,63,94,1)]"></div>
+          <span className="absolute text-5xl">💀</span>
+        </motion.div>
+      )}
+      <HoloCard typeColor={TYPE_COLORS[pk.types[0]]} className={`aspect-square w-full h-full relative ${data.wasAssassinated ? 'animate-shake' : ''}`}>
         <div 
           className="w-full h-full relative rounded-2xl transition-transform duration-700"
           style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}

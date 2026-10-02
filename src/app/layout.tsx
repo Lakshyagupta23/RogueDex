@@ -6,8 +6,10 @@ export const viewport: Viewport = {
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { PokemonProvider } from "@/context/PokemonContext";
+import { PlayerProfileProvider } from "@/context/PlayerProfileContext";
 import Sidebar from "@/components/Sidebar";
 import Footer from "@/components/Footer";
+import CinematicOverlay from "@/components/CinematicOverlay";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,6 +59,7 @@ export default function RootLayout({
         <div className="fixed inset-0 z-[-1] bg-gradient-to-b from-slate-950/20 via-slate-950/80 to-slate-950 pointer-events-none" />
 
         <PokemonProvider>
+          <PlayerProfileProvider>
           <div className="flex flex-col md:flex-row w-full min-h-screen relative z-10">
             <Sidebar />
             <div className="flex-grow flex flex-col min-w-0">
@@ -66,6 +69,8 @@ export default function RootLayout({
               <Footer />
             </div>
           </div>
+          <CinematicOverlay />
+          </PlayerProfileProvider>
         </PokemonProvider>
       </body>
     </html>
