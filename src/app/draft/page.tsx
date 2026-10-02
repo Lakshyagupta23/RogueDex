@@ -15,8 +15,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { generateShowdownExport } from '@/lib/showdown';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wvrjnkeckzhaczvxuaao.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_5pAS92vWTXjivLr1PiUU8g_QCfG4Z6l';
 // Create supabase client lazily so SSR doesn't break if env vars are missing
 let _supabase: ReturnType<typeof createClient> | null = null;
 function getSupabase() {
@@ -941,85 +941,95 @@ export default function DraftMode() {
   }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
 
   const handleCreateRoom = useCallback(async () => {
-    if (!usernameRef.current.trim()) return alert('Enter a username first');
-    isHostRef.current = true;
-    // Generate a clean 8-char alphanumeric room code
-    const code = Math.random().toString(36).substring(2, 6).toUpperCase() +
-                 Math.random().toString(36).substring(2, 6).toUpperCase();
-    roomCodeRef.current = code;
-    const sb = getSupabase();
-    // Clean up any old channel
-    if (channelRef.current) { sb.removeChannel(channelRef.current); channelRef.current = null; }
-    const channel = sb.channel(`draft:${code}`, { config: { broadcast: { self: false } } });
-    channelRef.current = channel;
+    try {
+      if (!usernameRef.current.trim()) return alert('Enter a username first');
+      isHostRef.current = true;
+      // Generate a clean 8-char alphanumeric room code
+      const code = Math.random().toString(36).substring(2, 6).toUpperCase() +
+                   Math.random().toString(36).substring(2, 6).toUpperCase();
+      roomCodeRef.current = code;
+      const sb = getSupabase();
+      // Clean up any old channel
+      if (channelRef.current) { sb.removeChannel(channelRef.current); channelRef.current = null; }
+      const channel = sb.channel(`draft:${code}`, { config: { broadcast: { self: false } } });
+      channelRef.current = channel;
 
-    channel.on('broadcast', { event: 'guest_action' }, ({ payload }: any) => {
-      if (!isHostRef.current) return;
-      handleHostReceiveData(payload);
-    });
+      channel.on('broadcast', { event: 'guest_action' }, ({ payload }: any) => {
+        if (!isHostRef.current) return;
+        handleHostReceiveData(payload);
+      });
 
-    channel.subscribe((status: string) => {
-      if (status === 'SUBSCRIBED') {
-        const filters = buildFilters();
-        const isVip = selectedMode === 'vip';
-        const totalRounds = isVip ? 6 : 3;
-        const initial: DraftState = {
-          code, status: 'LOBBY', gameMode: selectedMode,
-          optionsPerRound: selectedMode === 'wildcard' || isVip ? 3 : optionsPerRound, round: 1, totalRounds, filters,
-          p1: { id: code, username: usernameRef.current, team: [], ready: false },
-          p2: null, p1Options: [], p2Options: [],
-          p1HeistChoice: null, p2HeistChoice: null,
-          p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
-          wildcardModifier: false
-        };
-        applyState(initial);
-      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        alert('Could not create room. Check your connection and try again.');
-      }
-    });
+      channel.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          const filters = buildFilters();
+          const isVip = selectedMode === 'vip';
+          const totalRounds = isVip ? 6 : 3;
+          const initial: DraftState = {
+            code, status: 'LOBBY', gameMode: selectedMode,
+            optionsPerRound: selectedMode === 'wildcard' || isVip ? 3 : optionsPerRound, round: 1, totalRounds, filters,
+            p1: { id: code, username: usernameRef.current, team: [], ready: false },
+            p2: null, p1Options: [], p2Options: [],
+            p1HeistChoice: null, p2HeistChoice: null,
+            p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
+            wildcardModifier: false
+          };
+          applyState(initial);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          alert('Could not create room. Check your connection and try again.');
+        }
+      });
+    } catch (e: any) {
+      console.error(e);
+      alert('Error creating room: ' + e.message);
+    }
   }, [optionsPerRound, applyState, buildFilters, selectedMode, handleHostReceiveData]);
 
   const handleJoinRoom = useCallback(async () => {
-    const uname = usernameRef.current.trim();
-    const code = joinCode.trim().toUpperCase();
-    if (!uname) return alert('Enter a username first');
-    if (!code) return alert('Enter a room code');
-    isHostRef.current = false;
-    roomCodeRef.current = code;
-    const sb = getSupabase();
-    if (channelRef.current) { sb.removeChannel(channelRef.current); channelRef.current = null; }
-    const channel = sb.channel(`draft:${code}`, { config: { broadcast: { self: false } } });
-    channelRef.current = channel;
+    try {
+      const uname = usernameRef.current.trim();
+      const code = joinCode.trim().toUpperCase();
+      if (!uname) return alert('Enter a username first');
+      if (!code) return alert('Enter a room code');
+      isHostRef.current = false;
+      roomCodeRef.current = code;
+      const sb = getSupabase();
+      if (channelRef.current) { sb.removeChannel(channelRef.current); channelRef.current = null; }
+      const channel = sb.channel(`draft:${code}`, { config: { broadcast: { self: false } } });
+      channelRef.current = channel;
 
-    // Guest listens for state sync from host
-    channel.on('broadcast', { event: 'sync_state' }, ({ payload }: any) => {
-      if (isHostRef.current) return;
-      applyState(payload.state);
-      setSubmitted(false);
-    });
+      // Guest listens for state sync from host
+      channel.on('broadcast', { event: 'sync_state' }, ({ payload }: any) => {
+        if (isHostRef.current) return;
+        applyState(payload.state);
+        setSubmitted(false);
+      });
 
-    let joined = false;
-    const timeout = setTimeout(() => {
-      if (!joined) {
-        alert('Could not connect to that room.\nMake sure the host has created the room and the code is correct.');
-        sb.removeChannel(channel); channelRef.current = null;
-      }
-    }, 10000);
+      let joined = false;
+      const timeout = setTimeout(() => {
+        if (!joined) {
+          alert('Could not connect to that room.\nMake sure the host has created the room and the code is correct.');
+          sb.removeChannel(channel); channelRef.current = null;
+        }
+      }, 10000);
 
-    channel.subscribe((status: string) => {
-      if (status === 'SUBSCRIBED') {
-        joined = true;
-        clearTimeout(timeout);
-        // Announce join to host
-        channel.send({
-          type: 'broadcast', event: 'guest_action',
-          payload: { type: 'guest_join', username: uname }
-        });
-      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        clearTimeout(timeout);
-        alert('Connection error. Please try again.');
-      }
-    });
+      channel.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          joined = true;
+          clearTimeout(timeout);
+          // Announce join to host
+          channel.send({
+            type: 'broadcast', event: 'guest_action',
+            payload: { type: 'guest_join', username: uname }
+          });
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          clearTimeout(timeout);
+          alert('Connection error. Please try again.');
+        }
+      });
+    } catch (e: any) {
+      console.error(e);
+      alert('Error joining room: ' + e.message);
+    }
   }, [joinCode, applyState]);
 
   const startDraft = useCallback(() => {
