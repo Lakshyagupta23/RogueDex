@@ -40,7 +40,10 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'speedrun', icon: <Timer className="w-6 h-6" />, label: '⏱️ Speedrun', description: '7 seconds per pick. If time runs out, the worst Pokémon is auto-picked!', color: 'text-red-400', borderColor: 'border-red-500' },
   { id: 'vip', icon: <Crown className="w-6 h-6" />, label: '👑 Protect the King', description: 'Round 1 is your VIP. All other picks must share a type with it!', color: 'text-yellow-400', borderColor: 'border-yellow-500' },
   { id: 'salary_cap', icon: <Coins className="w-6 h-6" />, label: '🏛️ Salary Cap (Nomination)', description: 'Take turns nominating Pokémon for bidding. Don\'t run out of money!', color: 'text-green-400', borderColor: 'border-green-500' },
-  { id: 'nuzlocke', icon: <Skull className="w-6 h-6" />, label: '☠️ Nuzlocke Draft', description: 'Draft a team of 6, then each player assassinates 1 opponent Pokémon! Guess their target to save it.', color: 'text-rose-400', borderColor: 'border-rose-500' }
+  { id: 'nuzlocke', icon: <Skull className="w-6 h-6" />, label: '☠️ Nuzlocke Draft', description: 'Draft a team of 6, then each player assassinates 1 opponent Pokémon! Guess their target to save it.', color: 'text-rose-400', borderColor: 'border-rose-500' },
+  { id: 'slot_machine', icon: <Wand2 className="w-6 h-6" />, label: '🎰 Slot Machine', description: 'Before each round, a random crazy rule is spun on the slot machine!', color: 'text-pink-400', borderColor: 'border-pink-500' },
+  { id: 'tug_of_war', icon: <Sword className="w-6 h-6" />, label: '⚖️ Tug of War', description: 'Draft high BST Pokémon to pull the rope! Don\'t pull too hard or the rope snaps and your opponent gets a Legendary!', color: 'text-cyan-400', borderColor: 'border-cyan-500' },
+  { id: 'sealed_bid', icon: <Eye className="w-6 h-6" />, label: '🔒 Sealed Bid Auction', description: 'Both players secretly bid once on a Pokémon. Highest bidder wins!', color: 'text-indigo-400', borderColor: 'border-indigo-500' }
 ];
 
 function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
@@ -117,7 +120,8 @@ function BlindClueHint({ id, speciesId, type }: { id: number, speciesId: number,
 }
 
 function MonotypeRoulettePanel({ gameState, isHost, onComplete }: { gameState: DraftState, isHost: boolean, onComplete: () => void }) {
-  const [currentType, setCurrentType] = useState<string>(ALL_TYPES[0]);
+  const [currentType1, setCurrentType1] = useState<string>(ALL_TYPES[0]);
+  const [currentType2, setCurrentType2] = useState<string>(ALL_TYPES[1]);
   const [isDone, setIsDone] = useState(false);
   const onCompleteRef = useRef(onComplete);
   
@@ -130,10 +134,12 @@ function MonotypeRoulettePanel({ gameState, isHost, onComplete }: { gameState: D
     const maxTicks = 40;
     const interval = setInterval(() => {
       tick++;
-      setCurrentType(ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)]);
+      setCurrentType1(ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)]);
+      setCurrentType2(ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)]);
       if (tick >= maxTicks) {
         clearInterval(interval);
-        setCurrentType(gameState.monotypeP1 || 'normal');
+        setCurrentType1(gameState.monotypeP1 || 'normal');
+        setCurrentType2(gameState.monotypeP2 || 'normal');
         setIsDone(true);
         if (isHost) {
           setTimeout(() => onCompleteRef.current(), 3000);
@@ -141,28 +147,49 @@ function MonotypeRoulettePanel({ gameState, isHost, onComplete }: { gameState: D
       }
     }, 50);
     return () => clearInterval(interval);
-  }, [gameState.monotypeP1, isHost]);
+  }, [gameState.monotypeP1, gameState.monotypeP2, isHost]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh]">
-      <h2 className="text-3xl font-black text-white mb-8">Rolling Draft Type...</h2>
-      <div className="flex flex-col items-center gap-2">
-        <span className="text-slate-400 font-bold">Draft Pool Restricted To</span>
-        <motion.div 
-          key={currentType}
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: isDone ? 1.2 : 1, opacity: 1 }}
-          className="w-48 h-48 rounded-2xl flex flex-col items-center justify-center border-4"
-          style={{ 
-            backgroundColor: `${TYPE_COLORS[currentType]}20`,
-            borderColor: TYPE_COLORS[currentType],
-            boxShadow: isDone ? `0 0 40px ${TYPE_COLORS[currentType]}` : 'none'
-          }}
-        >
-          <span className="text-4xl font-black uppercase tracking-widest" style={{ color: TYPE_COLORS[currentType] }}>
-            {currentType}
-          </span>
-        </motion.div>
+      <h2 className="text-3xl font-black text-white mb-8">Rolling Draft Types...</h2>
+      <div className="flex gap-8 md:gap-16">
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-slate-400 font-bold uppercase tracking-widest text-sm">P1 Restricted To</span>
+          <motion.div 
+            key={currentType1 + "1"}
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: isDone ? 1.1 : 1, opacity: 1 }}
+            className="w-40 h-40 md:w-48 md:h-48 rounded-2xl flex flex-col items-center justify-center border-4"
+            style={{ 
+              backgroundColor: `${TYPE_COLORS[currentType1]}20`,
+              borderColor: TYPE_COLORS[currentType1],
+              boxShadow: isDone ? `0 0 40px ${TYPE_COLORS[currentType1]}` : 'none'
+            }}
+          >
+            <span className="text-3xl md:text-4xl font-black uppercase tracking-widest" style={{ color: TYPE_COLORS[currentType1] }}>
+              {currentType1}
+            </span>
+          </motion.div>
+        </div>
+        
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-slate-400 font-bold uppercase tracking-widest text-sm">P2 Restricted To</span>
+          <motion.div 
+            key={currentType2 + "2"}
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: isDone ? 1.1 : 1, opacity: 1 }}
+            className="w-40 h-40 md:w-48 md:h-48 rounded-2xl flex flex-col items-center justify-center border-4"
+            style={{ 
+              backgroundColor: `${TYPE_COLORS[currentType2]}20`,
+              borderColor: TYPE_COLORS[currentType2],
+              boxShadow: isDone ? `0 0 40px ${TYPE_COLORS[currentType2]}` : 'none'
+            }}
+          >
+            <span className="text-3xl md:text-4xl font-black uppercase tracking-widest" style={{ color: TYPE_COLORS[currentType2] }}>
+              {currentType2}
+            </span>
+          </motion.div>
+        </div>
       </div>
     </div>
   );
@@ -447,9 +474,9 @@ export default function DraftMode() {
 
     let p1Pool = basePool;
     let p2Pool = basePool;
-    if (state.gameMode === 'monotype' && state.monotypeP1) {
+    if (state.gameMode === 'monotype' && state.monotypeP1 && state.monotypeP2) {
       p1Pool = basePool.filter(p => p.types.includes(state.monotypeP1!));
-      p2Pool = basePool.filter(p => p.types.includes(state.monotypeP1!));
+      p2Pool = basePool.filter(p => p.types.includes(state.monotypeP2!));
       if (p1Pool.length === 0) p1Pool = basePool;
       if (p2Pool.length === 0) p2Pool = basePool;
     }
@@ -467,7 +494,36 @@ export default function DraftMode() {
       }
     }
 
-    if (state.gameMode === 'auction' || state.gameMode === 'salary_cap') {
+    if (state.gameMode === 'slot_machine') {
+      const slotRules = [
+        { id: 'water', label: '💧 Water Types Only!' },
+        { id: 'fire', label: '🔥 Fire Types Only!' },
+        { id: 'grass', label: '🍃 Grass Types Only!' },
+        { id: 'legendary', label: '✨ Legends & Mythicals Only!' },
+        { id: 'weak', label: '👶 Weaklings Only (BST < 400)!' },
+        { id: 'strong', label: '💪 Titans Only (BST > 550)!' },
+        { id: 'starters', label: '🌟 Starters Only!' },
+        { id: 'fossils', label: '🦴 Fossils Only!' },
+        { id: 'gen1', label: '📺 Gen 1 Only!' }
+      ];
+      const rule = slotRules[Math.floor(Math.random() * slotRules.length)];
+      state.slotMachineRule = rule.label;
+
+      if (rule.id === 'water') p1Pool = p1Pool.filter(p => p.types.includes('water'));
+      if (rule.id === 'fire') p1Pool = p1Pool.filter(p => p.types.includes('fire'));
+      if (rule.id === 'grass') p1Pool = p1Pool.filter(p => p.types.includes('grass'));
+      if (rule.id === 'legendary') p1Pool = p1Pool.filter(p => p.isLegendary || p.isMythical);
+      if (rule.id === 'weak') p1Pool = p1Pool.filter(p => p.stats.total < 400);
+      if (rule.id === 'strong') p1Pool = p1Pool.filter(p => p.stats.total > 550);
+      if (rule.id === 'starters') p1Pool = p1Pool.filter(p => p.isStarter);
+      if (rule.id === 'fossils') p1Pool = p1Pool.filter(p => p.isFossil);
+      if (rule.id === 'gen1') p1Pool = p1Pool.filter(p => p.generation === 1);
+      
+      p2Pool = p1Pool;
+      if (p1Pool.length < state.optionsPerRound) { p1Pool = basePool; p2Pool = basePool; state.slotMachineRule = "❌ Rule failed! Anything goes!"; }
+    }
+
+    if (state.gameMode === 'auction' || state.gameMode === 'salary_cap' || state.gameMode === 'sealed_bid') {
       state.p2Options = [];
       state.currentBid = 0;
       state.highestBidder = null;
@@ -482,6 +538,12 @@ export default function DraftMode() {
         if (state.salaryNominationTurn === 2 && state.p2Passed) state.salaryNominationTurn = 1;
       } else {
         state.p1Options = pickUnique(1, basePool);
+        
+        if (state.gameMode === 'sealed_bid') {
+          state.p1SealedBid = null;
+          state.p2SealedBid = null;
+          state.sealedBidFled = false;
+        }
       }
     } else if (state.gameMode === 'snake') {
       if (state.round === 1) { // Only generate once for snake
@@ -521,6 +583,29 @@ export default function DraftMode() {
     }
     
     // Check end condition
+    if (state.p1.team.length >= 6 && state.p2!.team.length >= 6) {
+      state.status = 'REVEAL';
+    } else {
+      state.round += 1;
+      generateOptions(state, pokemonList);
+    }
+    applyState({ ...state });
+    broadcastToGuest({ ...state });
+  }, [applyState, broadcastToGuest, generateOptions, getActualPk, pokemonList]);
+
+  const resolveSealedBid = useCallback((state: DraftState) => {
+    if (state.p1SealedBid === null || state.p1SealedBid === undefined || state.p2SealedBid === null || state.p2SealedBid === undefined) return;
+    const pk = getActualPk(state.p1Options[0], pokemonList);
+    if (!state.p1Options[0].isTrap) playLockIn();
+
+    if (state.p1SealedBid > state.p2SealedBid) {
+      state.p1Budget -= state.p1SealedBid;
+      state.p1.team.push({ isMystery: false, actualPk: pk, fromOpponent: false, cost: state.p1SealedBid });
+    } else if (state.p2SealedBid > state.p1SealedBid) {
+      state.p2Budget -= state.p2SealedBid;
+      state.p2!.team.push({ isMystery: false, actualPk: pk, fromOpponent: false, cost: state.p2SealedBid });
+    }
+    
     if (state.p1.team.length >= 6 && state.p2!.team.length >= 6) {
       state.status = 'REVEAL';
     } else {
@@ -728,6 +813,29 @@ export default function DraftMode() {
     p2PendingRef.current = null;
     state.round += 1;
 
+    if (state.gameMode === 'tug_of_war' && state.p1.team.length === 5 && state.p2!.team.length === 5) {
+       const p1BST = state.p1.team.reduce((sum, m) => sum + m.actualPk.stats.total, 0);
+       const p2BST = state.p2!.team.reduce((sum, m) => sum + m.actualPk.stats.total, 0);
+       const diff = Math.abs(p1BST - p2BST);
+       
+       const legends = pokemonList.filter(p => p.isLegendary || p.isMythical);
+       const legend = legends[Math.floor(Math.random() * legends.length)];
+       
+       if (diff > (state.tugOfWarSnapThreshold || 500)) {
+         if (p1BST > p2BST) state.p2!.team.push({ isMystery: false, actualPk: legend, fromOpponent: false });
+         else state.p1.team.push({ isMystery: false, actualPk: legend, fromOpponent: false });
+       } else {
+         if (p1BST > p2BST) state.p1.team.push({ isMystery: false, actualPk: legend, fromOpponent: false });
+         else if (p2BST > p1BST) state.p2!.team.push({ isMystery: false, actualPk: legend, fromOpponent: false });
+         else state.p1.team.push({ isMystery: false, actualPk: legend, fromOpponent: false });
+       }
+       
+       state.status = 'REVEAL';
+       applyState({ ...state });
+       broadcastToGuest({ ...state });
+       return;
+    }
+
     if (state.round > state.totalRounds) {
       if (state.gameMode === 'heist') {
         state.status = 'HEIST';
@@ -888,6 +996,17 @@ export default function DraftMode() {
          else { applyState(next); broadcastToGuest(next); }
       }
     }
+    if (data.type === 'submit_sealed_bid') {
+      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      if (data.playerNum === 1) next.p1SealedBid = data.amount;
+      else next.p2SealedBid = data.amount;
+
+      if (next.p1SealedBid !== null && next.p1SealedBid !== undefined && next.p2SealedBid !== null && next.p2SealedBid !== undefined) {
+        resolveSealedBid(next);
+      } else {
+        applyState(next); broadcastToGuest(next);
+      }
+    }
     if (data.type === 'auction_pass') {
       const next: DraftState = JSON.parse(JSON.stringify(cur));
       if (data.playerNum === 1) next.p1Passed = true;
@@ -1019,18 +1138,21 @@ export default function DraftMode() {
        optionsPerRound,
        filters: buildFilters(),
        round: 1,
-       totalRounds: selectedMode === 'vip' ? 6 : 3,
+       totalRounds: selectedMode === 'vip' ? 6 : (selectedMode === 'tug_of_war' ? 5 : 3),
        p1: { ...cur.p1, team: [], ready: false },
        p2: cur.p2 ? { ...cur.p2, team: [], ready: false } : null,
        p1HeistChoice: null, p2HeistChoice: null,
        p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
        snakeTurn: 1, snakePickCount: 0,
-       blindClueType: selectedMode === 'blind' ? blindClueType : undefined
+       blindClueType: selectedMode === 'blind' ? blindClueType : undefined,
+       tugOfWarSnapThreshold: selectedMode === 'tug_of_war' ? 500 : undefined
     };
     if (selectedMode === 'monotype') {
-       const sharedType = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
-       next.monotypeP1 = sharedType;
-       next.monotypeP2 = sharedType;
+       const t1 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       let t2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       while (t2 === t1) t2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       next.monotypeP1 = t1;
+       next.monotypeP2 = t2;
     }
     
     p1PendingRef.current = null;
@@ -1251,7 +1373,7 @@ export default function DraftMode() {
 
   const isHost = isHostRef.current;
   const myPlayerNum = isHost ? 1 : 2;
-  const myOptions = (gameState?.gameMode === 'snake' || gameState?.gameMode === 'auction') ? gameState?.p1Options : (isHost ? gameState?.p1Options : gameState?.p2Options);
+  const myOptions = (gameState?.gameMode === 'snake' || gameState?.gameMode === 'auction' || gameState?.gameMode === 'sealed_bid') ? gameState?.p1Options : (isHost ? gameState?.p1Options : gameState?.p2Options);
   const mySlot = isHost ? gameState?.p1 : gameState?.p2;
   const opponentSlot = isHost ? gameState?.p2 : gameState?.p1;
   const activeFilterCount = [
@@ -1642,8 +1764,17 @@ export default function DraftMode() {
               {gameState.gameMode === 'monotype' && gameState.status === 'DRAFTING' && (
                 <div className="flex gap-4 mt-1 justify-center">
                   <p className="font-bold text-sm" style={{ color: gameState.monotypeP1 ? TYPE_COLORS[gameState.monotypeP1] : '#fb923c' }}>
-                    🔥 Forced Type: {gameState.monotypeP1?.toUpperCase()}
+                    🔥 P1 Forced: {gameState.monotypeP1?.toUpperCase()}
                   </p>
+                  <p className="font-bold text-sm" style={{ color: gameState.monotypeP2 ? TYPE_COLORS[gameState.monotypeP2] : '#fb923c' }}>
+                    🔥 P2 Forced: {gameState.monotypeP2?.toUpperCase()}
+                  </p>
+                </div>
+              )}
+              {gameState.gameMode === 'slot_machine' && gameState.status === 'DRAFTING' && (
+                <div className="flex flex-col items-center gap-1 mt-2">
+                  <span className="text-xs uppercase font-bold text-pink-400 bg-pink-500/20 px-2 py-0.5 rounded border border-pink-500/30">🎰 SLOT MACHINE SPUN:</span>
+                  <p className="font-black text-xl text-white drop-shadow-[0_0_10px_rgba(236,72,153,0.8)]">{gameState.slotMachineRule}</p>
                 </div>
               )}
               {gameState.gameMode === 'wildcard' && gameState.status === 'DRAFTING' && <p className="text-fuchsia-400 font-bold mt-1 text-sm animate-pulse">🃏 WILDCARD MODE: 1 of these is a trap!</p>}
@@ -1758,6 +1889,83 @@ export default function DraftMode() {
                      <span className="text-3xl font-black text-emerald-400">${gameState.p2Budget}</span>
                      {gameState.highestBidder === 2 && <span className="mt-2 text-xs font-black text-amber-400 bg-amber-500/20 px-2 py-1 rounded">WINNING BID</span>}
                      {gameState.p2Passed && <span className="mt-2 text-xs font-black text-rose-400 bg-rose-500/20 px-2 py-1 rounded">PASSED / FULL</span>}
+                  </div>
+                </div>
+              </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {gameState.gameMode === 'sealed_bid' && gameState.status === 'DRAFTING' && (
+              <div className="max-w-4xl mx-auto w-full mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* P1 Budget */}
+                  <div className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center ${gameState.p1SealedBid !== null && gameState.p1SealedBid !== undefined ? 'border-amber-400 bg-amber-500/10' : 'border-slate-800 bg-slate-900/50'}`}>
+                     <span className="text-xs uppercase font-bold text-slate-500">{gameState.p1.username}&apos;s Budget</span>
+                     <span className="text-3xl font-black text-emerald-400">${gameState.p1Budget}</span>
+                     {gameState.p1SealedBid !== null && gameState.p1SealedBid !== undefined && <span className="mt-2 text-xs font-black text-amber-400 bg-amber-500/20 px-2 py-1 rounded">LOCKED IN</span>}
+                  </div>
+                  
+                  {/* Center Action */}
+                  <div className="p-6 rounded-2xl border border-indigo-500/30 bg-slate-900 flex flex-col items-center">
+                    <h3 className="text-sm font-bold text-slate-300 mb-4 uppercase tracking-widest">Secret Bid</h3>
+                    {gameState.p1Options.length > 0 && (
+                      <div className="flex flex-col items-center justify-center w-full relative">
+                        <img src={gameState.p1Options[0].sprite} className="w-24 h-24 object-contain drop-shadow-lg" />
+                        <span className="font-bold text-lg text-white capitalize mt-2">{gameState.p1Options[0].displayName}</span>
+                        <div className="flex gap-1 mt-1 mb-4">
+                          {gameState.p1Options[0].types.map(t => <span key={t} style={{ color: TYPE_COLORS[t] }} className="text-[10px] font-bold uppercase">{t}</span>)}
+                        </div>
+                        
+                        {(myPlayerNum === 1 ? (gameState.p1SealedBid !== null && gameState.p1SealedBid !== undefined) : (gameState.p2SealedBid !== null && gameState.p2SealedBid !== undefined)) ? (
+                          <div className="flex flex-col items-center text-amber-400 font-bold mb-4 mt-2">
+                            <Loader2 className="w-6 h-6 animate-spin mb-2" />
+                            Waiting for opponent...
+                          </div>
+                        ) : (
+                          <div className="flex flex-col w-full gap-2 mt-2">
+                             <div className="flex gap-2">
+                               <input type="number" placeholder="Your Bid" value={auctionBidInput} onChange={e => setAuctionBidInput(e.target.value)} className="flex-1 bg-slate-950 border border-slate-700 px-3 py-2 rounded text-white" />
+                               <button onClick={() => {
+                                 const val = parseInt(auctionBidInput);
+                                 const budget = myPlayerNum === 1 ? gameState.p1Budget : gameState.p2Budget;
+                                 if (!isNaN(val) && val >= 0 && val <= budget) {
+                                   playSelectClick();
+                                   if (isHostRef.current) {
+                                      const next = JSON.parse(JSON.stringify(gameStateRef.current));
+                                      next.p1SealedBid = val;
+                                      if (next.p2SealedBid !== null && next.p2SealedBid !== undefined) resolveSealedBid(next);
+                                      else { applyState(next); broadcastToGuest(next); }
+                                   } else {
+                                      channelRef.current?.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'submit_sealed_bid', amount: val, playerNum: 2 } });
+                                   }
+                                   setAuctionBidInput('');
+                                 }
+                               }} className="bg-indigo-600 px-6 py-2 rounded font-bold hover:bg-indigo-500">Lock In</button>
+                             </div>
+                             <button onClick={() => {
+                               playSelectClick();
+                               if (isHostRef.current) {
+                                  const next = JSON.parse(JSON.stringify(gameStateRef.current));
+                                  next.p1SealedBid = 0;
+                                  if (next.p2SealedBid !== null && next.p2SealedBid !== undefined) resolveSealedBid(next);
+                                  else { applyState(next); broadcastToGuest(next); }
+                               } else {
+                                  channelRef.current?.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'submit_sealed_bid', amount: 0, playerNum: 2 } });
+                               }
+                             }} className="w-full mt-2 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 rounded text-sm transition-colors">Bid $0</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* P2 Budget */}
+                  <div className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center ${gameState.p2SealedBid !== null && gameState.p2SealedBid !== undefined ? 'border-amber-400 bg-amber-500/10' : 'border-slate-800 bg-slate-900/50'}`}>
+                     <span className="text-xs uppercase font-bold text-slate-500">{gameState.p2?.username}&apos;s Budget</span>
+                     <span className="text-3xl font-black text-emerald-400">${gameState.p2Budget}</span>
+                     {gameState.p2SealedBid !== null && gameState.p2SealedBid !== undefined && <span className="mt-2 text-xs font-black text-amber-400 bg-amber-500/20 px-2 py-1 rounded">LOCKED IN</span>}
                   </div>
                 </div>
               </div>

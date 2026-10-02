@@ -66,7 +66,7 @@ export interface SavedTeam {
   tags?: string[];
 }
 
-export type GameMode = 'standard' | 'blind' | 'shadow' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos' | 'speedrun' | 'vip' | 'salary_cap' | 'nuzlocke';
+export type GameMode = 'standard' | 'blind' | 'shadow' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos' | 'speedrun' | 'vip' | 'salary_cap' | 'nuzlocke' | 'slot_machine' | 'tug_of_war' | 'sealed_bid';
 export type ChaosEventId = 'rocket' | 'safari' | 'ditto' | 'fossil' | 'celebi' | 'yveltal' | 'wonder' | 'gym' | 'glitch' | 'gamble';
 
 export type DraftTeamMember = {
@@ -108,6 +108,17 @@ export interface DraftState {
   highestBidder: 1 | 2 | null;
   p1Passed: boolean;
   p2Passed: boolean;
+  
+  // Sealed Bid state
+  p1SealedBid?: number | null;
+  p2SealedBid?: number | null;
+  sealedBidFled?: boolean;
+  
+  // Slot Machine state
+  slotMachineRule?: string;
+  
+  // Tug of War state
+  tugOfWarSnapThreshold?: number;
   // Modifiers
   wildcardModifier?: boolean;
   monotypeP1?: string;
