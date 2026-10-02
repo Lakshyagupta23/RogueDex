@@ -348,7 +348,7 @@ export default function DraftMode() {
   const isHostRef = useRef(false);
   const hostConnRef = useRef<any>(null);
   const guestConnRef = useRef<any>(null);
-  const playerIdRef = useRef('d_' + Math.random().toString(36).substring(2, 8));
+  const playerIdRef = useRef('h' + Math.random().toString(36).substring(2, 10));
   const usernameRef = useRef(username);
   useEffect(() => { usernameRef.current = username; }, [username]);
 
@@ -1022,7 +1022,7 @@ export default function DraftMode() {
     if (!uname) return alert('Enter a username first');
     if (!code) return alert('Enter a room code');
     isHostRef.current = false;
-    const guestId = 'g_' + Math.random().toString(36).substring(2, 10);
+    const guestId = 'g' + Math.random().toString(36).substring(2, 10);
     try {
       const peer = await initPeer(guestId);
       const conn = peer.connect(code);
