@@ -13,6 +13,16 @@ import Link from 'next/link';
 import HoloCard from '@/components/HoloCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateShowdownExport } from '@/lib/showdown';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// Create supabase client lazily so SSR doesn't break if env vars are missing
+let _supabase: ReturnType<typeof createClient> | null = null;
+function getSupabase() {
+  if (!_supabase) _supabase = createClient(supabaseUrl, supabaseAnonKey);
+  return _supabase;
+}
 
 const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison','ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy'];
 const ALL_GENS = [1,2,3,4,5,6,7,8,9];
@@ -344,11 +354,9 @@ export default function DraftMode() {
   const [fullyEvolvedOnly, setFullyEvolvedOnly] = useState(false);
 
   // Connection refs
-  const peerRef = useRef<any>(null);
+  const channelRef = useRef<any>(null);
   const isHostRef = useRef(false);
-  const hostConnRef = useRef<any>(null);
-  const guestConnRef = useRef<any>(null);
-  const playerIdRef = useRef('h' + Math.random().toString(36).substring(2, 10));
+  const roomCodeRef = useRef('');
   const usernameRef = useRef(username);
   useEffect(() => { usernameRef.current = username; }, [username]);
 
@@ -425,8 +433,8 @@ export default function DraftMode() {
   }, []);
 
   const broadcastToGuest = useCallback((state: DraftState) => {
-    const conn = guestConnRef.current;
-    if (conn && conn.open) conn.send({ type: 'sync_state', state });
+    const ch = channelRef.current;
+    if (ch) ch.send({ type: 'broadcast', event: 'sync_state', payload: { state } });
   }, []);
 
   const buildFilters = useCallback((): FilterCriteria => ({
@@ -932,138 +940,87 @@ export default function DraftMode() {
      broadcastToGuest(next);
   }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
 
-  const initPeer = useCallback((id: string): Promise<any> => {
-    return new Promise((resolve, reject) => {
-      if (peerRef.current) { resolve(peerRef.current); return; }
-      import('peerjs').then(({ Peer }) => {
-        const peer = new Peer(id, {
-          debug: 1,
-          config: {
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:stun1.l.google.com:19302' },
-              { urls: 'stun:stun2.l.google.com:19302' },
-              {
-                urls: [
-                  'turn:relay1.expressturn.com:3478',
-                  'turn:relay1.expressturn.com:3478?transport=tcp'
-                ],
-                username: 'efKVVZXMPVLEWKFNEW',
-                credential: 'qA0S6sn0zxWM2v3N'
-              },
-              { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-            ]
-          }
-        });
-        peer.on('open', () => { peerRef.current = peer; resolve(peer); });
-        peer.on('connection', (conn: any) => {
-          if (!isHostRef.current) return;
-          guestConnRef.current = conn;
-          conn.on('open', () => {
-            if (gameStateRef.current) conn.send({ type: 'sync_state', state: gameStateRef.current });
-          });
-          conn.on('data', (d: any) => {
-            if (d.type === 'ping') return;
-            handleHostReceiveData(d);
-          });
-          conn.on('error', (err: any) => console.error('Host conn error:', err));
-          conn.on('close', () => {
-            console.error('Guest disconnected.');
-            // Only alert if we are not already done
-            if (gameStateRef.current && gameStateRef.current.status !== 'LOBBY' && gameStateRef.current.status !== 'REVEAL') {
-              alert('Guest disconnected. The game cannot continue.');
-              window.location.reload();
-            }
-          });
-          
-          // Send periodic keepalive ping to prevent WebRTC timeout
-          const pingInterval = setInterval(() => {
-            if (conn && conn.open) {
-              conn.send({ type: 'ping' });
-            } else {
-              clearInterval(pingInterval);
-            }
-          }, 3000);
-        });
-        peer.on('error', (err: any) => { console.error('PeerJS error:', err); reject(err); });
-      }).catch(reject);
-    });
-  }, [handleHostReceiveData]);
-
   const handleCreateRoom = useCallback(async () => {
     if (!usernameRef.current.trim()) return alert('Enter a username first');
     isHostRef.current = true;
-    const pid = playerIdRef.current;
-    try {
-      const peer = await initPeer(pid);
-      const code = peer.id.toUpperCase();
-      const filters = buildFilters();
-      const isVip = selectedMode === 'vip';
-      const totalRounds = isVip ? 6 : 3; 
-      const initial: DraftState = {
-        code, status: 'LOBBY', gameMode: selectedMode,
-        optionsPerRound: selectedMode === 'wildcard' || isVip ? 3 : optionsPerRound, round: 1, totalRounds, filters,
-        p1: { id: pid, username: usernameRef.current, team: [], ready: false },
-        p2: null, p1Options: [], p2Options: [],
-        p1HeistChoice: null, p2HeistChoice: null,
-        p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
-        wildcardModifier: false
-      };
-      applyState(initial);
-    } catch (e: any) {
-      isHostRef.current = false;
-      alert('Could not create room. Please refresh and try again.\n' + (e.message || String(e)));
-    }
-  }, [initPeer, optionsPerRound, applyState, buildFilters, selectedMode]);
+    // Generate a clean 8-char alphanumeric room code
+    const code = Math.random().toString(36).substring(2, 6).toUpperCase() +
+                 Math.random().toString(36).substring(2, 6).toUpperCase();
+    roomCodeRef.current = code;
+    const sb = getSupabase();
+    // Clean up any old channel
+    if (channelRef.current) { sb.removeChannel(channelRef.current); channelRef.current = null; }
+    const channel = sb.channel(`draft:${code}`, { config: { broadcast: { self: false } } });
+    channelRef.current = channel;
+
+    channel.on('broadcast', { event: 'guest_action' }, ({ payload }: any) => {
+      if (!isHostRef.current) return;
+      handleHostReceiveData(payload);
+    });
+
+    channel.subscribe((status: string) => {
+      if (status === 'SUBSCRIBED') {
+        const filters = buildFilters();
+        const isVip = selectedMode === 'vip';
+        const totalRounds = isVip ? 6 : 3;
+        const initial: DraftState = {
+          code, status: 'LOBBY', gameMode: selectedMode,
+          optionsPerRound: selectedMode === 'wildcard' || isVip ? 3 : optionsPerRound, round: 1, totalRounds, filters,
+          p1: { id: code, username: usernameRef.current, team: [], ready: false },
+          p2: null, p1Options: [], p2Options: [],
+          p1HeistChoice: null, p2HeistChoice: null,
+          p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
+          wildcardModifier: false
+        };
+        applyState(initial);
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        alert('Could not create room. Check your connection and try again.');
+      }
+    });
+  }, [optionsPerRound, applyState, buildFilters, selectedMode, handleHostReceiveData]);
 
   const handleJoinRoom = useCallback(async () => {
     const uname = usernameRef.current.trim();
-    const code = joinCode.trim().toLowerCase();
+    const code = joinCode.trim().toUpperCase();
     if (!uname) return alert('Enter a username first');
     if (!code) return alert('Enter a room code');
     isHostRef.current = false;
-    const guestId = 'g' + Math.random().toString(36).substring(2, 10);
-    try {
-      const peer = await initPeer(guestId);
-      const conn = peer.connect(code);
-      hostConnRef.current = conn;
-      let opened = false;
-      const timeout = setTimeout(() => {
-        if (!opened) {
-          alert('Could not connect to that room.\nMake sure the host has created the room and the code is correct.');
-          conn.close(); peerRef.current?.destroy(); peerRef.current = null;
-        }
-      }, 12000);
-      conn.on('open', () => {
-        opened = true; clearTimeout(timeout);
-        conn.send({ type: 'guest_join', playerId: guestId, username: uname });
-      });
-      conn.on('data', (data: any) => {
-        if (data.type === 'ping') { conn.send({ type: 'ping' }); return; }
-        if (data.type === 'sync_state') { applyState(data.state); setSubmitted(false); }
-      });
-      conn.on('error', (err: any) => {
+    roomCodeRef.current = code;
+    const sb = getSupabase();
+    if (channelRef.current) { sb.removeChannel(channelRef.current); channelRef.current = null; }
+    const channel = sb.channel(`draft:${code}`, { config: { broadcast: { self: false } } });
+    channelRef.current = channel;
+
+    // Guest listens for state sync from host
+    channel.on('broadcast', { event: 'sync_state' }, ({ payload }: any) => {
+      if (isHostRef.current) return;
+      applyState(payload.state);
+      setSubmitted(false);
+    });
+
+    let joined = false;
+    const timeout = setTimeout(() => {
+      if (!joined) {
+        alert('Could not connect to that room.\nMake sure the host has created the room and the code is correct.');
+        sb.removeChannel(channel); channelRef.current = null;
+      }
+    }, 10000);
+
+    channel.subscribe((status: string) => {
+      if (status === 'SUBSCRIBED') {
+        joined = true;
         clearTimeout(timeout);
-        console.error('Guest conn error:', err);
-        alert('Connection error: ' + (err.message || String(err)));
-      });
-      conn.on('close', () => {
-        console.error('Host disconnected.');
-        if (gameStateRef.current && gameStateRef.current.status !== 'LOBBY' && gameStateRef.current.status !== 'REVEAL') {
-          alert('Host disconnected. The game cannot continue.');
-          window.location.reload();
-        }
-      });
-      const peerErrorHandler = (err: any) => {
-        if (err.type === 'peer-unavailable') {
-          clearTimeout(timeout);
-          alert('Room does not exist! Make sure you entered the correct code.');
-          peer.off('error', peerErrorHandler);
-        }
-      };
-      peer.on('error', peerErrorHandler);
-    } catch (e: any) { alert('Error joining room: ' + (e.message || String(e))); }
-  }, [joinCode, initPeer, applyState]);
+        // Announce join to host
+        channel.send({
+          type: 'broadcast', event: 'guest_action',
+          payload: { type: 'guest_join', username: uname }
+        });
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        clearTimeout(timeout);
+        alert('Connection error. Please try again.');
+      }
+    });
+  }, [joinCode, applyState]);
 
   const startDraft = useCallback(() => {
     if (!isHostRef.current || !gameStateRef.current) return;
@@ -1110,9 +1067,9 @@ export default function DraftMode() {
       next.p1.ready = true;
       if (p2PendingRef.current) { resolveRound(next); } else { applyState(next); broadcastToGuest(next); }
     } else {
-      const conn = hostConnRef.current;
-      if (conn && conn.open) {
-        conn.send({ type: 'submit_choices', keepId: kId, giveId: gId });
+      const ch = channelRef.current;
+      if (ch) {
+        ch.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'submit_choices', keepId: kId, giveId: gId } });
       } else { alert('Lost connection to host!'); setSubmitted(false); }
     }
   }, [applyState, broadcastToGuest, resolveRound]);
@@ -1160,9 +1117,9 @@ export default function DraftMode() {
       next.p1HeistChoice = myHeistStealIdx;
       if (p2HeistRef.current !== null) { resolveHeist(next); } else { applyState(next); broadcastToGuest(next); }
     } else {
-      const conn = hostConnRef.current;
-      if (conn && conn.open) {
-        conn.send({ type: 'submit_heist', stealIdx: myHeistStealIdx, swapIdx: myHeistSwapIdx });
+      const ch = channelRef.current;
+      if (ch) {
+        ch.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'submit_heist', stealIdx: myHeistStealIdx, swapIdx: myHeistSwapIdx } });
       } else { alert('Lost connection to host!'); setHeistSubmitted(false); }
     }
   }, [myHeistStealIdx, myHeistSwapIdx, applyState, broadcastToGuest, resolveHeist]);
@@ -1178,9 +1135,9 @@ export default function DraftMode() {
       const p2Ready = next.nuzlockeP2Target !== null && next.nuzlockeP2Target !== undefined;
       if (p2Ready) { resolveNuzlocke(next); } else { applyState(next); broadcastToGuest(next); }
     } else {
-      const conn = hostConnRef.current;
-      if (conn && conn.open) {
-        conn.send({ type: 'submit_nuzlocke', targetIdx: myNuzlockeTargetIdx, protectIdx: myNuzlockeProtectIdx });
+      const ch = channelRef.current;
+      if (ch) {
+        ch.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'submit_nuzlocke', targetIdx: myNuzlockeTargetIdx, protectIdx: myNuzlockeProtectIdx } });
       } else { alert('Lost connection to host!'); setNuzlockeSubmitted(false); }
     }
   }, [myNuzlockeTargetIdx, myNuzlockeProtectIdx, applyState, broadcastToGuest, resolveNuzlocke]);
@@ -1192,7 +1149,7 @@ export default function DraftMode() {
     if (isHostRef.current) {
       handleHostReceiveData({ type: 'auction_bid', playerNum, amount });
     } else {
-      hostConnRef.current?.send({ type: 'auction_bid', playerNum, amount });
+      channelRef.current?.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'auction_bid', playerNum, amount } });
     }
   }, [handleHostReceiveData]);
 
@@ -1202,7 +1159,7 @@ export default function DraftMode() {
     if (isHostRef.current) {
       handleHostReceiveData({ type: 'auction_pass', playerNum });
     } else {
-      hostConnRef.current?.send({ type: 'auction_pass', playerNum });
+      channelRef.current?.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'auction_pass', playerNum } });
     }
   }, [handleHostReceiveData]);
 
@@ -1210,7 +1167,7 @@ export default function DraftMode() {
     if (isHostRef.current) {
       resolveSnakePick(pkId);
     } else {
-      hostConnRef.current?.send({ type: 'snake_pick', pkId });
+      channelRef.current?.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'snake_pick', pkId } });
     }
   }, [resolveSnakePick]);
 
@@ -1296,7 +1253,7 @@ export default function DraftMode() {
   }, [gameState?.status]);
 
   useEffect(() => { setKeepChoice(null); setGiveChoice(null); setSubmitted(false); }, [gameState?.round]);
-  useEffect(() => { return () => { peerRef.current?.destroy(); peerRef.current = null; }; }, []);
+  useEffect(() => { return () => { if (channelRef.current) { getSupabase().removeChannel(channelRef.current); channelRef.current = null; } }; }, []);
 
   if (loading) return (
     <div className="min-h-screen bg-[#0b0e16] flex items-center justify-center text-white">
@@ -1662,7 +1619,7 @@ export default function DraftMode() {
               if (isHostRef.current) {
                 resolveChaosChoice(1, choice);
               } else {
-                hostConnRef.current?.send({ type: 'chaos_choice', choice });
+                channelRef.current?.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'chaos_choice', choice } });
               }
             }}
           />
@@ -1721,7 +1678,7 @@ export default function DraftMode() {
                               next.salaryPhase = 'BIDDING';
                               applyState(next); broadcastToGuest(next);
                             } else {
-                              hostConnRef.current?.send({ type: 'nominate_salary_cap', pkId: pk.id });
+                              channelRef.current?.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'nominate_salary_cap', pkId: pk.id } });
                             }
                           }
                        }}
