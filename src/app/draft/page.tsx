@@ -1216,8 +1216,8 @@ export default function DraftMode() {
     
     setIsExporting(true);
     try {
-      const names = team.filter(m => !m.isMystery).map(m => m.actualPk.displayName);
-      const showdownText = await generateShowdownExport(names);
+      const pokemonDataList = team.filter(m => !m.isMystery).map(m => m.actualPk);
+      const showdownText = await generateShowdownExport(pokemonDataList);
       
       await navigator.clipboard.writeText(showdownText);
       playHoverTick();

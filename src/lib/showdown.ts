@@ -1,3 +1,5 @@
+import { PokemonIndexItem } from './pokemon/types';
+
 function formatShowdownName(name: string): string {
   // Megas
   if (name.startsWith('Mega ') && name.endsWith(' X')) return name.slice(5, -2) + '-Mega-X';
@@ -29,7 +31,86 @@ function formatShowdownName(name: string): string {
   return name;
 }
 
-export async function generateShowdownExport(pokemonNames: string[]): Promise<string> {
+function calculateSmartEVs(pk: PokemonIndexItem | string, roleName: string | null): string {
+  if (typeof pk === 'string' || !pk.stats) {
+    return '85 HP / 85 Atk / 85 Def / 85 SpA / 85 SpD / 85 Spe';
+  }
+
+  let primary: keyof typeof pk.stats | null = null;
+  let secondary: keyof typeof pk.stats | null = null;
+  
+  const isPhysical = pk.stats.atk > pk.stats.spAtk;
+  
+  if (roleName) {
+    const roleLower = roleName.toLowerCase();
+    
+    if (roleLower.includes('fast attacker') || roleLower.includes('wallbreaker') || roleLower.includes('setup sweeper')) {
+      primary = 'spe';
+      secondary = isPhysical ? 'atk' : 'spAtk';
+    } else if (roleLower.includes('bulky attacker') || roleLower.includes('av pivot')) {
+      primary = 'hp';
+      secondary = isPhysical ? 'atk' : 'spAtk';
+    } else if (roleLower.includes('bulky support') || roleLower.includes('fast support')) {
+      primary = 'hp';
+      if (roleLower.includes('fast')) {
+        secondary = 'spe';
+      } else {
+        secondary = pk.stats.def > pk.stats.spDef ? 'def' : 'spDef';
+      }
+    }
+  }
+
+  if (!primary || !secondary) {
+    const sortedStats = Object.entries(pk.stats)
+      .filter(([k]) => k !== 'total')
+      .sort((a, b) => (b[1] as number) - (a[1] as number));
+    
+    primary = sortedStats[0][0] as keyof typeof pk.stats;
+    
+    if (primary === 'spe') {
+      secondary = isPhysical ? 'atk' : 'spAtk';
+    } else if (primary === 'atk' || primary === 'spAtk') {
+      secondary = 'spe';
+    } else {
+      secondary = 'hp';
+    }
+  }
+
+  const evMap: Record<string, number> = { hp: 0, atk: 0, def: 0, spA: 0, spD: 0, spe: 0 };
+  
+  const mapKeyToEV = (k: string): string => {
+    if (k === 'hp') return 'hp';
+    if (k === 'atk') return 'atk';
+    if (k === 'def') return 'def';
+    if (k === 'spAtk') return 'spA';
+    if (k === 'spDef') return 'spD';
+    if (k === 'spe') return 'spe';
+    return 'hp';
+  };
+  
+  evMap[mapKeyToEV(primary)] = 252;
+  evMap[mapKeyToEV(secondary)] = 252;
+  
+  const remaining = Object.entries(pk.stats)
+    .filter(([k]) => k !== 'total' && k !== primary && k !== secondary)
+    .sort((a, b) => (b[1] as number) - (a[1] as number));
+    
+  if (remaining.length > 0) {
+    evMap[mapKeyToEV(remaining[0][0])] = 4;
+  }
+  
+  const evParts = [];
+  if (evMap.hp > 0) evParts.push(`${evMap.hp} HP`);
+  if (evMap.atk > 0) evParts.push(`${evMap.atk} Atk`);
+  if (evMap.def > 0) evParts.push(`${evMap.def} Def`);
+  if (evMap.spA > 0) evParts.push(`${evMap.spA} SpA`);
+  if (evMap.spD > 0) evParts.push(`${evMap.spD} SpD`);
+  if (evMap.spe > 0) evParts.push(`${evMap.spe} Spe`);
+  
+  return evParts.join(' / ');
+}
+
+export async function generateShowdownExport(pokemonInput: (PokemonIndexItem | string)[]): Promise<string> {
   try {
     const [res9, res8, res7] = await Promise.all([
       fetch('https://pkmn.github.io/randbats/data/gen9randombattle.json'),
@@ -43,7 +124,8 @@ export async function generateShowdownExport(pokemonNames: string[]): Promise<st
       res7.json().catch(() => ({}))
     ]);
     
-    return pokemonNames.map(rawName => {
+    return pokemonInput.map(pk => {
+      const rawName = typeof pk === 'string' ? pk : pk.displayName;
       const sdName = formatShowdownName(rawName);
       const nameKey = sdName.replace(/[^a-zA-Z0-9]/g, '');
       
@@ -59,7 +141,8 @@ export async function generateShowdownExport(pokemonNames: string[]): Promise<st
       }
       
       if (!pSet) {
-         return `${sdName}\nEVs: 85 HP / 85 Atk / 85 Def / 85 SpA / 85 SpD / 85 Spe\n`;
+         const evs = calculateSmartEVs(pk, null);
+         return `${sdName}\nEVs: ${evs}\n`;
       }
       
       const roles = Object.keys(pSet.roles || {});
@@ -84,8 +167,9 @@ export async function generateShowdownExport(pokemonNames: string[]): Promise<st
       moves = moves.sort(() => 0.5 - Math.random()).slice(0, 4);
       
       const abilityLine = ability && ability !== 'Unknown' ? `\nAbility: ${ability}` : '';
+      const evs = calculateSmartEVs(pk, roleName);
       
-      return `${sdName} @ ${item}${abilityLine}\nLevel: ${pSet.level || 80}\nTera Type: ${teraType}\nEVs: 85 HP / 85 Atk / 85 Def / 85 SpA / 85 SpD / 85 Spe\n${moves.map((mv: string) => '- ' + mv).join('\n')}\n`;
+      return `${sdName} @ ${item}${abilityLine}\nLevel: ${pSet.level || 80}\nTera Type: ${teraType}\nEVs: ${evs}\n${moves.map((mv: string) => '- ' + mv).join('\n')}\n`;
     }).join('\n');
   } catch (err) {
     console.error('Failed to generate showdown sets:', err);

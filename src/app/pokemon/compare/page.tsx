@@ -96,8 +96,18 @@ export default function ComparePage() {
   const effB = useMemo(() => detailsB ? getDefensiveEffectiveness(detailsB.types) : null, [detailsB]);
 
   // Showdown set exports
-  const showdownA = useMemo(() => detailsA ? generateShowdownTeam([pkA!]) : '', [detailsA, pkA]);
-  const showdownB = useMemo(() => detailsB ? generateShowdownTeam([pkB!]) : '', [detailsB, pkB]);
+  const [showdownA, setShowdownA] = useState('');
+  const [showdownB, setShowdownB] = useState('');
+
+  useEffect(() => {
+    if (detailsA && pkA) generateShowdownTeam([pkA]).then(setShowdownA);
+    else setShowdownA('');
+  }, [detailsA, pkA]);
+
+  useEffect(() => {
+    if (detailsB && pkB) generateShowdownTeam([pkB]).then(setShowdownB);
+    else setShowdownB('');
+  }, [detailsB, pkB]);
 
   if (listLoading) {
     return (
