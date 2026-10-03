@@ -130,6 +130,7 @@ export interface DraftState {
   salaryNominee?: PokemonIndexItem | null;
   salaryNominationTurn?: 1 | 2;
   salaryPhase?: 'NOMINATING' | 'BIDDING';
+  salaryPool?: PokemonIndexItem[];
   // Chaos State
   chaosState?: {
     eventId: ChaosEventId;

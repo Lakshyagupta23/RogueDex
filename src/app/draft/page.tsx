@@ -593,6 +593,10 @@ export default function DraftMode() {
     if (state.p1.team.length >= 6 && state.p2!.team.length >= 6) {
       state.status = 'REVEAL';
     } else {
+      state.currentBid = 0;
+      state.highestBidder = null;
+      state.p1Passed = false;
+      state.p2Passed = false;
       state.round += 1;
       generateOptions(state, pokemonList);
     }
@@ -616,6 +620,8 @@ export default function DraftMode() {
     if (state.p1.team.length >= 6 && state.p2!.team.length >= 6) {
       state.status = 'REVEAL';
     } else {
+      state.p1SealedBid = null;
+      state.p2SealedBid = null;
       state.round += 1;
       generateOptions(state, pokemonList);
     }
@@ -952,7 +958,11 @@ export default function DraftMode() {
 
   const stateDiscardAndDraw = useCallback((next: DraftState) => {
      next.round += 1;
-     generateOptions(next, pokemonList);
+     if (next.round > next.totalRounds) {
+       next.status = 'REVEAL';
+     } else {
+       generateOptions(next, pokemonList);
+     }
      applyState(next);
      broadcastToGuest(next);
   }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
