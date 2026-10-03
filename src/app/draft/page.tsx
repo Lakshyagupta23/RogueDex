@@ -1183,10 +1183,20 @@ export default function DraftMode() {
        blindClueType: selectedMode === 'blind' ? blindClueType : undefined,
        tugOfWarSnapThreshold: selectedMode === 'tug_of_war' ? 500 : undefined
     };
+    let availableTypes = ALL_TYPES;
+    const basePoolForTypes = pokemonList.length > 0 ? filterPokemon(pokemonList, next.filters) : [];
+    if (basePoolForTypes.length > 0) {
+      const typeSet = new Set<string>();
+      basePoolForTypes.forEach(p => p.types.forEach(t => typeSet.add(t)));
+      availableTypes = Array.from(typeSet);
+    }
+
     if (selectedMode === 'monotype') {
-       const t1 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
-       let t2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
-       while (t2 === t1) t2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       const t1 = availableTypes[Math.floor(Math.random() * availableTypes.length)] || 'normal';
+       let t2 = availableTypes[Math.floor(Math.random() * availableTypes.length)] || 'normal';
+       if (availableTypes.length > 1) {
+         while (t2 === t1) t2 = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+       }
        next.monotypeP1 = t1;
        next.monotypeP2 = t2;
     }
@@ -1372,10 +1382,20 @@ export default function DraftMode() {
       p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
       snakeTurn: 1, snakePickCount: 0
     };
+    let availableTypes = ALL_TYPES;
+    const basePoolForTypes = pokemonList.length > 0 ? filterPokemon(pokemonList, next.filters) : [];
+    if (basePoolForTypes.length > 0) {
+      const typeSet = new Set<string>();
+      basePoolForTypes.forEach(p => p.types.forEach(t => typeSet.add(t)));
+      availableTypes = Array.from(typeSet);
+    }
+
     if (cur.gameMode === 'monotype') {
-       const t1 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
-       let t2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
-       while (t2 === t1) t2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       const t1 = availableTypes[Math.floor(Math.random() * availableTypes.length)] || 'normal';
+       let t2 = availableTypes[Math.floor(Math.random() * availableTypes.length)] || 'normal';
+       if (availableTypes.length > 1) {
+         while (t2 === t1) t2 = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+       }
        next.monotypeP1 = t1;
        next.monotypeP2 = t2;
     }
@@ -1394,17 +1414,30 @@ export default function DraftMode() {
     const newMode = e.target.value as GameMode;
     const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
     next.gameMode = newMode;
+    let availableTypes = ALL_TYPES;
+    const basePoolForTypes = pokemonList.length > 0 ? filterPokemon(pokemonList, next.filters) : [];
+    if (basePoolForTypes.length > 0) {
+      const typeSet = new Set<string>();
+      basePoolForTypes.forEach(p => p.types.forEach(t => typeSet.add(t)));
+      availableTypes = Array.from(typeSet);
+    }
+
     if (newMode === 'monotype') {
-       const t1 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
-       let t2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
-       while (t2 === t1) t2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       const t1 = availableTypes[Math.floor(Math.random() * availableTypes.length)] || 'normal';
+       let t2 = availableTypes[Math.floor(Math.random() * availableTypes.length)] || 'normal';
+       if (availableTypes.length > 1) {
+         while (t2 === t1) t2 = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+       }
        next.monotypeP1 = t1;
        next.monotypeP2 = t2;
        next.status = 'MONOTYPE_ROULETTE';
     }
+    if (newMode === 'blind') {
+       next.blindClueType = blindClueType;
+    }
     generateOptions(next, pokemonList);
     applyState(next); broadcastToGuest(next);
-  }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
+  }, [applyState, broadcastToGuest, generateOptions, pokemonList, blindClueType]);
 
   useEffect(() => {
     if (gameState?.status === 'HEIST') {
