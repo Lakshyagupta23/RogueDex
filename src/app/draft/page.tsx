@@ -809,7 +809,7 @@ export default function DraftMode() {
     state.p1.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p1k, fromOpponent: false });
     state.p2!.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p2k, fromOpponent: false });
     
-    if (state.gameMode !== 'vip') {
+    if (state.gameMode !== 'vip' && state.gameMode !== 'monotype') {
       if (p2g) state.p1.team.push({ isMystery: true,  actualPk: p2g, fromOpponent: true  });
       if (p1g) state.p2!.team.push({ isMystery: true,  actualPk: p1g, fromOpponent: true  });
     }
@@ -1160,7 +1160,7 @@ export default function DraftMode() {
        optionsPerRound,
        filters: buildFilters(),
        round: 1,
-       totalRounds: selectedMode === 'vip' ? 6 : (selectedMode === 'tug_of_war' ? 5 : 3),
+       totalRounds: (selectedMode === 'vip' || selectedMode === 'monotype') ? 6 : (selectedMode === 'tug_of_war' ? 5 : 3),
        p1: { ...cur.p1, team: [], ready: false },
        p2: cur.p2 ? { ...cur.p2, team: [], ready: false } : null,
        p1HeistChoice: null, p2HeistChoice: null,
@@ -1207,7 +1207,7 @@ export default function DraftMode() {
   }, [applyState, broadcastToGuest, resolveRound]);
 
   const submitMyChoices = useCallback(() => {
-    if (keepChoice !== null && (giveChoice !== null || gameState?.gameMode === 'vip')) {
+    if (keepChoice !== null && (giveChoice !== null || gameState?.gameMode === 'vip' || gameState?.gameMode === 'monotype')) {
       playThud();
       submitChoices(keepChoice, giveChoice ?? -1); // send -1 or some dummy value for giveChoice
     }
@@ -1828,7 +1828,8 @@ export default function DraftMode() {
                   <p className="text-red-400 text-xs font-bold mt-2 uppercase tracking-widest">Pick fast or get the worst!</p>
                 </div>
               )}
-              {gameState.gameMode !== 'auction' && gameState.gameMode !== 'snake' && gameState.gameMode !== 'vip' && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
+              {gameState.gameMode !== 'auction' && gameState.gameMode !== 'snake' && gameState.gameMode !== 'vip' && gameState.gameMode !== 'monotype' && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
+              {gameState.gameMode === 'monotype' && gameState.status === 'DRAFTING' && <p className="text-slate-400 font-bold mt-1 text-sm">Pick 1 to Draft for your Monotype Team!</p>}
               {gameState.status === 'REVEAL' && isHost && (
                 <button onClick={returnToLobby} className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">🔄 Play Again (Change Settings)</button>
               )}
@@ -2090,8 +2091,8 @@ export default function DraftMode() {
                                   </div>
                                   <div className="flex flex-col gap-1 relative z-30">
                                     <button onClick={() => { playHoverTick(); setKeepChoice(pk.id); if (giveChoice === pk.id) setGiveChoice(null); }}
-                                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>{isVip ? 'Draft' : 'Keep'}</button>
-                                    {!isVip && (
+                                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>{(isVip || gameState.gameMode === 'monotype') ? 'Draft' : 'Keep'}</button>
+                                    {!(isVip || gameState.gameMode === 'monotype') && (
                                       <button onClick={() => { playHoverTick(); setGiveChoice(pk.id); if (keepChoice === pk.id) setKeepChoice(null); }}
                                         className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>Give</button>
                                     )}
@@ -2101,7 +2102,7 @@ export default function DraftMode() {
                             );
                           })}
                         </div>
-                        <button onClick={submitMyChoices} disabled={keepChoice === null || (gameState.gameMode !== 'vip' && giveChoice === null)}
+                        <button onClick={submitMyChoices} disabled={keepChoice === null || (!(gameState.gameMode === 'vip' || gameState.gameMode === 'monotype') && giveChoice === null)}
                           className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold py-3 rounded-xl transition-colors">
                           Confirm Selection
                         </button>
