@@ -950,6 +950,13 @@ export default function DraftMode() {
     broadcastToGuest({ ...state });
   }, [applyState, broadcastToGuest, pokemonList, getRandomWeakFullyEvolved]);
 
+  const stateDiscardAndDraw = useCallback((next: DraftState) => {
+     next.round += 1;
+     generateOptions(next, pokemonList);
+     applyState(next);
+     broadcastToGuest(next);
+  }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
+
   const handleHostReceiveData = useCallback((data: any) => {
     const cur = gameStateRef.current;
     if (!cur) return;
@@ -1047,14 +1054,8 @@ export default function DraftMode() {
     if (data.type === 'snake_pick') {
       resolveSnakePick(data.pkId);
     }
-  }, [applyState, broadcastToGuest, resolveRound, resolveHeist, resolveAuctionWin, resolveChaosChoice, resolveSnakePick, resolveNuzlocke]);
+  }, [applyState, broadcastToGuest, resolveRound, resolveHeist, resolveAuctionWin, resolveChaosChoice, resolveSnakePick, resolveNuzlocke, stateDiscardAndDraw]);
 
-  const stateDiscardAndDraw = useCallback((next: DraftState) => {
-     next.round += 1;
-     generateOptions(next, pokemonList);
-     applyState(next);
-     broadcastToGuest(next);
-  }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
 
   const handleCreateRoom = useCallback(async () => {
     try {
@@ -1394,9 +1395,11 @@ export default function DraftMode() {
   useEffect(() => {
     if (gameState?.status === 'HEIST') {
       playHeistAlarm();
-      setMyHeistStealIdx(null); setMyHeistSwapIdx(null); setHeistSubmitted(false);
+      setTimeout(() => {
+        setMyHeistStealIdx(null); setMyHeistSwapIdx(null); setHeistSubmitted(false);
+      }, 0);
     }
-  }, [gameState?.status]);
+  }, [gameState?.status, playHeistAlarm]);
 
   useEffect(() => { setKeepChoice(null); setGiveChoice(null); setSubmitted(false); }, [gameState?.round]);
   useEffect(() => { return () => { if (channelRef.current) { getSupabase().removeChannel(channelRef.current); channelRef.current = null; } }; }, []);
@@ -1768,7 +1771,7 @@ export default function DraftMode() {
           </div>
         ) : gameState.status === 'MONOTYPE_ROULETTE' ? (
           <MonotypeRoulettePanel gameState={gameState} isHost={isHost} onComplete={() => {
-             const next = JSON.parse(JSON.stringify(gameStateRef.current));
+             const next = JSON.parse(JSON.stringify(gameState));
              next.status = 'DRAFTING';
              applyState(next); broadcastToGuest(next);
           }} />
@@ -1845,7 +1848,7 @@ export default function DraftMode() {
                           if (gameState.salaryNominationTurn === myPlayerNum) {
                             playSelectClick();
                             if (isHostRef.current) {
-                              const next = JSON.parse(JSON.stringify(gameStateRef.current));
+                              const next = JSON.parse(JSON.stringify(gameState));
                               next.p1Options = [pk];
                               next.salaryPhase = 'BIDDING';
                               applyState(next); broadcastToGuest(next);
@@ -1966,7 +1969,7 @@ export default function DraftMode() {
                                  if (!isNaN(val) && val >= 0 && val <= budget) {
                                    playSelectClick();
                                    if (isHostRef.current) {
-                                      const next = JSON.parse(JSON.stringify(gameStateRef.current));
+                                      const next = JSON.parse(JSON.stringify(gameState));
                                       next.p1SealedBid = val;
                                       if (next.p2SealedBid !== null && next.p2SealedBid !== undefined) resolveSealedBid(next);
                                       else { applyState(next); broadcastToGuest(next); }
@@ -1980,7 +1983,7 @@ export default function DraftMode() {
                              <button onClick={() => {
                                playSelectClick();
                                if (isHostRef.current) {
-                                  const next = JSON.parse(JSON.stringify(gameStateRef.current));
+                                  const next = JSON.parse(JSON.stringify(gameState));
                                   next.p1SealedBid = 0;
                                   if (next.p2SealedBid !== null && next.p2SealedBid !== undefined) resolveSealedBid(next);
                                   else { applyState(next); broadcastToGuest(next); }
@@ -2302,7 +2305,7 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
       }, delay);
       return () => clearTimeout(t);
     } else if (data?.isMystery) {
-      setIsFlipped(false);
+      setTimeout(() => setIsFlipped(false), 0);
     }
   }, [data, isFlipped, index, playerNum]);
 

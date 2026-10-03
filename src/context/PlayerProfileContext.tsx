@@ -96,14 +96,14 @@ export function PlayerProfileProvider({ children }: { children: ReactNode }) {
         const parsed = JSON.parse(saved);
         const { level } = calculateLevel(parsed.xp || 0);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        setState({
+        setTimeout(() => setState({
           xp: parsed.xp || 0,
           level: level,
           matchesPlayed: parsed.matchesPlayed || 0,
           unlockedAchievements: parsed.unlockedAchievements || [],
           justLeveledUpTo: null,
           justUnlockedAchievements: [],
-        });
+        }), 0);
       } catch (e) {
         console.error('Failed to parse player profile', e);
       }
