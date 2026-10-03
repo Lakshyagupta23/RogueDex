@@ -815,7 +815,7 @@ export default function DraftMode() {
     state.p1.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p1k, fromOpponent: false });
     state.p2!.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p2k, fromOpponent: false });
     
-    if (state.gameMode !== 'vip' && state.gameMode !== 'monotype') {
+    if (state.gameMode !== 'vip' && state.gameMode !== 'monotype' && state.gameMode !== 'tug_of_war') {
       if (p2g) state.p1.team.push({ isMystery: true,  actualPk: p2g, fromOpponent: true  });
       if (p1g) state.p2!.team.push({ isMystery: true,  actualPk: p1g, fromOpponent: true  });
     }
@@ -835,12 +835,16 @@ export default function DraftMode() {
        const legend = legends[Math.floor(Math.random() * legends.length)];
        
        if (diff > (state.tugOfWarSnapThreshold || 500)) {
-         if (p1BST > p2BST) state.p2!.team.push({ isMystery: false, actualPk: legend, fromOpponent: false });
-         else state.p1.team.push({ isMystery: false, actualPk: legend, fromOpponent: false });
+         if (p1BST > p2BST) {
+           state.p2!.team.push({ isMystery: false, actualPk: legend, fromOpponent: false });
+           state.p1.team.push({ isMystery: false, actualPk: getRandomWeakFullyEvolved(pokemonList), fromOpponent: false });
+         } else {
+           state.p1.team.push({ isMystery: false, actualPk: legend, fromOpponent: false });
+           state.p2!.team.push({ isMystery: false, actualPk: getRandomWeakFullyEvolved(pokemonList), fromOpponent: false });
+         }
        } else {
-         if (p1BST > p2BST) state.p1.team.push({ isMystery: false, actualPk: legend, fromOpponent: false });
-         else if (p2BST > p1BST) state.p2!.team.push({ isMystery: false, actualPk: legend, fromOpponent: false });
-         else state.p1.team.push({ isMystery: false, actualPk: legend, fromOpponent: false });
+         state.p1.team.push({ isMystery: false, actualPk: getRandomWeakFullyEvolved(pokemonList), fromOpponent: false });
+         state.p2!.team.push({ isMystery: false, actualPk: getRandomWeakFullyEvolved(pokemonList), fromOpponent: false });
        }
        
        state.status = 'REVEAL';
@@ -887,7 +891,7 @@ export default function DraftMode() {
     }
     applyState({ ...state });
     broadcastToGuest({ ...state });
-  }, [applyState, broadcastToGuest, generateOptions, pokemonList, triggerChaosEvent, getActualPk]);
+  }, [applyState, broadcastToGuest, generateOptions, pokemonList, triggerChaosEvent, getActualPk, getRandomWeakFullyEvolved]);
 
   // Resolve the Heist round
   const resolveHeist = useCallback((state: DraftState) => {
