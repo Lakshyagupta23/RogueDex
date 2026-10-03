@@ -1199,7 +1199,7 @@ export default function DraftMode() {
     setMyHeistStealIdx(null); setMyHeistSwapIdx(null); setHeistSubmitted(false);
     generateOptions(next, pokemonList);
     applyState(next); broadcastToGuest(next);
-  }, [generateOptions, applyState, broadcastToGuest, pokemonList, selectedMode, optionsPerRound, buildFilters]);
+  }, [generateOptions, applyState, broadcastToGuest, pokemonList, selectedMode, optionsPerRound, buildFilters, blindClueType]);
 
   const submitChoices = useCallback((kId: number, gId: number) => {
     if (!gameStateRef.current) return;
