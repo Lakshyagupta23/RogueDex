@@ -43,7 +43,9 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'nuzlocke', icon: <Skull className="w-6 h-6" />, label: '☠️ Nuzlocke Draft', description: 'Draft a team of 6, then each player assassinates 1 opponent Pokémon! Guess their target to save it.', color: 'text-rose-400', borderColor: 'border-rose-500' },
   { id: 'slot_machine', icon: <Wand2 className="w-6 h-6" />, label: '🎰 Slot Machine', description: 'Before each round, a random crazy rule is spun on the slot machine!', color: 'text-pink-400', borderColor: 'border-pink-500' },
   { id: 'tug_of_war', icon: <Sword className="w-6 h-6" />, label: '⚖️ Tug of War', description: 'Draft high BST Pokémon to pull the rope! Don\'t pull too hard or the rope snaps and your opponent gets a Legendary!', color: 'text-cyan-400', borderColor: 'border-cyan-500' },
-  { id: 'sealed_bid', icon: <Eye className="w-6 h-6" />, label: '🔒 Sealed Bid Auction', description: 'Both players secretly bid once on a Pokémon. Highest bidder wins!', color: 'text-indigo-400', borderColor: 'border-indigo-500' }
+  { id: 'sealed_bid', icon: <Eye className="w-6 h-6" />, label: '🔒 Sealed Bid Auction', description: 'Both players secretly bid once on a Pokémon. Highest bidder wins!', color: 'text-indigo-400', borderColor: 'border-indigo-500' },
+  { id: 'team_rocket', icon: <Skull className="w-6 h-6" />, label: '🚀 Team Rocket Draft', description: 'Draft the WORST team possible. At the end of the draft... YOU SWAP TEAMS!', color: 'text-red-600', borderColor: 'border-red-600' },
+  { id: 'evolution_roulette', icon: <Wand2 className="w-6 h-6" />, label: '🧬 Evolution Roulette', description: 'Draft weak, unevolved Pokémon! At the end of the draft, they randomly evolve into fully-evolved Pokémon of the same type!', color: 'text-emerald-400', borderColor: 'border-emerald-500' }
 ];
 
 function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
@@ -481,6 +483,11 @@ export default function DraftMode() {
       if (p2Pool.length === 0) p2Pool = basePool;
     }
     
+    if (state.gameMode === 'evolution_roulette') {
+      p1Pool = p1Pool.filter(p => !p.isFullyEvolved && !p.isLegendary && !p.isMythical);
+      p2Pool = p2Pool.filter(p => !p.isFullyEvolved && !p.isLegendary && !p.isMythical);
+    }
+    
     if (state.gameMode === 'vip' && state.round > 1) {
       if (state.p1.team.length > 0) {
         const p1Type = state.p1.team[0].actualPk.types[0];
@@ -848,6 +855,20 @@ export default function DraftMode() {
         state.nuzlockeP2Target = null;
         state.nuzlockeP2Protect = null;
       } else {
+        if (state.gameMode === 'team_rocket') {
+           const temp = [...state.p1.team];
+           state.p1.team = [...state.p2!.team];
+           state.p2!.team = temp;
+        } else if (state.gameMode === 'evolution_roulette') {
+           const evolve = (m: DraftTeamMember) => {
+             const fullyEvolved = pokemonList.filter(p => p.isFullyEvolved && !p.isMega && !p.isLegendary && p.types.includes(m.actualPk.types[0]));
+             if (fullyEvolved.length > 0) {
+               m.actualPk = fullyEvolved[Math.floor(Math.random() * fullyEvolved.length)];
+             }
+           };
+           state.p1.team.forEach(evolve);
+           state.p2!.team.forEach(evolve);
+        }
         state.status = 'REVEAL';
       }
     } else {
