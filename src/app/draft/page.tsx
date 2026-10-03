@@ -1892,9 +1892,6 @@ export default function DraftMode() {
                   </div>
                 </div>
               </div>
-                  </div>
-                </div>
-              </div>
             )}
             
             {gameState.gameMode === 'sealed_bid' && gameState.status === 'DRAFTING' && (
