@@ -1221,7 +1221,7 @@ export default function DraftMode() {
   }, [applyState, broadcastToGuest, resolveRound]);
 
   const submitMyChoices = useCallback(() => {
-    if (keepChoice !== null && (giveChoice !== null || gameState?.gameMode === 'vip' || gameState?.gameMode === 'monotype')) {
+    if (keepChoice !== null && (giveChoice !== null || gameState?.gameMode === 'vip' || gameState?.gameMode === 'monotype' || gameState?.gameMode === 'tug_of_war')) {
       playThud();
       submitChoices(keepChoice, giveChoice ?? -1); // send -1 or some dummy value for giveChoice
     }
@@ -2105,8 +2105,8 @@ export default function DraftMode() {
                                   </div>
                                   <div className="flex flex-col gap-1 relative z-30">
                                     <button onClick={() => { playHoverTick(); setKeepChoice(pk.id); if (giveChoice === pk.id) setGiveChoice(null); }}
-                                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>{(isVip || gameState.gameMode === 'monotype') ? 'Draft' : 'Keep'}</button>
-                                    {!(isVip || gameState.gameMode === 'monotype') && (
+                                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>{(isVip || gameState.gameMode === 'monotype' || gameState.gameMode === 'tug_of_war') ? 'Draft' : 'Keep'}</button>
+                                    {!(isVip || gameState.gameMode === 'monotype' || gameState.gameMode === 'tug_of_war') && (
                                       <button onClick={() => { playHoverTick(); setGiveChoice(pk.id); if (keepChoice === pk.id) setKeepChoice(null); }}
                                         className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>Give</button>
                                     )}
@@ -2116,7 +2116,7 @@ export default function DraftMode() {
                             );
                           })}
                         </div>
-                        <button onClick={submitMyChoices} disabled={keepChoice === null || (!(gameState.gameMode === 'vip' || gameState.gameMode === 'monotype') && giveChoice === null)}
+                        <button onClick={submitMyChoices} disabled={keepChoice === null || (!(gameState.gameMode === 'vip' || gameState.gameMode === 'monotype' || gameState.gameMode === 'tug_of_war') && giveChoice === null)}
                           className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold py-3 rounded-xl transition-colors">
                           Confirm Selection
                         </button>
