@@ -1336,6 +1336,13 @@ export default function DraftMode() {
       p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
       snakeTurn: 1, snakePickCount: 0
     };
+    if (cur.gameMode === 'monotype') {
+       const t1 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       let t2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       while (t2 === t1) t2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       next.monotypeP1 = t1;
+       next.monotypeP2 = t2;
+    }
     p1PendingRef.current = null;
     p2PendingRef.current = null;
     p1HeistRef.current = null;
@@ -1351,6 +1358,14 @@ export default function DraftMode() {
     const newMode = e.target.value as GameMode;
     const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
     next.gameMode = newMode;
+    if (newMode === 'monotype') {
+       const t1 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       let t2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       while (t2 === t1) t2 = ALL_TYPES[Math.floor(Math.random() * ALL_TYPES.length)];
+       next.monotypeP1 = t1;
+       next.monotypeP2 = t2;
+       next.status = 'MONOTYPE_ROULETTE';
+    }
     generateOptions(next, pokemonList);
     applyState(next); broadcastToGuest(next);
   }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
