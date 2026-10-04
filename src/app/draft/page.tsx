@@ -45,7 +45,9 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'tug_of_war', icon: <Sword className="w-6 h-6" />, label: '⚖️ Tug of War', description: 'Draft high BST Pokémon to pull the rope! Don\'t pull too hard or the rope snaps and your opponent gets a Legendary!', color: 'text-cyan-400', borderColor: 'border-cyan-500' },
   { id: 'sealed_bid', icon: <Eye className="w-6 h-6" />, label: '🔒 Sealed Bid Auction', description: 'Both players secretly bid once on a Pokémon. Highest bidder wins!', color: 'text-indigo-400', borderColor: 'border-indigo-500' },
   { id: 'team_rocket', icon: <Skull className="w-6 h-6" />, label: '🚀 Team Rocket Draft', description: 'Draft the WORST team possible. At the end of the draft... YOU SWAP TEAMS!', color: 'text-red-600', borderColor: 'border-red-600' },
-  { id: 'evolution_roulette', icon: <Wand2 className="w-6 h-6" />, label: '🧬 Evolution Roulette', description: 'Draft weak, unevolved Pokémon! At the end of the draft, they randomly evolve into fully-evolved Pokémon of the same type!', color: 'text-emerald-400', borderColor: 'border-emerald-500' }
+  { id: 'evolution_roulette', icon: <Wand2 className="w-6 h-6" />, label: '🧬 Evolution Roulette', description: 'Draft weak, unevolved Pokémon! At the end of the draft, they randomly evolve into fully-evolved Pokémon of the same type!', color: 'text-emerald-400', borderColor: 'border-emerald-500' },
+  { id: 'roulette_steal', icon: <Wand2 className="w-6 h-6" />, label: '🎡 Roulette Steal', description: 'Draft 5 rounds with a "keep only" format. After rounds 2 and 4, a random Pokémon is STOLEN from a random player!', color: 'text-rose-400', borderColor: 'border-rose-500' },
+  { id: 'balanced_budget', icon: <Coins className="w-6 h-6" />, label: '💎 Balanced Budget', description: 'You have a BST cap for your whole team. If you can\'t afford anything this round, you skip! Strategy over power!', color: 'text-amber-400', borderColor: 'border-amber-500' }
 ];
 
 function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
@@ -108,7 +110,7 @@ function BlindClueHint({ id, speciesId, type }: { id: number, speciesId: number,
         })
         .catch(() => { setClueLabel('Error'); setClue('???'); });
     }
-  }, [id, speciesId]);
+  }, [id, speciesId, type]);
 
   return (
     <div className="flex flex-col justify-center py-2 relative z-30">
@@ -192,6 +194,51 @@ function MonotypeRoulettePanel({ gameState, isHost, onComplete }: { gameState: D
             </span>
           </motion.div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function RouletteStealPhase({ gameState }: { gameState: DraftState }) {
+  const [isSpinning, setIsSpinning] = useState(true);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => setIsSpinning(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const victimPlayer = gameState.rouletteStealVictimPlayer;
+  const stealIdx = gameState.rouletteStealIdx;
+  
+  const fromTeam = victimPlayer === 1 ? gameState.p1.team : gameState.p2?.team;
+  const stolenPk = fromTeam?.[stealIdx ?? 0]?.actualPk;
+  const victimName = victimPlayer === 1 ? gameState.p1.username : gameState.p2?.username;
+  
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[50vh]">
+      <h2 className="text-4xl font-black text-rose-500 mb-2 animate-pulse">Roulette Steal!</h2>
+      <p className="text-slate-400 mb-8 uppercase tracking-widest font-bold">Chaos approaches...</p>
+      
+      <div className="flex flex-col items-center justify-center h-64">
+        {isSpinning ? (
+          <div className="text-6xl animate-spin">🎡</div>
+        ) : (
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            className="flex flex-col items-center gap-4"
+          >
+            <div className="text-2xl text-white font-bold text-center">
+              {victimName}&apos;s <span className="text-rose-400 capitalize">{stolenPk?.displayName}</span><br/>was STOLEN!
+            </div>
+            {stolenPk && (
+              <img src={stolenPk.sprite} alt={stolenPk.displayName} className="w-48 h-48 drop-shadow-2xl" />
+            )}
+            <div className="text-rose-400 font-bold mt-4 animate-bounce">
+              Transferring to opponent...
+            </div>
+          </motion.div>
+        )}
       </div>
     </div>
   );
@@ -330,6 +377,7 @@ export default function DraftMode() {
   const [draftRewardGivenForId, setDraftRewardGivenForId] = useState<string | null>(null);
   
   const [blindClueType, setBlindClueType] = useState<'ability' | 'color'>('ability');
+  const [bstCap, setBstCap] = useState(3000);
 
   useEffect(() => {
     if (musicOn) {
@@ -484,8 +532,10 @@ export default function DraftMode() {
     }
     
     if (state.gameMode === 'evolution_roulette') {
-      p1Pool = p1Pool.filter(p => !p.isFullyEvolved && !p.isLegendary && !p.isMythical);
-      p2Pool = p2Pool.filter(p => !p.isFullyEvolved && !p.isLegendary && !p.isMythical);
+      const e1 = p1Pool.filter(p => !p.isFullyEvolved && !p.isLegendary && !p.isMythical);
+      const e2 = p2Pool.filter(p => !p.isFullyEvolved && !p.isLegendary && !p.isMythical);
+      if (e1.length >= state.optionsPerRound) p1Pool = e1;
+      if (e2.length >= state.optionsPerRound) p2Pool = e2;
     }
     
     if (state.gameMode === 'vip' && state.round > 1) {
@@ -800,24 +850,31 @@ export default function DraftMode() {
   const resolveRound = useCallback((state: DraftState) => {
     const act1 = p1PendingRef.current!;
     const act2 = p2PendingRef.current!;
-    const p1Keep = state.p1Options.find(p => p.id === act1.keepId)!;
-    const p1Give = state.p1Options.find(p => p.id === act1.giveId)!;
-    const p2Keep = state.p2Options.find(p => p.id === act2.keepId)!;
-    const p2Give = state.p2Options.find(p => p.id === act2.giveId)!;
+    const p1Keep = state.p1Options.find(p => p.id === act1.keepId);
+    const p1Give = state.p1Options.find(p => p.id === act1.giveId);
+    const p2Keep = state.p2Options.find(p => p.id === act2.keepId);
+    const p2Give = state.p2Options.find(p => p.id === act2.giveId);
 
     const isBlind = state.gameMode === 'blind';
     
-    const p1k = getActualPk(p1Keep, pokemonList);
-    const p2k = getActualPk(p2Keep, pokemonList);
+    const p1k = p1Keep ? getActualPk(p1Keep, pokemonList) : null;
+    const p2k = p2Keep ? getActualPk(p2Keep, pokemonList) : null;
     const p1g = p1Give ? getActualPk(p1Give, pokemonList) : null;
     const p2g = p2Give ? getActualPk(p2Give, pokemonList) : null;
 
-    state.p1.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p1k, fromOpponent: false });
-    state.p2!.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p2k, fromOpponent: false });
+    if (p1k) state.p1.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p1k, fromOpponent: false });
+    if (p2k) state.p2!.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p2k, fromOpponent: false });
     
-    if (state.gameMode !== 'vip' && state.gameMode !== 'monotype' && state.gameMode !== 'tug_of_war') {
+    const noGiveModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget'];
+    if (!noGiveModes.includes(state.gameMode)) {
       if (p2g) state.p1.team.push({ isMystery: true,  actualPk: p2g, fromOpponent: true  });
       if (p1g) state.p2!.team.push({ isMystery: true,  actualPk: p1g, fromOpponent: true  });
+    }
+
+    // Track BST for Balanced Budget
+    if (state.gameMode === 'balanced_budget') {
+      if (p1k) state.p1BstUsed = (state.p1BstUsed ?? 0) + p1k.stats.total;
+      if (p2k) state.p2BstUsed = (state.p2BstUsed ?? 0) + p2k.stats.total;
     }
 
     state.p1.ready = false;
@@ -853,6 +910,36 @@ export default function DraftMode() {
        return;
     }
 
+    // Roulette Steal: trigger steal phase after rounds 2 and 4
+    if (state.gameMode === 'roulette_steal' && (state.round === 3 || state.round === 5)) {
+      const victimPlayer = (Math.random() < 0.5 ? 1 : 2) as 1 | 2;
+      const victimTeam = victimPlayer === 1 ? state.p1.team : state.p2!.team;
+      if (victimTeam.length > 0) {
+        const stealIdx = Math.floor(Math.random() * victimTeam.length);
+        state.rouletteStealVictimPlayer = victimPlayer;
+        state.rouletteStealIdx = stealIdx;
+        state.rouletteStealRound = state.round - 1;
+        state.status = 'ROULETTE_STEAL';
+        applyState({ ...state });
+        broadcastToGuest({ ...state });
+        // Auto-resolve the steal after the animation (host side)
+        setTimeout(() => {
+          const cur = gameStateRef.current;
+          if (!cur || cur.status !== 'ROULETTE_STEAL') return;
+          const next: DraftState = JSON.parse(JSON.stringify(cur));
+          const fromTeam = next.rouletteStealVictimPlayer === 1 ? next.p1.team : next.p2!.team;
+          const toTeam = next.rouletteStealVictimPlayer === 1 ? next.p2!.team : next.p1.team;
+          const [stolen] = fromTeam.splice(next.rouletteStealIdx!, 1);
+          toTeam.push({ ...stolen, fromOpponent: true, isMystery: false });
+          next.status = 'DRAFTING';
+          generateOptions(next, pokemonList);
+          applyState(next);
+          broadcastToGuest(next);
+        }, 4000);
+        return;
+      }
+    }
+
     if (state.round > state.totalRounds) {
       if (state.gameMode === 'heist') {
         state.status = 'HEIST';
@@ -871,9 +958,9 @@ export default function DraftMode() {
            state.p2!.team = temp;
         } else if (state.gameMode === 'evolution_roulette') {
            const evolve = (m: DraftTeamMember) => {
-             const fullyEvolved = pokemonList.filter(p => p.isFullyEvolved && !p.isMega && !p.isLegendary && p.types.includes(m.actualPk.types[0]));
+             const fullyEvolved = pokemonList.filter(p => p.isFullyEvolved && !p.isMega && !p.isLegendary && !p.isMythical && p.types.includes(m.actualPk.types[0]));
              if (fullyEvolved.length > 0) {
-               m.actualPk = fullyEvolved[Math.floor(Math.random() * fullyEvolved.length)];
+               m.actualPk = { ...fullyEvolved[Math.floor(Math.random() * fullyEvolved.length)] };
              }
            };
            state.p1.team.forEach(evolve);
@@ -1167,6 +1254,9 @@ export default function DraftMode() {
     if (!isHostRef.current || !gameStateRef.current) return;
     const cur = gameStateRef.current;
     const initialStatus = selectedMode === 'monotype' ? 'MONOTYPE_ROULETTE' : 'DRAFTING';
+    const totalRounds = (selectedMode === 'vip' || selectedMode === 'monotype' || selectedMode === 'roulette_steal' || selectedMode === 'balanced_budget') ? 6
+      : selectedMode === 'tug_of_war' ? 5
+      : 3;
     const next: DraftState = { 
        ...cur, 
        status: initialStatus,
@@ -1174,14 +1264,17 @@ export default function DraftMode() {
        optionsPerRound,
        filters: buildFilters(),
        round: 1,
-       totalRounds: (selectedMode === 'vip' || selectedMode === 'monotype') ? 6 : (selectedMode === 'tug_of_war' ? 5 : 3),
+       totalRounds,
        p1: { ...cur.p1, team: [], ready: false },
        p2: cur.p2 ? { ...cur.p2, team: [], ready: false } : null,
        p1HeistChoice: null, p2HeistChoice: null,
        p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
        snakeTurn: 1, snakePickCount: 0,
        blindClueType: selectedMode === 'blind' ? blindClueType : undefined,
-       tugOfWarSnapThreshold: selectedMode === 'tug_of_war' ? 500 : undefined
+       tugOfWarSnapThreshold: selectedMode === 'tug_of_war' ? 500 : undefined,
+       bstCap: selectedMode === 'balanced_budget' ? bstCap : undefined,
+       p1BstUsed: selectedMode === 'balanced_budget' ? 0 : undefined,
+       p2BstUsed: selectedMode === 'balanced_budget' ? 0 : undefined,
     };
     let availableTypes = ALL_TYPES;
     const basePoolForTypes = pokemonList.length > 0 ? filterPokemon(pokemonList, next.filters) : [];
@@ -1209,7 +1302,7 @@ export default function DraftMode() {
     setMyHeistStealIdx(null); setMyHeistSwapIdx(null); setHeistSubmitted(false);
     generateOptions(next, pokemonList);
     applyState(next); broadcastToGuest(next);
-  }, [generateOptions, applyState, broadcastToGuest, pokemonList, selectedMode, optionsPerRound, buildFilters, blindClueType]);
+  }, [generateOptions, applyState, broadcastToGuest, pokemonList, selectedMode, optionsPerRound, buildFilters, blindClueType, bstCap]);
 
   const submitChoices = useCallback((kId: number, gId: number) => {
     if (!gameStateRef.current) return;
@@ -1231,9 +1324,11 @@ export default function DraftMode() {
   }, [applyState, broadcastToGuest, resolveRound]);
 
   const submitMyChoices = useCallback(() => {
-    if (keepChoice !== null && (giveChoice !== null || gameState?.gameMode === 'vip' || gameState?.gameMode === 'monotype' || gameState?.gameMode === 'tug_of_war')) {
+    const keepOnlyModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget'];
+    const isKeepOnly = keepOnlyModes.includes(gameState?.gameMode ?? '');
+    if (keepChoice !== null && (giveChoice !== null || isKeepOnly)) {
       playThud();
-      submitChoices(keepChoice, giveChoice ?? -1); // send -1 or some dummy value for giveChoice
+      submitChoices(keepChoice, giveChoice ?? -1);
     }
   }, [keepChoice, giveChoice, gameState?.gameMode, submitChoices]);
 
@@ -1370,10 +1465,16 @@ export default function DraftMode() {
   const restartDraft = useCallback(() => {
     if (!isHostRef.current || !gameStateRef.current) return;
     const cur = gameStateRef.current;
+    
+    const totalRounds = (cur.gameMode === 'vip' || cur.gameMode === 'monotype' || cur.gameMode === 'roulette_steal' || cur.gameMode === 'balanced_budget') ? 6
+      : cur.gameMode === 'tug_of_war' ? 5
+      : 3;
+      
     const next: DraftState = {
       ...cur,
       status: cur.gameMode === 'monotype' ? 'MONOTYPE_ROULETTE' : 'DRAFTING',
       round: 1,
+      totalRounds,
       p1: { ...cur.p1, team: [], ready: false },
       p2: cur.p2 ? { ...cur.p2, team: [], ready: false } : null,
       p1Options: [],
@@ -1414,6 +1515,12 @@ export default function DraftMode() {
     const newMode = e.target.value as GameMode;
     const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
     next.gameMode = newMode;
+    
+    const newTotalRounds = (newMode === 'vip' || newMode === 'monotype' || newMode === 'roulette_steal' || newMode === 'balanced_budget') ? 6
+      : newMode === 'tug_of_war' ? 5
+      : 3;
+    next.totalRounds = newTotalRounds;
+    
     let availableTypes = ALL_TYPES;
     const basePoolForTypes = pokemonList.length > 0 ? filterPokemon(pokemonList, next.filters) : [];
     if (basePoolForTypes.length > 0) {
@@ -1642,6 +1749,30 @@ export default function DraftMode() {
                 </div>
               )}
 
+              {selectedMode === 'balanced_budget' && (
+                <div className="flex flex-col gap-3 pt-4 border-t border-slate-800">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">BST Cap Per Team</label>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-400">Total BST Limit:</span>
+                      <span className="text-lg font-black text-amber-400">{bstCap.toLocaleString()}</span>
+                    </div>
+                    <input
+                      type="range" min={2400} max={4200} step={100}
+                      value={bstCap}
+                      onChange={e => setBstCap(Number(e.target.value))}
+                      className="w-full accent-amber-500"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-600 font-bold">
+                      <span>2400 (Tight)</span>
+                      <span>3000 (Balanced)</span>
+                      <span>4200 (Relaxed)</span>
+                    </div>
+                    <p className="text-xs text-slate-500">~{Math.round(bstCap/6)} BST avg per Pokémon</p>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col gap-3 pt-4 border-t border-slate-800">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Host a Game</label>
                 {selectedMode !== 'auction' && selectedMode !== 'wildcard' && (
@@ -1822,6 +1953,8 @@ export default function DraftMode() {
              next.status = 'DRAFTING';
              applyState(next); broadcastToGuest(next);
           }} />
+        ) : gameState.status === 'ROULETTE_STEAL' ? (
+          <RouletteStealPhase gameState={gameState} />
         ) : gameState.status === 'HEIST' ? (
           <HeistPhase gameState={gameState} isHost={isHost} myTeam={mySlot?.team ?? []} opponentTeam={opponentSlot?.team ?? []} myStealIdx={myHeistStealIdx} mySwapIdx={myHeistSwapIdx} setMyStealIdx={setMyHeistStealIdx} setMySwapIdx={setMyHeistSwapIdx} heistSubmitted={heistSubmitted} onSubmit={submitMyHeist} />
         ) : gameState.status === 'NUZLOCKE' ? (
@@ -1875,8 +2008,9 @@ export default function DraftMode() {
                   <p className="text-red-400 text-xs font-bold mt-2 uppercase tracking-widest">Pick fast or get the worst!</p>
                 </div>
               )}
-              {gameState.gameMode !== 'auction' && gameState.gameMode !== 'snake' && gameState.gameMode !== 'vip' && gameState.gameMode !== 'monotype' && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
-              {gameState.gameMode === 'monotype' && gameState.status === 'DRAFTING' && <p className="text-slate-400 font-bold mt-1 text-sm">Pick 1 to Draft for your Monotype Team!</p>}
+              {!['auction', 'snake', 'vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'salary_cap', 'sealed_bid'].includes(gameState.gameMode) && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
+              {['monotype', 'tug_of_war', 'roulette_steal'].includes(gameState.gameMode) && gameState.status === 'DRAFTING' && <p className="text-slate-400 font-bold mt-1 text-sm">Pick 1 to Draft for your Team!</p>}
+              {gameState.gameMode === 'balanced_budget' && gameState.status === 'DRAFTING' && <p className="text-slate-400 font-bold mt-1 text-sm">Pick 1 to Draft for your Team, or skip if over budget!</p>}
               {gameState.status === 'REVEAL' && isHost && (
                 <button onClick={returnToLobby} className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">🔄 Play Again (Change Settings)</button>
               )}
@@ -2083,7 +2217,7 @@ export default function DraftMode() {
                         ))}
                      </div>
                   </div>
-                ) : gameState.gameMode !== 'auction' && gameState.gameMode !== 'salary_cap' && gameState.status === 'DRAFTING' ? (
+                ) : gameState.gameMode !== 'auction' && gameState.gameMode !== 'salary_cap' && gameState.gameMode !== 'sealed_bid' && gameState.status === 'DRAFTING' ? (
                   <div className="p-6 rounded-2xl border border-indigo-500/30 bg-slate-900/50 flex flex-col">
                     {submitted || mySlot?.ready ? (
                       <div className="flex-1 flex flex-col items-center justify-center text-slate-400 min-h-[300px]">
@@ -2092,6 +2226,18 @@ export default function DraftMode() {
                       </div>
                     ) : (
                       <>
+                        {gameState.gameMode === 'balanced_budget' && (
+                          <div className="mb-6 flex flex-col gap-2">
+                             <div className="flex justify-between text-xs font-bold text-slate-400 uppercase">
+                               <span>BST Used</span>
+                               <span>{myPlayerNum === 1 ? (gameState.p1BstUsed ?? 0) : (gameState.p2BstUsed ?? 0)} / {gameState.bstCap}</span>
+                             </div>
+                             <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+                               <div className="h-full bg-amber-500 transition-all duration-1000 ease-out" 
+                                    style={{ width: `${Math.min(100, ((myPlayerNum === 1 ? (gameState.p1BstUsed ?? 0) : (gameState.p2BstUsed ?? 0)) / (gameState.bstCap ?? 3000)) * 100)}%` }}></div>
+                             </div>
+                          </div>
+                        )}
                         <h3 className="text-center font-bold text-slate-300 mb-6 uppercase tracking-widest text-sm">Your Choices</h3>
                         <div className="flex flex-col gap-3 mb-6">
                           {(myOptions ?? []).map(pk => {
@@ -2099,7 +2245,7 @@ export default function DraftMode() {
                             const isGive = giveChoice === pk.id;
                             const isBlind = gameState.gameMode === 'blind';
                             const isShadow = gameState.gameMode === 'shadow';
-                            const isVip = gameState.gameMode === 'vip';
+                            const isKeepOnlyMode = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget'].includes(gameState.gameMode);
                             
                             const shadowTypes = ['height', 'weight', 'habitat', 'shape'];
                             const currentShadowType = shadowTypes[(gameState.round - 1) % shadowTypes.length];
@@ -2107,6 +2253,10 @@ export default function DraftMode() {
                             // In Blind mode, we only hide the image/name/types, but color remains accurate
                             // In Shadow mode, the color is hidden (purple)
                             const cardColor = isShadow ? '#64748b' : TYPE_COLORS[pk.types[0]];
+                            
+                            const bstUsed = myPlayerNum === 1 ? (gameState.p1BstUsed ?? 0) : (gameState.p2BstUsed ?? 0);
+                            const bstCap = gameState.bstCap ?? 3000;
+                            const overBudget = gameState.gameMode === 'balanced_budget' && (bstUsed + pk.stats.total > bstCap);
                             
                             return (
                               <motion.div
@@ -2118,7 +2268,7 @@ export default function DraftMode() {
                               >
                                 <HoloCard typeColor={cardColor} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
                                   isKeep ? 'bg-indigo-500/20 border-indigo-500' : isGive ? 'bg-rose-500/20 border-rose-500' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'
-                                }`}>
+                                } ${overBudget ? 'opacity-50 grayscale' : ''}`}>
                                   <div className="flex items-center gap-3 relative z-30">
                                     {isBlind ? (
                                       <BlindClueHint id={pk.id} speciesId={pk.speciesId} type={gameState.blindClueType} />
@@ -2132,14 +2282,18 @@ export default function DraftMode() {
                                           <div className="flex gap-1 mt-1">
                                             {pk.types.map(t => <span key={t} style={{ color: TYPE_COLORS[t] }} className="text-[10px] font-bold uppercase">{t}</span>)}
                                           </div>
+                                          {gameState.gameMode === 'balanced_budget' && (
+                                            <p className={`text-[10px] font-bold mt-1 ${overBudget ? 'text-rose-400' : 'text-amber-400'}`}>BST: {pk.stats.total}</p>
+                                          )}
                                         </div>
                                       </>
                                     )}
                                   </div>
                                   <div className="flex flex-col gap-1 relative z-30">
                                     <button onClick={() => { playHoverTick(); setKeepChoice(pk.id); if (giveChoice === pk.id) setGiveChoice(null); }}
-                                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>{(isVip || gameState.gameMode === 'monotype' || gameState.gameMode === 'tug_of_war') ? 'Draft' : 'Keep'}</button>
-                                    {!(isVip || gameState.gameMode === 'monotype' || gameState.gameMode === 'tug_of_war') && (
+                                      disabled={overBudget}
+                                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50 disabled:opacity-50'}`}>{isKeepOnlyMode ? 'Draft' : 'Keep'}</button>
+                                    {!isKeepOnlyMode && (
                                       <button onClick={() => { playHoverTick(); setGiveChoice(pk.id); if (keepChoice === pk.id) setKeepChoice(null); }}
                                         className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>Give</button>
                                     )}
@@ -2149,9 +2303,9 @@ export default function DraftMode() {
                             );
                           })}
                         </div>
-                        <button onClick={submitMyChoices} disabled={keepChoice === null || (!(gameState.gameMode === 'vip' || gameState.gameMode === 'monotype' || gameState.gameMode === 'tug_of_war') && giveChoice === null)}
+                        <button onClick={submitMyChoices} disabled={(keepChoice === null && gameState.gameMode !== 'balanced_budget') || (!['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget'].includes(gameState.gameMode) && giveChoice === null)}
                           className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold py-3 rounded-xl transition-colors">
-                          Confirm Selection
+                          {gameState.gameMode === 'balanced_budget' && keepChoice === null ? 'Skip Turn (Pass)' : 'Confirm Selection'}
                         </button>
                       </>
                     )}

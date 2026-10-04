@@ -66,7 +66,7 @@ export interface SavedTeam {
   tags?: string[];
 }
 
-export type GameMode = 'standard' | 'blind' | 'shadow' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos' | 'speedrun' | 'vip' | 'salary_cap' | 'nuzlocke' | 'slot_machine' | 'tug_of_war' | 'sealed_bid' | 'team_rocket' | 'evolution_roulette';
+export type GameMode = 'standard' | 'blind' | 'shadow' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos' | 'speedrun' | 'vip' | 'salary_cap' | 'nuzlocke' | 'slot_machine' | 'tug_of_war' | 'sealed_bid' | 'team_rocket' | 'evolution_roulette' | 'roulette_steal' | 'balanced_budget';
 export type ChaosEventId = 'rocket' | 'safari' | 'ditto' | 'fossil' | 'celebi' | 'yveltal' | 'wonder' | 'gym' | 'glitch' | 'gamble';
 
 export type DraftTeamMember = {
@@ -87,7 +87,7 @@ export interface PlayerSlot {
 
 export interface DraftState {
   code: string;
-  status: 'LOBBY' | 'MONOTYPE_ROULETTE' | 'DRAFTING' | 'HEIST' | 'REVEAL' | 'CHAOS_EVENT' | 'NUZLOCKE';
+  status: 'LOBBY' | 'MONOTYPE_ROULETTE' | 'DRAFTING' | 'HEIST' | 'REVEAL' | 'CHAOS_EVENT' | 'NUZLOCKE' | 'ROULETTE_STEAL';
   gameMode: GameMode;
   blindClueType?: 'ability' | 'color';
   optionsPerRound: number;
@@ -145,5 +145,13 @@ export interface DraftState {
   nuzlockeP1Protect?: number | null;
   nuzlockeP2Target?: number | null;
   nuzlockeP2Protect?: number | null;
+  // Roulette Steal state
+  rouletteStealVictimPlayer?: 1 | 2;
+  rouletteStealIdx?: number;
+  rouletteStealRound?: number; // which draft round triggered this (2 or 4)
+  // Balanced Budget state
+  bstCap?: number;
+  p1BstUsed?: number;
+  p2BstUsed?: number;
 }
 
