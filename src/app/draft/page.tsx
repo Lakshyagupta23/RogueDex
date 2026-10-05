@@ -11,6 +11,7 @@ import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemo
 import { CHAOS_EVENTS, getRandomFullyEvolved, getRandomLegendary, getRandomFossil } from '@/lib/pokemon/chaos';
 import Link from 'next/link';
 import HoloCard from '@/components/HoloCard';
+import SynergyHUD from '@/components/SynergyHUD';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateShowdownExport } from '@/lib/showdown';
 import { createClient } from '@supabase/supabase-js';
@@ -2396,8 +2397,8 @@ export default function DraftMode() {
                      </h3>
                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 gap-2">
                         {gameState.p1Options.map(pk => (
-                          <div key={pk.id} className="w-full aspect-square">
-                            <HoloCard layoutId={`pk-card-${pk.id}`} typeColor={TYPE_COLORS[pk.types[0]]} className="w-full h-full">
+                          <motion.div layoutId={`pk-card-${pk.id}`} key={pk.id} className="w-full aspect-square">
+                            <HoloCard typeColor={TYPE_COLORS[pk.types[0]]} className="w-full h-full">
                               <button
                                 disabled={gameState.snakeTurn !== myPlayerNum}
                                 onClick={() => submitSnakePick(pk.id)}
@@ -2481,6 +2482,7 @@ export default function DraftMode() {
                             
                             return (
                               <motion.div
+                                layoutId={`pk-card-${pk.id}`}
                                 key={pk.id}
                                 initial={{ opacity: 0, x: -50 }}
                                 animate={{ opacity: 1, x: 0 }}
@@ -2489,7 +2491,7 @@ export default function DraftMode() {
                                 onMouseEnter={() => setHoveredTypeColor(cardColor)}
                                 onMouseLeave={() => setHoveredTypeColor(null)}
                               >
-                                <HoloCard layoutId={`pk-card-${pk.id}`} typeColor={cardColor} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
+                                <HoloCard typeColor={cardColor} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
                                   isKeep ? 'bg-indigo-500/20 border-indigo-500' : isGive ? 'bg-rose-500/20 border-rose-500' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'
                                 } ${overBudget ? 'opacity-50 grayscale' : ''}`}>
                                   <div className="flex items-center gap-3 relative z-30">
@@ -2572,6 +2574,10 @@ export default function DraftMode() {
               </div>
             </div>
           </div>
+        )}
+        
+        {gameState && gameState.status !== 'LOBBY' && mySlot?.team && (
+          <SynergyHUD team={mySlot.team} />
         )}
       </div>
     </div>
@@ -2746,13 +2752,14 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
   
   return (
     <motion.div
+      layoutId={`pk-card-${pk.id}`}
       key={`${pk.id}-${data.wasAssassinated}`}
-      initial={data.wasAssassinated ? { opacity: 0, scale: 0.1, rotate: -45, y: -100 } : { opacity: 0, scale: 0.5, y: 50 }}
+      initial={data.wasAssassinated ? { opacity: 0, scale: 0.1, rotate: -45, y: -100 } : false}
       animate={{ opacity: 1, scale: 1, y: 0, rotate: 0 }}
       exit={{ opacity: 0, scale: 0.5 }}
       transition={data.wasAssassinated 
         ? { type: 'spring', stiffness: 200, damping: 10, mass: 1, delay: 0.5 + index * 0.1 }
-        : { type: 'spring', stiffness: 300, damping: 20, delay: index * 0.1 }
+        : { type: 'spring', stiffness: 300, damping: 25, mass: 1 }
       }
       className="w-full h-full relative"
     >
@@ -2767,7 +2774,7 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
           <span className="absolute text-5xl">💀</span>
         </motion.div>
       )}
-      <HoloCard layoutId={`pk-card-${pk.id}`} typeColor={TYPE_COLORS[pk.types[0]]} className={`aspect-square w-full h-full relative ${data.wasAssassinated ? 'animate-shake' : ''}`}>
+      <HoloCard typeColor={TYPE_COLORS[pk.types[0]]} className={`aspect-square w-full h-full relative ${data.wasAssassinated ? 'animate-shake' : ''}`}>
         <div 
           className="w-full h-full relative rounded-2xl transition-transform duration-700"
           style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
