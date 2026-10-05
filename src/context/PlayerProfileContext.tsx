@@ -95,7 +95,7 @@ export function PlayerProfileProvider({ children }: { children: ReactNode }) {
       try {
         const parsed = JSON.parse(saved);
         const { level } = calculateLevel(parsed.xp || 0);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
         setTimeout(() => setState({
           xp: parsed.xp || 0,
           level: level,
@@ -108,6 +108,7 @@ export function PlayerProfileProvider({ children }: { children: ReactNode }) {
         console.error('Failed to parse player profile', e);
       }
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoaded(true);
   }, []);
 

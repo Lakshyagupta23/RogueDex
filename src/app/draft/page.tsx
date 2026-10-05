@@ -447,6 +447,7 @@ export default function DraftMode() {
   // XP & Achievement Logic
   useEffect(() => {
     if (gameState?.status === 'REVEAL' && gameState.code !== draftRewardGivenForId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDraftRewardGivenForId(gameState.code);
       
       // Award base XP
@@ -1699,6 +1700,7 @@ export default function DraftMode() {
     }
   }, [gameState?.status, playHeistAlarm]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setKeepChoice(null); setGiveChoice(null); setSubmitted(false); }, [gameState?.round]);
   useEffect(() => { return () => { if (channelRef.current) { getSupabase().removeChannel(channelRef.current); channelRef.current = null; } }; }, []);
 
@@ -1708,6 +1710,7 @@ export default function DraftMode() {
     </div>
   );
 
+  // eslint-disable-next-line react-hooks/refs
   const isHost = isHostRef.current;
   const myPlayerNum = isHost ? 1 : 2;
   const myOptions = (gameState?.gameMode === 'snake' || gameState?.gameMode === 'auction' || gameState?.gameMode === 'sealed_bid') ? gameState?.p1Options : (isHost ? gameState?.p1Options : gameState?.p2Options);
@@ -1736,7 +1739,7 @@ export default function DraftMode() {
     <div className={`min-h-screen text-slate-200 p-6 font-sans relative overflow-hidden transition-all duration-700 ease-out ${arenaImage ? 'bg-cover bg-center' : ''}`} 
       style={{
         backgroundImage: arenaImage 
-          ? `linear-gradient(to bottom, rgba(11, 14, 22, 0.4), rgba(11, 14, 22, 0.95)), url(${arenaImage})`
+          ? `linear-gradient(to bottom, rgba(11, 14, 22, 0.4), rgba(11, 14, 22, 0.95)), url('${arenaImage}')`
           : hoveredTypeColor 
             ? `radial-gradient(circle at 50% 10%, ${hoveredTypeColor}30, #0b0e16 60%), radial-gradient(circle at 50% 50%, transparent 20%, #000 100%)`
             : `radial-gradient(ellipse at top, #1e293b, #0b0e16, #000000)`,
@@ -1940,7 +1943,7 @@ export default function DraftMode() {
                           : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-500'
                       }`}>
                       {arena.image && (
-                        <div className="w-full h-16 mb-2 rounded bg-slate-800 bg-cover bg-center overflow-hidden" style={{ backgroundImage: `url(${arena.image})` }} />
+                        <div className="w-full h-16 mb-2 rounded bg-slate-800 bg-cover bg-center overflow-hidden" style={{ backgroundImage: `url('${arena.image}')` }} />
                       )}
                       {!arena.image && (
                         <div className="w-full h-16 mb-2 rounded bg-slate-800 flex items-center justify-center text-slate-600">

@@ -114,7 +114,7 @@ function calculateSmartEVsAndNature(pk: PokemonIndexItem | string, roleName: str
   }
   
   // Decreased stat is usually the unused attacking stat
-  let decreasedStat: 'atk' | 'spAtk' = isPhysical ? 'spAtk' : 'atk';
+  const decreasedStat: 'atk' | 'spAtk' = isPhysical ? 'spAtk' : 'atk';
   
   // Nature lookup table: [Boosted][Decreased]
   const natureMatrix: Record<string, Record<string, string>> = {
