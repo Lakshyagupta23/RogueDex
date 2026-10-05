@@ -1732,7 +1732,8 @@ export default function DraftMode() {
     setExcludeAlolan(false); setExcludeGalarian(false); setExcludeHisuian(false); setExcludePaldean(false); setFullyEvolvedOnly(false);
   };
 
-  const arenaImage = gameState?.arena && gameState.arena !== 'none' ? ARENAS.find(a => a.id === gameState.arena)?.image : null;
+  const activeArenaId = gameState?.arena || selectedArena;
+  const arenaImage = activeArenaId && activeArenaId !== 'none' ? ARENAS.find(a => a.id === activeArenaId)?.image : null;
 
   return (
     <div className={`min-h-screen text-slate-200 p-6 font-sans relative overflow-hidden transition-all duration-700 ease-out ${arenaImage ? 'bg-cover bg-center' : ''}`} 
