@@ -1703,11 +1703,7 @@ export default function DraftMode() {
   useEffect(() => { setKeepChoice(null); setGiveChoice(null); setSubmitted(false); }, [gameState?.round]);
   useEffect(() => { return () => { if (channelRef.current) { getSupabase().removeChannel(channelRef.current); channelRef.current = null; } }; }, []);
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#0b0e16] flex items-center justify-center text-white">
-      <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
-    </div>
-  );
+
 
   // eslint-disable-next-line react-hooks/refs
   const isHost = isHostRef.current;
@@ -1734,6 +1730,12 @@ export default function DraftMode() {
 
   const activeArenaId = gameState?.arena || selectedArena;
   const arenaImage = activeArenaId && activeArenaId !== 'none' ? ARENAS.find(a => a.id === activeArenaId)?.image : null;
+
+  if (loading) return (
+    <div className="min-h-screen bg-[#0b0e16] flex items-center justify-center text-white">
+      <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+    </div>
+  );
 
   return (
     <div className={`min-h-screen text-slate-200 p-6 font-sans relative overflow-hidden transition-all duration-700 ease-out ${arenaImage ? 'bg-cover bg-center' : ''}`} 
