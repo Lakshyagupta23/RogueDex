@@ -14,6 +14,7 @@ import HoloCard from '@/components/HoloCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateShowdownExport } from '@/lib/showdown';
 import { createClient } from '@supabase/supabase-js';
+import confetti from 'canvas-confetti';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wvrjnkeckzhaczvxuaao.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_5pAS92vWTXjivLr1PiUU8g_QCfG4Z6l';
@@ -421,6 +422,7 @@ export default function DraftMode() {
   const [keepChoice, setKeepChoice] = useState<number | null>(null);
   const [giveChoice, setGiveChoice] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [hoveredTypeColor, setHoveredTypeColor] = useState<string | null>(null);
   const p1PendingRef = useRef<{ keepId: number; giveId: number } | null>(null);
   const p2PendingRef = useRef<{ keepId: number; giveId: number } | null>(null);
 
@@ -1462,6 +1464,35 @@ export default function DraftMode() {
     applyState(next); broadcastToGuest(next);
   }, [applyState, broadcastToGuest]);
 
+  useEffect(() => {
+    if (gameState?.status === 'REVEAL') {
+      const duration = 4000;
+      const end = Date.now() + duration;
+
+      const frame = () => {
+        confetti({
+          particleCount: 8,
+          angle: 60,
+          spread: 75,
+          origin: { x: 0 },
+          colors: ['#818cf8', '#34d399', '#f472b6', '#fbbf24']
+        });
+        confetti({
+          particleCount: 8,
+          angle: 120,
+          spread: 75,
+          origin: { x: 1 },
+          colors: ['#818cf8', '#34d399', '#f472b6', '#fbbf24']
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      };
+      frame();
+    }
+  }, [gameState?.status]);
+
   const restartDraft = useCallback(() => {
     if (!isHostRef.current || !gameStateRef.current) return;
     const cur = gameStateRef.current;
@@ -1585,7 +1616,12 @@ export default function DraftMode() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-800 via-[#0b0e16] to-black text-slate-200 p-6 font-sans relative overflow-hidden">
+    <div className="min-h-screen text-slate-200 p-6 font-sans relative overflow-hidden transition-all duration-700 ease-out" 
+      style={{
+        background: hoveredTypeColor 
+          ? `radial-gradient(circle at 50% 10%, ${hoveredTypeColor}30, #0b0e16 60%), #0b0e16`
+          : `radial-gradient(ellipse at top, #1e293b, #0b0e16, #000000)`
+      }}>
       {/* Dynamic Grid Background Overlay */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-20" style={{ backgroundImage: 'linear-gradient(to right, #475569 1px, transparent 1px), linear-gradient(to bottom, #475569 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
       <div className="absolute inset-0 z-0 pointer-events-none opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, transparent 20%, #000 100%)' }}></div>
@@ -2205,15 +2241,19 @@ export default function DraftMode() {
                      </h3>
                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 gap-2">
                         {gameState.p1Options.map(pk => (
-                          <button key={pk.id} 
-                            disabled={gameState.snakeTurn !== myPlayerNum}
-                            onClick={() => submitSnakePick(pk.id)}
-                            className={`relative p-2 rounded-xl border flex flex-col items-center justify-center transition-all ${
-                              gameState.snakeTurn === myPlayerNum ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 hover:border-emerald-400 cursor-pointer' : 'bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed'
-                            }`}>
-                            <img src={pk.sprite} className="w-12 h-12 object-contain" />
-                            <span className="text-[10px] font-bold text-white capitalize mt-1 text-center leading-tight truncate w-full px-1">{pk.displayName}</span>
-                          </button>
+                          <div key={pk.id} className="w-full aspect-square">
+                            <HoloCard layoutId={`pk-card-${pk.id}`} typeColor={TYPE_COLORS[pk.types[0]]} className="w-full h-full">
+                              <button
+                                disabled={gameState.snakeTurn !== myPlayerNum}
+                                onClick={() => submitSnakePick(pk.id)}
+                                className={`w-full h-full p-2 flex flex-col items-center justify-center transition-all ${
+                                  gameState.snakeTurn === myPlayerNum ? 'bg-slate-800/80 hover:bg-slate-700/80 cursor-pointer' : 'bg-slate-900/80 opacity-50 cursor-not-allowed'
+                                }`}>
+                                <img src={pk.sprite} className="w-12 h-12 object-contain" />
+                                <span className="text-[10px] font-bold text-white capitalize mt-1 text-center leading-tight truncate w-full px-1">{pk.displayName}</span>
+                              </button>
+                            </HoloCard>
+                          </div>
                         ))}
                      </div>
                   </div>
@@ -2265,8 +2305,10 @@ export default function DraftMode() {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: 50 }}
                                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                                onMouseEnter={() => setHoveredTypeColor(cardColor)}
+                                onMouseLeave={() => setHoveredTypeColor(null)}
                               >
-                                <HoloCard typeColor={cardColor} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
+                                <HoloCard layoutId={`pk-card-${pk.id}`} typeColor={cardColor} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
                                   isKeep ? 'bg-indigo-500/20 border-indigo-500' : isGive ? 'bg-rose-500/20 border-rose-500' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'
                                 } ${overBudget ? 'opacity-50 grayscale' : ''}`}>
                                   <div className="flex items-center gap-3 relative z-30">
@@ -2544,7 +2586,7 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
           <span className="absolute text-5xl">💀</span>
         </motion.div>
       )}
-      <HoloCard typeColor={TYPE_COLORS[pk.types[0]]} className={`aspect-square w-full h-full relative ${data.wasAssassinated ? 'animate-shake' : ''}`}>
+      <HoloCard layoutId={`pk-card-${pk.id}`} typeColor={TYPE_COLORS[pk.types[0]]} className={`aspect-square w-full h-full relative ${data.wasAssassinated ? 'animate-shake' : ''}`}>
         <div 
           className="w-full h-full relative rounded-2xl transition-transform duration-700"
           style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}

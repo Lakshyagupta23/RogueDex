@@ -1,81 +1,101 @@
 import React, { useRef, useState, MouseEvent } from 'react';
+import { motion, useMotionValue, useSpring, useTransform, useMotionTemplate } from 'framer-motion';
 
 interface HoloCardProps {
   children: React.ReactNode;
   className?: string;
   typeColor?: string; // Dominant color for the holo glow (e.g., Fire = orange, Water = blue)
+  layoutId?: string; // For framer-motion shared layout animations
 }
 
-export default function HoloCard({ children, className = '', typeColor = '#fff' }: HoloCardProps) {
+export default function HoloCard({ children, className = '', typeColor = '#ffffff', layoutId }: HoloCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 50, y: 50 }); // percentages
+
+  // Framer motion values (normalized -0.5 to 0.5)
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  // Spring physics for smooth return and movement
+  const mouseXSpring = useSpring(x, { stiffness: 300, damping: 20 });
+  const mouseYSpring = useSpring(y, { stiffness: 300, damping: 20 });
+
+  // Map normalized coordinates to rotation
+  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["15deg", "-15deg"]);
+  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-15deg", "15deg"]);
+
+  // Map normalized coordinates to glare position (0% to 100%)
+  const glareX = useTransform(mouseXSpring, [-0.5, 0.5], [100, 0]);
+  const glareY = useTransform(mouseYSpring, [-0.5, 0.5], [100, 0]);
+  const glareBackground = useMotionTemplate`radial-gradient(circle at ${glareX}% ${glareY}%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 60%)`;
 
   const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
     if (!cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
     
-    // Calculate mouse position as a percentage of the card's width/height
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    // Normalize coordinates (-0.5 to 0.5)
+    const normalizedX = (e.clientX - rect.left) / rect.width - 0.5;
+    const normalizedY = (e.clientY - rect.top) / rect.height - 0.5;
     
-    setMousePos({ x, y });
+    x.set(normalizedX);
+    y.set(normalizedY);
   };
 
-  const handleMouseEnter = () => setIsHovered(true);
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+  };
+
   const handleMouseLeave = () => {
     setIsHovered(false);
-    setMousePos({ x: 50, y: 50 }); // Reset to center
+    // Reset to center smoothly
+    x.set(0);
+    y.set(0);
   };
 
-  // Convert mouse pos to rotation degrees (range: -15deg to +15deg)
-  const rotateX = isHovered ? (mousePos.y - 50) * -0.3 : 0;
-  const rotateY = isHovered ? (mousePos.x - 50) * 0.3 : 0;
-  
-  // Transform style
-  const transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(${isHovered ? 1.05 : 1}, ${isHovered ? 1.05 : 1}, 1)`;
-
   return (
-    <div
+    <motion.div
+      layoutId={layoutId}
       ref={cardRef}
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`relative rounded-xl overflow-hidden transition-transform duration-200 ease-out ${className}`}
+      className={`relative rounded-xl overflow-hidden ${className}`}
       style={{ 
-        transform,
+        rotateX,
+        rotateY,
         transformStyle: 'preserve-3d',
-        willChange: 'transform'
+        scale: isHovered ? 1.05 : 1,
       }}
+      initial={{ scale: 1 }}
+      animate={{ scale: isHovered ? 1.05 : 1 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
     >
       {/* Background/Content of the card */}
-      <div className="relative z-10 h-full w-full">
+      <div className="relative z-10 h-full w-full" style={{ transform: 'translateZ(20px)' }}>
         {children}
       </div>
 
       {/* Glare/Sheen */}
-      <div
-        className="absolute inset-0 z-30 pointer-events-none transition-opacity duration-300 rounded-xl mix-blend-overlay"
+      <motion.div
+        className="absolute inset-0 z-30 pointer-events-none mix-blend-overlay rounded-xl"
         style={{
-          opacity: isHovered ? 0.6 : 0,
-          background: `
-            radial-gradient(
-              circle at ${mousePos.x}% ${mousePos.y}%, 
-              rgba(255,255,255,0.8) 0%, 
-              rgba(255,255,255,0) 40%
-            )
-          `
+          background: glareBackground,
+          opacity: isHovered ? 1 : 0,
         }}
+        animate={{ opacity: isHovered ? 1 : 0 }}
+        transition={{ duration: 0.3 }}
       />
       
       {/* Type-based Ambient Edge Glow */}
-      <div 
-        className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-300 rounded-xl"
+      <motion.div 
+        className="absolute inset-0 z-0 pointer-events-none rounded-xl"
         style={{
-          opacity: isHovered ? 0.6 : 0,
           boxShadow: `0 0 40px -10px ${typeColor}`,
+          opacity: isHovered ? 0.6 : 0,
         }}
+        animate={{ opacity: isHovered ? 0.6 : 0 }}
+        transition={{ duration: 0.3 }}
       />
-    </div>
+    </motion.div>
   );
 }
