@@ -1512,7 +1512,8 @@ export default function DraftMode() {
       
       await navigator.clipboard.writeText(showdownText);
       playHoverTick();
-      alert('Competitive Team copied to clipboard with Random Battle sets!');
+      alert('Competitive Team copied to clipboard!\n\nRedirecting to PokeClash... Paste your team in the Teambuilder to battle!');
+      window.open('https://pokeclash-ybmn.onrender.com/', '_blank');
     } catch (err) {
       console.error('Failed to export competitive team: ', err);
       alert('Failed to generate competitive sets.');
@@ -2484,7 +2485,7 @@ export default function DraftMode() {
                       )}
                       <button onClick={exportToShowdown} disabled={isExporting} className="bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-slate-200 font-bold px-6 py-3 rounded-xl transition-colors flex items-center gap-2">
                         {isExporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCopy className="w-5 h-5" />}
-                        {isExporting ? 'Generating Sets...' : 'Export to Showdown'}
+                        {isExporting ? 'Generating Sets...' : 'Battle on PokeClash!'}
                       </button>
                     </div>
                   </div>
