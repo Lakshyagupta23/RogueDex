@@ -48,7 +48,9 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'team_rocket', icon: <Skull className="w-6 h-6" />, label: '🚀 Team Rocket Draft', description: 'Draft the WORST team possible. At the end of the draft... YOU SWAP TEAMS!', color: 'text-red-600', borderColor: 'border-red-600' },
   { id: 'evolution_roulette', icon: <Wand2 className="w-6 h-6" />, label: '🧬 Evolution Roulette', description: 'Draft weak, unevolved Pokémon! At the end of the draft, they randomly evolve into fully-evolved Pokémon of the same type!', color: 'text-emerald-400', borderColor: 'border-emerald-500' },
   { id: 'roulette_steal', icon: <Wand2 className="w-6 h-6" />, label: '🎡 Roulette Steal', description: 'Draft 5 rounds with a "keep only" format. After rounds 2 and 4, a random Pokémon is STOLEN from a random player!', color: 'text-rose-400', borderColor: 'border-rose-500' },
-  { id: 'balanced_budget', icon: <Coins className="w-6 h-6" />, label: '💎 Balanced Budget', description: 'You have a BST cap for your whole team. If you can\'t afford anything this round, you skip! Strategy over power!', color: 'text-amber-400', borderColor: 'border-amber-500' }
+  { id: 'balanced_budget', icon: <Coins className="w-6 h-6" />, label: '💎 Balanced Budget', description: 'You have a BST cap for your whole team. If you can\'t afford anything this round, you skip! Strategy over power!', color: 'text-amber-400', borderColor: 'border-amber-500' },
+  { id: 'booster', icon: <Wand2 className="w-6 h-6" />, label: '✨ Booster Gacha', description: '18 typed booster packs. Open a pack and draft from it!', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' },
+  { id: 'boss_raid', icon: <Skull className="w-6 h-6" />, label: '🐲 Boss Raid (Co-op)', description: 'Draft a combined team of 12 Pokémon to face down a super-powered Boss!', color: 'text-rose-600', borderColor: 'border-rose-600' }
 ];
 
 function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
@@ -609,6 +611,22 @@ export default function DraftMode() {
         state.p1Options = pickUnique(18, basePool); 
         state.p2Options = [];
       }
+    } else if (state.gameMode === 'booster') {
+      if (state.boosterPhase === 'PICKING_PACK') {
+        state.p1Options = [];
+        state.p2Options = [];
+      } else {
+        const genPack = (type: string | null) => {
+          const tPool = basePool.filter(p => type ? p.types.includes(type) : true);
+          const rarePool = tPool.filter(p => p.stats.total >= 480 || p.isFullyEvolved);
+          const commonPool = tPool.filter(p => p.stats.total < 480 && !p.isFullyEvolved);
+          const rare = pickUnique(1, rarePool.length > 0 ? rarePool : tPool);
+          const commons = pickUnique(state.optionsPerRound - 1, commonPool.length >= state.optionsPerRound - 1 ? commonPool : tPool);
+          return [...rare, ...commons].filter(Boolean).slice(0, state.optionsPerRound);
+        };
+        state.p1Options = genPack(state.p1PackChoice ?? null);
+        state.p2Options = genPack(state.p2PackChoice ?? null);
+      }
     } else {
       state.p1Options = pickUnique(state.optionsPerRound, p1Pool);
       state.p2Options = pickUnique(state.optionsPerRound, p2Pool);
@@ -975,6 +993,13 @@ export default function DraftMode() {
         // Trigger chaos event instead of generating normal round options for the final round
         triggerChaosEvent(state);
       } else {
+        if (state.gameMode === 'booster') {
+          state.boosterPhase = 'PICKING_PACK';
+          if (state.p1PackChoice) state.availablePacks = state.availablePacks?.filter(p => p !== state.p1PackChoice);
+          if (state.p2PackChoice) state.availablePacks = state.availablePacks?.filter(p => p !== state.p2PackChoice);
+          state.p1PackChoice = null;
+          state.p2PackChoice = null;
+        }
         generateOptions(state, pokemonList);
       }
     }
@@ -1157,7 +1182,16 @@ export default function DraftMode() {
     if (data.type === 'snake_pick') {
       resolveSnakePick(data.pkId);
     }
-  }, [applyState, broadcastToGuest, resolveRound, resolveHeist, resolveAuctionWin, resolveChaosChoice, resolveSnakePick, resolveNuzlocke, stateDiscardAndDraw]);
+    if (data.type === 'submit_pack') {
+      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      next.p2PackChoice = data.packType;
+      if (next.p1PackChoice || !next.p1) {
+        next.boosterPhase = 'DRAFTING_PACK';
+        generateOptions(next, pokemonList);
+      }
+      applyState(next); broadcastToGuest(next);
+    }
+  }, [applyState, broadcastToGuest, resolveRound, resolveHeist, resolveAuctionWin, resolveChaosChoice, resolveSnakePick, resolveNuzlocke, stateDiscardAndDraw, pokemonList, generateOptions]);
 
 
   const handleCreateRoom = useCallback(async () => {
@@ -1277,6 +1311,10 @@ export default function DraftMode() {
        bstCap: selectedMode === 'balanced_budget' ? bstCap : undefined,
        p1BstUsed: selectedMode === 'balanced_budget' ? 0 : undefined,
        p2BstUsed: selectedMode === 'balanced_budget' ? 0 : undefined,
+       boosterPhase: selectedMode === 'booster' ? 'PICKING_PACK' : undefined,
+       p1PackChoice: null,
+       p2PackChoice: null,
+       bossId: undefined,
     };
     let availableTypes = ALL_TYPES;
     const basePoolForTypes = pokemonList.length > 0 ? filterPokemon(pokemonList, next.filters) : [];
@@ -1284,6 +1322,15 @@ export default function DraftMode() {
       const typeSet = new Set<string>();
       basePoolForTypes.forEach(p => p.types.forEach(t => typeSet.add(t)));
       availableTypes = Array.from(typeSet);
+      
+      if (selectedMode === 'boss_raid') {
+        const bosses = basePoolForTypes.filter(p => p.stats.total >= 600 || p.isLegendary);
+        if (bosses.length > 0) {
+          next.bossId = bosses[Math.floor(Math.random() * bosses.length)].id;
+        } else {
+          next.bossId = basePoolForTypes[0].id;
+        }
+      }
     }
 
     if (selectedMode === 'monotype') {
@@ -1294,6 +1341,10 @@ export default function DraftMode() {
        }
        next.monotypeP1 = t1;
        next.monotypeP2 = t2;
+    }
+    
+    if (selectedMode === 'booster') {
+       next.availablePacks = [...availableTypes];
     }
     
     p1PendingRef.current = null;
@@ -1423,6 +1474,22 @@ export default function DraftMode() {
       channelRef.current?.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'snake_pick', pkId } });
     }
   }, [resolveSnakePick]);
+
+  const submitPackChoice = useCallback((type: string) => {
+    if (!gameStateRef.current) return;
+    playLockIn();
+    if (isHostRef.current) {
+      const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+      next.p1PackChoice = type;
+      if (next.p2PackChoice || !next.p2) {
+        next.boosterPhase = 'DRAFTING_PACK';
+        generateOptions(next, pokemonList);
+      }
+      applyState(next); broadcastToGuest(next);
+    } else {
+      channelRef.current?.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'submit_pack', packType: type } });
+    }
+  }, [applyState, broadcastToGuest, generateOptions, pokemonList]);
 
   const revealCards = useCallback(() => {
     if (!isHostRef.current || !gameStateRef.current) return;
@@ -1606,6 +1673,7 @@ export default function DraftMode() {
     excludeAlolan, excludeGalarian, excludeHisuian, excludePaldean, fullyEvolvedOnly
   ].filter(Boolean).length;
   const filteredPool = pokemonList.length > 0 ? filterPokemon(pokemonList, buildFilters()) : [];
+  const bossPk = gameState?.bossId ? pokemonList.find(p => p.id === gameState.bossId) : null;
 
   const resetFilters = () => {
     setSelectedGens([]); setSelectedTypes([]); setTypeMatchMode('either');
@@ -2257,6 +2325,32 @@ export default function DraftMode() {
                         ))}
                      </div>
                   </div>
+                ) : gameState.gameMode === 'booster' && gameState.boosterPhase === 'PICKING_PACK' ? (
+                  <div className="p-6 rounded-2xl border border-fuchsia-500/30 bg-slate-900/50 flex flex-col items-center">
+                    <h3 className="text-xl font-black uppercase tracking-widest text-fuchsia-400 mb-6 text-center animate-pulse">Pick a Booster Pack!</h3>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 w-full">
+                      {gameState.availablePacks?.map(type => {
+                        const isMyPick = (myPlayerNum === 1 && gameState.p1PackChoice === type) || (myPlayerNum === 2 && gameState.p2PackChoice === type);
+                        const iHavePicked = (myPlayerNum === 1 && !!gameState.p1PackChoice) || (myPlayerNum === 2 && !!gameState.p2PackChoice);
+                        return (
+                          <button key={type} 
+                            disabled={iHavePicked}
+                            onClick={() => submitPackChoice(type)}
+                            className={`w-full aspect-[2/3] rounded-xl border-2 flex flex-col items-center justify-center transition-all ${
+                              isMyPick
+                                ? 'border-fuchsia-400 bg-fuchsia-500/20 scale-105 shadow-[0_0_15px_rgba(192,38,211,0.5)]'
+                                : iHavePicked
+                                ? 'border-slate-800 bg-slate-900 opacity-50 cursor-not-allowed'
+                                : 'border-slate-700 bg-slate-800 hover:border-fuchsia-400 hover:-translate-y-2 cursor-pointer shadow-lg'
+                            }`}
+                          >
+                            <span className="text-2xl mb-2 drop-shadow-md">{TYPE_COLORS[type]?.split(' ')[0] || '✨'}</span>
+                            <span className="text-[10px] font-bold uppercase text-white tracking-wider">{type}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 ) : gameState.gameMode !== 'auction' && gameState.gameMode !== 'salary_cap' && gameState.gameMode !== 'sealed_bid' && gameState.status === 'DRAFTING' ? (
                   <div className="p-6 rounded-2xl border border-indigo-500/30 bg-slate-900/50 flex flex-col">
                     {submitted || mySlot?.ready ? (
@@ -2354,13 +2448,27 @@ export default function DraftMode() {
                   </div>
                 ) : gameState.status === 'REVEAL' ? (
                   <div className="p-6 rounded-2xl border border-emerald-500/30 flex flex-col items-center justify-center text-center gap-6 bg-slate-900/50">
-                    <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-400">
-                      <Check className="w-10 h-10" />
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-black text-white mb-2">Draft Complete!</h3>
-                      <p className="text-slate-400">Both players have built their teams.</p>
-                    </div>
+                    {gameState.gameMode === 'boss_raid' && bossPk ? (
+                      <div className="flex flex-col items-center">
+                        <div className="w-48 h-48 mb-6 animate-pulse">
+                          <HoloCard typeColor="shadow" className="w-full h-full border-rose-500 shadow-[0_0_50px_rgba(225,29,72,0.8)]">
+                            <img src={bossPk.sprite} className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(225,29,72,1)]" />
+                          </HoloCard>
+                        </div>
+                        <h3 className="text-3xl font-black text-rose-500 mb-2 uppercase tracking-widest text-shadow">Boss Raid Incoming!</h3>
+                        <p className="text-rose-400 font-bold">{bossPk.displayName} (BST: {bossPk.stats.total}) is approaching!</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-400">
+                          <Check className="w-10 h-10" />
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-black text-white mb-2">Draft Complete!</h3>
+                          <p className="text-slate-400">Both players have built their teams.</p>
+                        </div>
+                      </>
+                    )}
                     <div className="flex flex-col sm:flex-row gap-3">
                       {isHost ? (
                         <>
