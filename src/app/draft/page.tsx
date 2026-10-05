@@ -28,6 +28,15 @@ function getSupabase() {
 const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison','ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy'];
 const ALL_GENS = [1,2,3,4,5,6,7,8,9];
 
+const ARENAS = [
+  { id: 'none', label: 'Classic (No Arena)', image: '' },
+  { id: 'arena1', label: 'Neon Arena', image: '/arenas/arena1.jpg' },
+  { id: 'arena2', label: 'Desert Ruins', image: '/arenas/arena2.png' },
+  { id: 'arena3', label: 'Lush Stadium', image: '/arenas/arena3.jpg' },
+  { id: 'arena4', label: 'Cyberpunk City', image: '/arenas/arena4.jpg' },
+  { id: 'arena5', label: 'Mystic Forest', image: '/arenas/arena5.jpg' },
+];
+
 const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; description: string; color: string; borderColor: string }[] = [
   { id: 'standard', icon: <Shield className="w-6 h-6" />, label: 'Standard Draft', description: 'Classic 3-round draft. Pick to keep, give to opponent.', color: 'text-indigo-400', borderColor: 'border-indigo-500' },
   { id: 'wildcard', icon: <HelpCircle className="w-6 h-6" />, label: '🃏 Wildcard Draft', description: '3 cards per round. 1 is guaranteed to be a trap! Picking it gives a random fully evolved Pokémon.', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' },
@@ -50,7 +59,7 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'roulette_steal', icon: <Wand2 className="w-6 h-6" />, label: '🎡 Roulette Steal', description: 'Draft 5 rounds with a "keep only" format. After rounds 2 and 4, a random Pokémon is STOLEN from a random player!', color: 'text-rose-400', borderColor: 'border-rose-500' },
   { id: 'balanced_budget', icon: <Coins className="w-6 h-6" />, label: '💎 Balanced Budget', description: 'You have a BST cap for your whole team. If you can\'t afford anything this round, you skip! Strategy over power!', color: 'text-amber-400', borderColor: 'border-amber-500' },
   { id: 'booster', icon: <Wand2 className="w-6 h-6" />, label: '✨ Booster Gacha', description: '18 typed booster packs. Open a pack and draft from it!', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' },
-  { id: 'ditto', icon: <HelpCircle className="w-6 h-6" />, label: '🎭 Ditto\'s Deception', description: 'One Pokémon on your team is secretly a Ditto! During Reveal, it transforms into a completely random Pokémon!', color: 'text-purple-400', borderColor: 'border-purple-500' }
+  { id: 'ditto', icon: <HelpCircle className="w-6 h-6" />, label: '🎭 Ditto\'s Deception', description: 'Two Pokémon on your team are secretly Dittos! During Reveal, they transform into completely random Pokémon!', color: 'text-purple-400', borderColor: 'border-purple-500' }
 ];
 
 function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
@@ -362,6 +371,7 @@ export default function DraftMode() {
   const [joinCode, setJoinCode] = useState('');
   const [optionsPerRound, setOptionsPerRound] = useState(3);
   const [selectedMode, setSelectedMode] = useState<GameMode>('standard');
+  const [selectedArena, setSelectedArena] = useState<string>('none');
   const [musicOn, setMusicOn] = useState(false);
   const [criesOn, setCriesOn] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -1014,15 +1024,19 @@ export default function DraftMode() {
            state.p1.team.forEach(evolve);
            state.p2!.team.forEach(evolve);
         } else if (state.gameMode === 'ditto') {
-           if (state.p1.team.length > 0) {
-             const p1Idx = Math.floor(Math.random() * state.p1.team.length);
-             const p1New = pokemonList[Math.floor(Math.random() * pokemonList.length)];
-             state.p1.team[p1Idx].actualPk = { ...p1New };
+           if (state.p1.team.length >= 2) {
+             const indices = new Set<number>();
+             while(indices.size < 2) indices.add(Math.floor(Math.random() * state.p1.team.length));
+             indices.forEach(idx => {
+               state.p1.team[idx].actualPk = { ...pokemonList[Math.floor(Math.random() * pokemonList.length)] };
+             });
            }
-           if (state.p2! && state.p2!.team.length > 0) {
-             const p2Idx = Math.floor(Math.random() * state.p2!.team.length);
-             const p2New = pokemonList[Math.floor(Math.random() * pokemonList.length)];
-             state.p2!.team[p2Idx].actualPk = { ...p2New };
+           if (state.p2! && state.p2!.team.length >= 2) {
+             const indices = new Set<number>();
+             while(indices.size < 2) indices.add(Math.floor(Math.random() * state.p2!.team.length));
+             indices.forEach(idx => {
+               state.p2!.team[idx].actualPk = { ...pokemonList[Math.floor(Math.random() * pokemonList.length)] };
+             });
            }
         }
         state.status = 'REVEAL';
@@ -1258,7 +1272,7 @@ export default function DraftMode() {
           const isVip = selectedMode === 'vip';
           const totalRounds = isVip ? 6 : 3;
           const initial: DraftState = {
-            code, status: 'LOBBY', gameMode: selectedMode,
+            code, status: 'LOBBY', gameMode: selectedMode, arena: selectedArena,
             optionsPerRound: selectedMode === 'wildcard' || isVip ? 3 : optionsPerRound, round: 1, totalRounds, filters,
             p1: { id: code, username: usernameRef.current, team: [], ready: false },
             p2: null, p1Options: [], p2Options: [],
@@ -1713,16 +1727,21 @@ export default function DraftMode() {
     setExcludeAlolan(false); setExcludeGalarian(false); setExcludeHisuian(false); setExcludePaldean(false); setFullyEvolvedOnly(false);
   };
 
+  const arenaImage = gameState?.arena && gameState.arena !== 'none' ? ARENAS.find(a => a.id === gameState.arena)?.image : null;
+
   return (
-    <div className="min-h-screen text-slate-200 p-6 font-sans relative overflow-hidden transition-all duration-700 ease-out" 
+    <div className={`min-h-screen text-slate-200 p-6 font-sans relative overflow-hidden transition-all duration-700 ease-out ${arenaImage ? 'bg-cover bg-center' : ''}`} 
       style={{
-        background: hoveredTypeColor 
-          ? `radial-gradient(circle at 50% 10%, ${hoveredTypeColor}30, #0b0e16 60%), #0b0e16`
-          : `radial-gradient(ellipse at top, #1e293b, #0b0e16, #000000)`
+        backgroundImage: arenaImage 
+          ? `linear-gradient(to bottom, rgba(11, 14, 22, 0.4), rgba(11, 14, 22, 0.95)), url(${arenaImage})`
+          : hoveredTypeColor 
+            ? `radial-gradient(circle at 50% 10%, ${hoveredTypeColor}30, #0b0e16 60%), radial-gradient(circle at 50% 50%, transparent 20%, #000 100%)`
+            : `radial-gradient(ellipse at top, #1e293b, #0b0e16, #000000)`,
+        backgroundColor: arenaImage ? '#0b0e16' : undefined
       }}>
       {/* Dynamic Grid Background Overlay */}
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-20" style={{ backgroundImage: 'linear-gradient(to right, #475569 1px, transparent 1px), linear-gradient(to bottom, #475569 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, transparent 20%, #000 100%)' }}></div>
+      {!arenaImage && <div className="absolute inset-0 z-0 pointer-events-none opacity-20" style={{ backgroundImage: 'linear-gradient(to right, #475569 1px, transparent 1px), linear-gradient(to bottom, #475569 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>}
+      {!arenaImage && <div className="absolute inset-0 z-0 pointer-events-none opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, transparent 20%, #000 100%)' }}></div>}
       {/* Content Wrapper */}
       <div className="relative z-10 h-full flex flex-col">
       <AnimatePresence>
@@ -1906,6 +1925,30 @@ export default function DraftMode() {
                   </div>
                 </div>
               )}
+
+              <div className="flex flex-col gap-3 pt-4 border-t border-slate-800">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Theme Draft Arena</label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {ARENAS.map(arena => (
+                    <button key={arena.id} onClick={() => { playHoverTick(); setSelectedArena(arena.id); }}
+                      className={`relative flex flex-col items-center p-2 rounded-xl border transition-all overflow-hidden ${
+                        selectedArena === arena.id
+                          ? `bg-slate-800 border-purple-500 ring-2 ring-purple-500/50`
+                          : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-500'
+                      }`}>
+                      {arena.image && (
+                        <div className="w-full h-16 mb-2 rounded bg-slate-800 bg-cover bg-center overflow-hidden" style={{ backgroundImage: `url(${arena.image})` }} />
+                      )}
+                      {!arena.image && (
+                        <div className="w-full h-16 mb-2 rounded bg-slate-800 flex items-center justify-center text-slate-600">
+                          <HelpCircle className="w-6 h-6" />
+                        </div>
+                      )}
+                      <span className={`text-xs font-bold ${selectedArena === arena.id ? 'text-purple-400' : 'text-white'}`}>{arena.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <div className="flex flex-col gap-3 pt-4 border-t border-slate-800">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Host a Game</label>

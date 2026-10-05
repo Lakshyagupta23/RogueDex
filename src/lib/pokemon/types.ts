@@ -89,6 +89,7 @@ export interface DraftState {
   code: string;
   status: 'LOBBY' | 'MONOTYPE_ROULETTE' | 'DRAFTING' | 'HEIST' | 'REVEAL' | 'CHAOS_EVENT' | 'NUZLOCKE' | 'ROULETTE_STEAL';
   gameMode: GameMode;
+  arena?: string;
   blindClueType?: 'ability' | 'color';
   optionsPerRound: number;
   round: number;
