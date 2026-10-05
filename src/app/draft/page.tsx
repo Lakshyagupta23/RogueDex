@@ -2409,7 +2409,7 @@ export default function DraftMode() {
                                 <span className="text-[10px] font-bold text-white capitalize mt-1 text-center leading-tight truncate w-full px-1">{pk.displayName}</span>
                               </button>
                             </HoloCard>
-                          </div>
+                          </motion.div>
                         ))}
                      </div>
                   </div>
