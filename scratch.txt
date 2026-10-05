@@ -1,0 +1,12 @@
+        } else if (state.gameMode === 'evolution_roulette') {
+           const evolve = (m: DraftTeamMember) => {
+             const fullyEvolved = pokemonList.filter(p => p.isFullyEvolved && !p.isMega && !p.isLegendary && !p.isMythical && p.types.includes(m.actualPk.types[0]));
+             if (fullyEvolved.length > 0) {
+               m.actualPk = { ...fullyEvolved[Math.floor(Math.random() * fullyEvolved.length)] };
+             }
+           };
+           state.p1.team.forEach(evolve);
+           state.p2!.team.forEach(evolve);
+        }
+        state.status = 'REVEAL';
+      }

@@ -49,7 +49,8 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'evolution_roulette', icon: <Wand2 className="w-6 h-6" />, label: '🧬 Evolution Roulette', description: 'Draft weak, unevolved Pokémon! At the end of the draft, they randomly evolve into fully-evolved Pokémon of the same type!', color: 'text-emerald-400', borderColor: 'border-emerald-500' },
   { id: 'roulette_steal', icon: <Wand2 className="w-6 h-6" />, label: '🎡 Roulette Steal', description: 'Draft 5 rounds with a "keep only" format. After rounds 2 and 4, a random Pokémon is STOLEN from a random player!', color: 'text-rose-400', borderColor: 'border-rose-500' },
   { id: 'balanced_budget', icon: <Coins className="w-6 h-6" />, label: '💎 Balanced Budget', description: 'You have a BST cap for your whole team. If you can\'t afford anything this round, you skip! Strategy over power!', color: 'text-amber-400', borderColor: 'border-amber-500' },
-  { id: 'booster', icon: <Wand2 className="w-6 h-6" />, label: '✨ Booster Gacha', description: '18 typed booster packs. Open a pack and draft from it!', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' }
+  { id: 'booster', icon: <Wand2 className="w-6 h-6" />, label: '✨ Booster Gacha', description: '18 typed booster packs. Open a pack and draft from it!', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' },
+  { id: 'ditto', icon: <HelpCircle className="w-6 h-6" />, label: '🎭 Ditto\'s Deception', description: 'One Pokémon on your team is secretly a Ditto! During Reveal, it transforms into a completely random Pokémon!', color: 'text-purple-400', borderColor: 'border-purple-500' }
 ];
 
 function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
@@ -559,12 +560,26 @@ export default function DraftMode() {
         { id: 'water', label: '💧 Water Types Only!' },
         { id: 'fire', label: '🔥 Fire Types Only!' },
         { id: 'grass', label: '🍃 Grass Types Only!' },
+        { id: 'electric', label: '⚡ Electric Types Only!' },
+        { id: 'dragon', label: '🐉 Dragon Types Only!' },
+        { id: 'fairy', label: '🧚 Fairy Types Only!' },
+        { id: 'steel', label: '🛡️ Steel Types Only!' },
         { id: 'legendary', label: '✨ Legends & Mythicals Only!' },
         { id: 'weak', label: '👶 Weaklings Only (BST < 400)!' },
         { id: 'strong', label: '💪 Titans Only (BST > 550)!' },
         { id: 'starters', label: '🌟 Starters Only!' },
         { id: 'fossils', label: '🦴 Fossils Only!' },
-        { id: 'gen1', label: '📺 Gen 1 Only!' }
+        { id: 'gen1', label: '📺 Gen 1 Only!' },
+        { id: 'gen3', label: '🎺 Gen 3 Only!' },
+        { id: 'gen5', label: '🏙️ Gen 5 Only!' },
+        { id: 'slow', label: '🐢 Slowpokes Only (Speed < 50)!' },
+        { id: 'fast', label: '🏎️ Speedsters Only (Speed > 100)!' },
+        { id: 'tank', label: '🧱 Tanks Only (Def > 100)!' },
+        { id: 'glass_cannon', label: '🗡️ Glass Cannons (Atk/SpA > 110, Def < 70)!' },
+        { id: 'mega', label: '🌀 Megas Only!' },
+        { id: 'paradox', label: '🔮 Paradox Only!' },
+        { id: 'pseudo', label: '🐉 Pseudo-Legendaries Only!' },
+        { id: 'regional', label: '🌴 Regional Forms Only!' }
       ];
       const rule = slotRules[Math.floor(Math.random() * slotRules.length)];
       state.slotMachineRule = rule.label;
@@ -572,12 +587,26 @@ export default function DraftMode() {
       if (rule.id === 'water') p1Pool = p1Pool.filter(p => p.types.includes('water'));
       if (rule.id === 'fire') p1Pool = p1Pool.filter(p => p.types.includes('fire'));
       if (rule.id === 'grass') p1Pool = p1Pool.filter(p => p.types.includes('grass'));
+      if (rule.id === 'electric') p1Pool = p1Pool.filter(p => p.types.includes('electric'));
+      if (rule.id === 'dragon') p1Pool = p1Pool.filter(p => p.types.includes('dragon'));
+      if (rule.id === 'fairy') p1Pool = p1Pool.filter(p => p.types.includes('fairy'));
+      if (rule.id === 'steel') p1Pool = p1Pool.filter(p => p.types.includes('steel'));
       if (rule.id === 'legendary') p1Pool = p1Pool.filter(p => p.isLegendary || p.isMythical);
       if (rule.id === 'weak') p1Pool = p1Pool.filter(p => p.stats.total < 400);
       if (rule.id === 'strong') p1Pool = p1Pool.filter(p => p.stats.total > 550);
       if (rule.id === 'starters') p1Pool = p1Pool.filter(p => p.isStarter);
       if (rule.id === 'fossils') p1Pool = p1Pool.filter(p => p.isFossil);
       if (rule.id === 'gen1') p1Pool = p1Pool.filter(p => p.generation === 1);
+      if (rule.id === 'gen3') p1Pool = p1Pool.filter(p => p.generation === 3);
+      if (rule.id === 'gen5') p1Pool = p1Pool.filter(p => p.generation === 5);
+      if (rule.id === 'slow') p1Pool = p1Pool.filter(p => p.stats.spe < 50);
+      if (rule.id === 'fast') p1Pool = p1Pool.filter(p => p.stats.spe > 100);
+      if (rule.id === 'tank') p1Pool = p1Pool.filter(p => p.stats.def > 100 || p.stats.spDef > 100);
+      if (rule.id === 'glass_cannon') p1Pool = p1Pool.filter(p => (p.stats.atk > 110 || p.stats.spAtk > 110) && p.stats.def < 70 && p.stats.spDef < 70);
+      if (rule.id === 'mega') p1Pool = p1Pool.filter(p => p.isMega);
+      if (rule.id === 'paradox') p1Pool = p1Pool.filter(p => p.isParadox);
+      if (rule.id === 'pseudo') p1Pool = p1Pool.filter(p => p.isPseudoLegendary);
+      if (rule.id === 'regional') p1Pool = p1Pool.filter(p => p.isRegional);
       
       p2Pool = p1Pool;
       if (p1Pool.length < state.optionsPerRound) { p1Pool = basePool; p2Pool = basePool; state.slotMachineRule = "❌ Rule failed! Anything goes!"; }
@@ -984,6 +1013,19 @@ export default function DraftMode() {
            };
            state.p1.team.forEach(evolve);
            state.p2!.team.forEach(evolve);
+        } else if (state.gameMode === 'ditto') {
+           if (state.p1.team.length > 0) {
+             const p1Idx = Math.floor(Math.random() * state.p1.team.length);
+             const p1New = pokemonList[Math.floor(Math.random() * pokemonList.length)];
+             state.p1.team[p1Idx].actualPk = { ...p1New };
+             state.p1.team[p1Idx].originalPk = { ...p1New };
+           }
+           if (state.p2! && state.p2!.team.length > 0) {
+             const p2Idx = Math.floor(Math.random() * state.p2!.team.length);
+             const p2New = pokemonList[Math.floor(Math.random() * pokemonList.length)];
+             state.p2!.team[p2Idx].actualPk = { ...p2New };
+             state.p2!.team[p2Idx].originalPk = { ...p2New };
+           }
         }
         state.status = 'REVEAL';
       }
@@ -2082,6 +2124,20 @@ export default function DraftMode() {
                   <p className="font-bold text-sm" style={{ color: gameState.monotypeP2 ? TYPE_COLORS[gameState.monotypeP2] : '#fb923c' }}>
                     🔥 P2 Forced: {gameState.monotypeP2?.toUpperCase()}
                   </p>
+                </div>
+              )}
+              {gameState.status !== 'REVEAL' && gameState.status !== 'LOBBY' && (
+                <div className="mt-2 flex flex-col items-center w-full">
+                  {(() => {
+                    const mode = GAME_MODES.find(m => m.id === gameState.gameMode);
+                    if (!mode) return null;
+                    return (
+                      <div className={`bg-slate-900/80 border ${mode.borderColor} rounded-lg px-4 py-2 mt-1 max-w-lg shadow-lg text-center`}>
+                        <span className={`font-bold text-sm ${mode.color}`}>{mode.label}</span>
+                        <p className="text-slate-300 text-xs mt-1 leading-snug">{mode.description}</p>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
               {gameState.gameMode === 'slot_machine' && gameState.status === 'DRAFTING' && (
