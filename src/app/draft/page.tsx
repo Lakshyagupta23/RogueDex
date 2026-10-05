@@ -392,6 +392,7 @@ export default function DraftMode() {
   
   const [blindClueType, setBlindClueType] = useState<'ability' | 'color'>('ability');
   const [bstCap, setBstCap] = useState(3000);
+  const [tugOfWarSnapThreshold, setTugOfWarSnapThreshold] = useState(500);
 
   useEffect(() => {
     if (musicOn) {
@@ -1025,7 +1026,7 @@ export default function DraftMode() {
            };
            state.p1.team.forEach(evolve);
            state.p2!.team.forEach(evolve);
-        } else if (state.gameMode === 'ditto') {
+        } else if (state.gameMode === 'chaos' && state.chaosState?.eventId === 'ditto') {
            if (state.p1.team.length >= 2) {
              const indices = new Set<number>();
              while(indices.size < 2) indices.add(Math.floor(Math.random() * state.p1.team.length));
@@ -1276,6 +1277,7 @@ export default function DraftMode() {
           const initial: DraftState = {
             code, status: 'LOBBY', gameMode: selectedMode, arena: selectedArena,
             optionsPerRound: selectedMode === 'wildcard' || isVip ? 3 : optionsPerRound, round: 1, totalRounds, filters,
+            tugOfWarSnapThreshold: selectedMode === 'tug_of_war' ? tugOfWarSnapThreshold : undefined,
             p1: { id: code, username: usernameRef.current, team: [], ready: false },
             p2: null, p1Options: [], p2Options: [],
             p1HeistChoice: null, p2HeistChoice: null,
@@ -1362,7 +1364,7 @@ export default function DraftMode() {
        p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
        snakeTurn: 1, snakePickCount: 0,
        blindClueType: selectedMode === 'blind' ? blindClueType : undefined,
-       tugOfWarSnapThreshold: selectedMode === 'tug_of_war' ? 500 : undefined,
+       tugOfWarSnapThreshold: selectedMode === 'tug_of_war' ? tugOfWarSnapThreshold : undefined,
        bstCap: selectedMode === 'balanced_budget' ? bstCap : undefined,
        p1BstUsed: selectedMode === 'balanced_budget' ? 0 : undefined,
        p2BstUsed: selectedMode === 'balanced_budget' ? 0 : undefined,
@@ -1930,6 +1932,29 @@ export default function DraftMode() {
                       <span>4200 (Relaxed)</span>
                     </div>
                     <p className="text-xs text-slate-500">~{Math.round(bstCap/6)} BST avg per Pokémon</p>
+                  </div>
+                </div>
+              )}
+
+              {selectedMode === 'tug_of_war' && (
+                <div className="flex flex-col gap-3 pt-4 border-t border-slate-800">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Rope Snap Difference</label>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-400">BST Difference Limit:</span>
+                      <span className="text-lg font-black text-cyan-400">{tugOfWarSnapThreshold}</span>
+                    </div>
+                    <input
+                      type="range" min={100} max={1000} step={50}
+                      value={tugOfWarSnapThreshold}
+                      onChange={e => setTugOfWarSnapThreshold(Number(e.target.value))}
+                      className="w-full accent-cyan-500"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-600 font-bold">
+                      <span>100 (Fragile)</span>
+                      <span>500 (Sturdy)</span>
+                      <span>1000 (Unbreakable)</span>
+                    </div>
                   </div>
                 </div>
               )}
