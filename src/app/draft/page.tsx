@@ -49,8 +49,7 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'evolution_roulette', icon: <Wand2 className="w-6 h-6" />, label: '🧬 Evolution Roulette', description: 'Draft weak, unevolved Pokémon! At the end of the draft, they randomly evolve into fully-evolved Pokémon of the same type!', color: 'text-emerald-400', borderColor: 'border-emerald-500' },
   { id: 'roulette_steal', icon: <Wand2 className="w-6 h-6" />, label: '🎡 Roulette Steal', description: 'Draft 5 rounds with a "keep only" format. After rounds 2 and 4, a random Pokémon is STOLEN from a random player!', color: 'text-rose-400', borderColor: 'border-rose-500' },
   { id: 'balanced_budget', icon: <Coins className="w-6 h-6" />, label: '💎 Balanced Budget', description: 'You have a BST cap for your whole team. If you can\'t afford anything this round, you skip! Strategy over power!', color: 'text-amber-400', borderColor: 'border-amber-500' },
-  { id: 'booster', icon: <Wand2 className="w-6 h-6" />, label: '✨ Booster Gacha', description: '18 typed booster packs. Open a pack and draft from it!', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' },
-  { id: 'boss_raid', icon: <Skull className="w-6 h-6" />, label: '🐲 Boss Raid (Co-op)', description: 'Draft a combined team of 12 Pokémon to face down a super-powered Boss!', color: 'text-rose-600', borderColor: 'border-rose-600' }
+  { id: 'booster', icon: <Wand2 className="w-6 h-6" />, label: '✨ Booster Gacha', description: '18 typed booster packs. Open a pack and draft from it!', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' }
 ];
 
 function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
@@ -1322,15 +1321,6 @@ export default function DraftMode() {
       const typeSet = new Set<string>();
       basePoolForTypes.forEach(p => p.types.forEach(t => typeSet.add(t)));
       availableTypes = Array.from(typeSet);
-      
-      if (selectedMode === 'boss_raid') {
-        const bosses = basePoolForTypes.filter(p => p.stats.total >= 600 || p.isLegendary);
-        if (bosses.length > 0) {
-          next.bossId = bosses[Math.floor(Math.random() * bosses.length)].id;
-        } else {
-          next.bossId = basePoolForTypes[0].id;
-        }
-      }
     }
 
     if (selectedMode === 'monotype') {
@@ -1512,8 +1502,8 @@ export default function DraftMode() {
       
       await navigator.clipboard.writeText(showdownText);
       playHoverTick();
-      alert('Competitive Team copied to clipboard!\n\nRedirecting to PokeClash... Paste your team in the Teambuilder to battle!');
-      window.open('https://pokeclash-ybmn.onrender.com/', '_blank');
+      alert('Competitive Team copied to clipboard!\n\nRedirecting to Pokémon Showdown... Paste your team in the Teambuilder to battle!');
+      window.open('https://play.pokemonshowdown.com/teambuilder', '_blank');
     } catch (err) {
       console.error('Failed to export competitive team: ', err);
       alert('Failed to generate competitive sets.');
@@ -1674,7 +1664,6 @@ export default function DraftMode() {
     excludeAlolan, excludeGalarian, excludeHisuian, excludePaldean, fullyEvolvedOnly
   ].filter(Boolean).length;
   const filteredPool = pokemonList.length > 0 ? filterPokemon(pokemonList, buildFilters()) : [];
-  const bossPk = gameState?.bossId ? pokemonList.find(p => p.id === gameState.bossId) : null;
 
   const resetFilters = () => {
     setSelectedGens([]); setSelectedTypes([]); setTypeMatchMode('either');
@@ -2345,7 +2334,7 @@ export default function DraftMode() {
                                 : 'border-slate-700 bg-slate-800 hover:border-fuchsia-400 hover:-translate-y-2 cursor-pointer shadow-lg'
                             }`}
                           >
-                            <span className="text-2xl mb-2 drop-shadow-md">{TYPE_COLORS[type]?.split(' ')[0] || '✨'}</span>
+                            <div className="w-8 h-8 rounded-full mb-2 drop-shadow-md border border-white/20" style={{ backgroundColor: TYPE_COLORS[type] || '#c026d3' }}></div>
                             <span className="text-[10px] font-bold uppercase text-white tracking-wider">{type}</span>
                           </button>
                         );
@@ -2449,27 +2438,13 @@ export default function DraftMode() {
                   </div>
                 ) : gameState.status === 'REVEAL' ? (
                   <div className="p-6 rounded-2xl border border-emerald-500/30 flex flex-col items-center justify-center text-center gap-6 bg-slate-900/50">
-                    {gameState.gameMode === 'boss_raid' && bossPk ? (
-                      <div className="flex flex-col items-center">
-                        <div className="w-48 h-48 mb-6 animate-pulse">
-                          <HoloCard typeColor="shadow" className="w-full h-full border-rose-500 shadow-[0_0_50px_rgba(225,29,72,0.8)]">
-                            <img src={bossPk.sprite} className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(225,29,72,1)]" />
-                          </HoloCard>
-                        </div>
-                        <h3 className="text-3xl font-black text-rose-500 mb-2 uppercase tracking-widest text-shadow">Boss Raid Incoming!</h3>
-                        <p className="text-rose-400 font-bold">{bossPk.displayName} (BST: {bossPk.stats.total}) is approaching!</p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-400">
-                          <Check className="w-10 h-10" />
-                        </div>
-                        <div>
-                          <h3 className="text-2xl font-black text-white mb-2">Draft Complete!</h3>
-                          <p className="text-slate-400">Both players have built their teams.</p>
-                        </div>
-                      </>
-                    )}
+                    <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-400">
+                      <Check className="w-10 h-10" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-black text-white mb-2">Draft Complete!</h3>
+                      <p className="text-slate-400">Both players have built their teams.</p>
+                    </div>
                     <div className="flex flex-col sm:flex-row gap-3">
                       {isHost ? (
                         <>
@@ -2485,7 +2460,7 @@ export default function DraftMode() {
                       )}
                       <button onClick={exportToShowdown} disabled={isExporting} className="bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-slate-200 font-bold px-6 py-3 rounded-xl transition-colors flex items-center gap-2">
                         {isExporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <ClipboardCopy className="w-5 h-5" />}
-                        {isExporting ? 'Generating Sets...' : 'Battle on PokeClash!'}
+                        {isExporting ? 'Generating Sets...' : 'Export to Showdown'}
                       </button>
                     </div>
                   </div>
