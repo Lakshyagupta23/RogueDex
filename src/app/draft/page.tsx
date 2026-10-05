@@ -1018,13 +1018,11 @@ export default function DraftMode() {
              const p1Idx = Math.floor(Math.random() * state.p1.team.length);
              const p1New = pokemonList[Math.floor(Math.random() * pokemonList.length)];
              state.p1.team[p1Idx].actualPk = { ...p1New };
-             state.p1.team[p1Idx].originalPk = { ...p1New };
            }
            if (state.p2! && state.p2!.team.length > 0) {
              const p2Idx = Math.floor(Math.random() * state.p2!.team.length);
              const p2New = pokemonList[Math.floor(Math.random() * pokemonList.length)];
              state.p2!.team[p2Idx].actualPk = { ...p2New };
-             state.p2!.team[p2Idx].originalPk = { ...p2New };
            }
         }
         state.status = 'REVEAL';
@@ -2126,7 +2124,7 @@ export default function DraftMode() {
                   </p>
                 </div>
               )}
-              {gameState.status !== 'REVEAL' && gameState.status !== 'LOBBY' && (
+              {gameState.status === 'DRAFTING' && (
                 <div className="mt-2 flex flex-col items-center w-full">
                   {(() => {
                     const mode = GAME_MODES.find(m => m.id === gameState.gameMode);
