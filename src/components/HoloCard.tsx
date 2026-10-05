@@ -65,6 +65,7 @@ export default function HoloCard({ children, className = '', typeColor = '#fffff
         rotateY,
         transformStyle: 'preserve-3d',
         scale: isHovered ? 1.05 : 1,
+        willChange: 'transform'
       }}
       initial={{ scale: 1 }}
       animate={{ scale: isHovered ? 1.05 : 1 }}

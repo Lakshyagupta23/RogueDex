@@ -1718,7 +1718,9 @@ export default function DraftMode() {
     excludeLegendary, excludeMythical, excludeParadox, excludeStarters, excludeUltraBeast,
     excludeAlolan, excludeGalarian, excludeHisuian, excludePaldean, fullyEvolvedOnly
   ].filter(Boolean).length;
-  const filteredPool = pokemonList.length > 0 ? filterPokemon(pokemonList, buildFilters()) : [];
+  const filteredPool = useMemo(() => {
+    return pokemonList.length > 0 ? filterPokemon(pokemonList, buildFilters()) : [];
+  }, [pokemonList, buildFilters]);
 
   const resetFilters = () => {
     setSelectedGens([]); setSelectedTypes([]); setTypeMatchMode('either');

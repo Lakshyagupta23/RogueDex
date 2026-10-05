@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { DraftTeamMember } from '@/lib/pokemon/types';
 
 import { TYPE_COLORS } from '@/lib/pokemon/constants';
@@ -27,43 +27,46 @@ const TYPE_MATCHUP: Record<string, Record<string, number>> = {
 };
 
 export default function SynergyHUD({ team }: { team: DraftTeamMember[] }) {
-  if (team.length === 0) return null;
+  const { topWeaknesses, topResistances, immunities } = useMemo(() => {
+    const w = new Map<string, number>();
+    const r = new Map<string, number>();
+    const im = new Set<string>();
 
-  const weaknesses = new Map<string, number>();
-  const resistances = new Map<string, number>();
-  const immunities = new Set<string>();
+    if (team.length > 0) {
+      team.forEach(member => {
+        const types = member.actualPk.types;
+        Object.keys(TYPE_MATCHUP).forEach(attackingType => {
+          let multiplier = 1;
+          types.forEach(defendingType => {
+            const typeData = TYPE_MATCHUP[defendingType];
+            if (typeData && typeData[attackingType] !== undefined) {
+              multiplier *= typeData[attackingType];
+            }
+          });
 
-  // Calculate team coverage
-  team.forEach(member => {
-    const types = member.actualPk.types;
-    Object.keys(TYPE_MATCHUP).forEach(attackingType => {
-      let multiplier = 1;
-      types.forEach(defendingType => {
-        const typeData = TYPE_MATCHUP[defendingType];
-        if (typeData && typeData[attackingType] !== undefined) {
-          multiplier *= typeData[attackingType];
-        }
+          if (multiplier > 1) {
+            w.set(attackingType, (w.get(attackingType) || 0) + 1);
+          } else if (multiplier === 0) {
+            im.add(attackingType);
+          } else if (multiplier < 1) {
+            r.set(attackingType, (r.get(attackingType) || 0) + 1);
+          }
+        });
       });
+    }
 
-      if (multiplier > 1) {
-        weaknesses.set(attackingType, (weaknesses.get(attackingType) || 0) + 1);
-      } else if (multiplier === 0) {
-        immunities.add(attackingType);
-      } else if (multiplier < 1) {
-        resistances.set(attackingType, (resistances.get(attackingType) || 0) + 1);
-      }
-    });
-  });
+    const tW = Array.from(w.entries())
+      .sort((a, b) => b[1] - a[1])
+      .filter(([_, count]) => count > 1)
+      .slice(0, 3);
+      
+    const tR = Array.from(r.entries())
+      .sort((a, b) => b[1] - a[1])
+      .filter(([_, count]) => count > 1)
+      .slice(0, 3);
 
-  const topWeaknesses = Array.from(weaknesses.entries())
-    .sort((a, b) => b[1] - a[1])
-    .filter(([_, count]) => count > 1)
-    .slice(0, 3);
-    
-  const topResistances = Array.from(resistances.entries())
-    .sort((a, b) => b[1] - a[1])
-    .filter(([_, count]) => count > 1)
-    .slice(0, 3);
+    return { topWeaknesses: tW, topResistances: tR, immunities: im };
+  }, [team]);
 
   if (topWeaknesses.length === 0 && topResistances.length === 0 && immunities.size === 0) {
     return null;
