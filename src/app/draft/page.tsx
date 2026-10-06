@@ -73,25 +73,28 @@ function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number
 
   useEffect(() => {
     const chosenType = type;
+    const controller = new AbortController();
     
     if (['shape', 'habitat'].includes(chosenType)) {
-      fetch(`https://pokeapi.co/api/v2/pokemon-species/${speciesId}/`)
+      fetch(`https://pokeapi.co/api/v2/pokemon-species/${speciesId}/`, { signal: controller.signal })
         .then(r => r.json())
         .then(d => {
           if (chosenType === 'shape') { setClueLabel('Shape'); setClue(d.shape?.name || 'Unknown'); }
           if (chosenType === 'habitat') { setClueLabel('Habitat'); setClue(d.habitat?.name || 'Unknown'); }
         })
-        .catch(() => { setClueLabel('Error'); setClue('???'); });
+        .catch((e) => { if (e.name !== 'AbortError') { setClueLabel('Error'); setClue('???'); } });
     } else {
-      fetch(`https://pokeapi.co/api/v2/pokemon/${id}/`)
+      fetch(`https://pokeapi.co/api/v2/pokemon/${id}/`, { signal: controller.signal })
         .then(r => r.json())
         .then(d => {
           if (chosenType === 'weight') { setClueLabel('Weight'); setClue(`${d.weight / 10} kg`); }
           if (chosenType === 'height') { setClueLabel('Height'); setClue(`${d.height / 10} m`); }
         })
-        .catch(() => { setClueLabel('Error'); setClue('???'); });
+        .catch((e) => { if (e.name !== 'AbortError') { setClueLabel('Error'); setClue('???'); } });
     }
-  }, [id, speciesId]);
+
+    return () => controller.abort();
+  }, [id, speciesId, type]);
 
   return (
     <div className="flex flex-col justify-center py-2 relative z-30">
@@ -110,23 +113,27 @@ function BlindClueHint({ id, speciesId, type }: { id: number, speciesId: number,
 
   useEffect(() => {
     const chosenType = type || (Math.random() > 0.5 ? 'color' : 'ability');
+    const controller = new AbortController();
+
     if (chosenType === 'color') {
-      fetch(`https://pokeapi.co/api/v2/pokemon-species/${speciesId}/`)
+      fetch(`https://pokeapi.co/api/v2/pokemon-species/${speciesId}/`, { signal: controller.signal })
         .then(r => r.json())
         .then(d => {
           setClueLabel('Color');
           setClue(d.color?.name || 'Unknown');
         })
-        .catch(() => { setClueLabel('Error'); setClue('???'); });
+        .catch((e) => { if (e.name !== 'AbortError') { setClueLabel('Error'); setClue('???'); } });
     } else {
-      fetch(`https://pokeapi.co/api/v2/pokemon/${id}/`)
+      fetch(`https://pokeapi.co/api/v2/pokemon/${id}/`, { signal: controller.signal })
         .then(r => r.json())
         .then(d => {
           setClueLabel('Ability');
           setClue(d.abilities[0]?.ability?.name?.replace(/-/g, ' ') || 'Unknown');
         })
-        .catch(() => { setClueLabel('Error'); setClue('???'); });
+        .catch((e) => { if (e.name !== 'AbortError') { setClueLabel('Error'); setClue('???'); } });
     }
+
+    return () => controller.abort();
   }, [id, speciesId, type]);
 
   return (
@@ -427,6 +434,7 @@ export default function DraftMode() {
 
   // Connection refs
   const channelRef = useRef<any>(null);
+  const [isHost, setIsHost] = useState(false);
   const isHostRef = useRef(false);
   const roomCodeRef = useRef('');
   const usernameRef = useRef(username);
@@ -487,6 +495,18 @@ export default function DraftMode() {
   const [myNuzlockeProtectIdx, setMyNuzlockeProtectIdx] = useState<number | null>(null);
   const [benchedIndices, setBenchedIndices] = useState<number[]>([]);
   const [nuzlockeSubmitted, setNuzlockeSubmitted] = useState(false);
+  const [mySurvivorTarget, setMySurvivorTarget] = useState<number | null>(null);
+  const [survivorSubmitted, setSurvivorSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (gameState?.status === 'SURVIVOR_EXECUTION') {
+      const myTarget = isHostRef.current ? gameState.survivorP1Target : gameState.survivorP2Target;
+      if (myTarget === null) {
+        setSurvivorSubmitted(false);
+        setMySurvivorTarget(null);
+      }
+    }
+  }, [gameState?.status, gameState?.survivorP1Target, gameState?.survivorP2Target]);
   const [isExporting, setIsExporting] = useState(false);
   const p1HeistRef = useRef<{ stealIdx: number; swapIdx: number } | null>(null);
   const p2HeistRef = useRef<{ stealIdx: number; swapIdx: number } | null>(null);
@@ -690,7 +710,11 @@ export default function DraftMode() {
       }
     } else {
       state.p1Options = pickUnique(state.optionsPerRound, p1Pool);
-      state.p2Options = pickUnique(state.optionsPerRound, p2Pool);
+      if (state.gameMode === 'sabotage') {
+        state.p2Options = state.p1Options.map(p => ({ ...p }));
+      } else {
+        state.p2Options = pickUnique(state.optionsPerRound, p2Pool);
+      }
     }
   }, []);
 
@@ -762,7 +786,7 @@ export default function DraftMode() {
 
   const resolveSnakePick = useCallback((pkId: number) => {
     if (!isHostRef.current || !gameStateRef.current) return;
-    const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+    const next: DraftState = structuredClone(gameStateRef.current);
     const pkIndex = next.p1Options.findIndex(p => Number(p.id) === Number(pkId));
     if (pkIndex === -1) return;
     
@@ -823,8 +847,8 @@ export default function DraftMode() {
     } else if (eventId === 'ditto') {
       const ditto = pokemonList.find(p => p.id === 132);
       if (ditto) {
-        state.p1Options = Array(state.optionsPerRound).fill(null).map(() => ({ ...ditto }));
-        state.p2Options = Array(state.optionsPerRound).fill(null).map(() => ({ ...ditto }));
+        state.p1Options = Array(state.optionsPerRound).fill(null).map((_, i) => ({ ...ditto, id: 132000 + i }));
+        state.p2Options = Array(state.optionsPerRound).fill(null).map((_, i) => ({ ...ditto, id: 132000 + i }));
       }
       state.chaosState = { eventId, p1Resolved: false, p2Resolved: false, data: { resolved: true, generated: true } };
       state.status = 'CHAOS_EVENT';
@@ -869,7 +893,7 @@ export default function DraftMode() {
 
   const resolveChaosChoice = useCallback((playerNum: 1 | 2, choice: any) => {
     if (!isHostRef.current || !gameStateRef.current) return;
-    const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+    const next: DraftState = structuredClone(gameStateRef.current);
     const cs = next.chaosState!;
     const eventMeta = CHAOS_EVENTS.find(e => e.id === cs.eventId);
     const requiresChoice = eventMeta?.requiresChoice ?? true;
@@ -960,7 +984,7 @@ export default function DraftMode() {
       if (p1k) state.p1.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p1k, fromOpponent: false });
       if (p2k) state.p2!.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p2k, fromOpponent: false });
       
-      const noGiveModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'sabotage', 'time_warp', 'bingo'];
+      const noGiveModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'sabotage', 'time_warp', 'bingo', 'survivor'];
       if (!noGiveModes.includes(state.gameMode)) {
         if (p2g) state.p1.team.push({ isMystery: true,  actualPk: p2g, fromOpponent: true  });
         if (p1g) state.p2!.team.push({ isMystery: true,  actualPk: p1g, fromOpponent: true  });
@@ -1072,7 +1096,7 @@ export default function DraftMode() {
         setTimeout(() => {
           const cur = gameStateRef.current;
           if (!cur || cur.status !== 'ROULETTE_STEAL') return;
-          const next: DraftState = JSON.parse(JSON.stringify(cur));
+          const next: DraftState = structuredClone(cur);
           const fromTeam = next.rouletteStealVictimPlayer === 1 ? next.p1.team : next.p2!.team;
           const toTeam = next.rouletteStealVictimPlayer === 1 ? next.p2!.team : next.p1.team;
           const [stolen] = fromTeam.splice(next.rouletteStealIdx!, 1);
@@ -1127,10 +1151,14 @@ export default function DraftMode() {
              });
            }
         }
-        if (state.gameMode === 'time_warp') {
+        if (state.gameMode === 'time_warp' || state.gameMode === 'bingo') {
           state.status = 'BENCH_SELECTION';
-          state.p1Benched = [];
-          state.p2Benched = [];
+          state.p1Benched = undefined;
+          state.p2Benched = undefined;
+        } else if (state.gameMode === 'survivor') {
+          state.status = 'SURVIVOR_EXECUTION';
+          state.survivorP1Target = null;
+          state.survivorP2Target = null;
         } else {
           state.status = 'REVEAL';
         }
@@ -1182,6 +1210,22 @@ export default function DraftMode() {
     state.status = 'REVEAL';
     applyState({ ...state });
     broadcastToGuest({ ...state });
+  }, [applyState, broadcastToGuest]);
+
+  const resolveSurvivorExecution = useCallback((state: DraftState) => {
+    if (!state.p2) return;
+    const p1Target = state.survivorP1Target!;
+    const p2Target = state.survivorP2Target!;
+    if (state.p2.team[p1Target]) state.p2.team[p1Target].isDead = true;
+    if (state.p1.team[p2Target]) state.p1.team[p2Target].isDead = true;
+    state.survivorP1Target = null;
+    state.survivorP2Target = null;
+    const p1AliveCount = state.p1.team.filter(x => !x.isDead).length;
+    const p2AliveCount = state.p2.team.filter(x => !x.isDead).length;
+    if (p1AliveCount <= 6 && p2AliveCount <= 6) {
+      state.status = 'REVEAL';
+    }
+    applyState(state); broadcastToGuest(state);
   }, [applyState, broadcastToGuest]);
 
   const resolveNuzlocke = useCallback((state: DraftState) => {
@@ -1241,19 +1285,29 @@ export default function DraftMode() {
       broadcastToGuest(next);
     }
     if (data.type === 'submit_choices') {
-      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      const next: DraftState = structuredClone(cur);
       next.p2!.ready = true;
       p2PendingRef.current = { keepId: data.keepId, giveId: data.giveId };
       if (next.p1.ready) { resolveRound(next); } else { applyState(next); broadcastToGuest(next); }
     }
+    if (data.type === 'submit_survivor_execution') {
+      const next: DraftState = structuredClone(cur);
+      if (data.playerNum === 1) next.survivorP1Target = data.targetIdx;
+      else next.survivorP2Target = data.targetIdx;
+      if (next.survivorP1Target !== null && next.survivorP1Target !== undefined && next.survivorP2Target !== null && next.survivorP2Target !== undefined) {
+        resolveSurvivorExecution(next);
+      } else {
+        applyState(next); broadcastToGuest(next);
+      }
+    }
     if (data.type === 'submit_heist') {
-      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      const next: DraftState = structuredClone(cur);
       next.p2HeistChoice = data.stealIdx;
       p2HeistRef.current = { stealIdx: data.stealIdx, swapIdx: data.swapIdx };
       if (p1HeistRef.current !== null) { resolveHeist(next); } else { applyState(next); broadcastToGuest(next); }
     }
     if (data.type === 'submit_nuzlocke') {
-      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      const next: DraftState = structuredClone(cur);
       if (data.playerNum === 1) {
         next.nuzlockeP1Target = data.targetIdx;
         next.nuzlockeP1Protect = data.protectIdx;
@@ -1272,7 +1326,7 @@ export default function DraftMode() {
       }
     }
     if (data.type === 'submit_bench') {
-      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      const next: DraftState = structuredClone(cur);
       next.p2Benched = data.benchedIndices;
       if (next.p1Benched && next.p2Benched) {
         next.status = 'REVEAL';
@@ -1285,7 +1339,7 @@ export default function DraftMode() {
       resolveChaosChoice(2, data.choice);
     }
     if (data.type === 'nominate_salary_cap') {
-      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      const next: DraftState = structuredClone(cur);
       const pk = next.p1Options.find((p: any) => p.id === data.pkId);
       if (pk) {
         next.p1Options = [pk];
@@ -1294,7 +1348,7 @@ export default function DraftMode() {
       }
     }
     if (data.type === 'auction_bid') {
-      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      const next: DraftState = structuredClone(cur);
       const budget = data.playerNum === 1 ? next.p1Budget : next.p2Budget;
       const isValid = data.amount <= budget && (data.amount > next.currentBid || (data.amount === 0 && next.highestBidder === null));
       if (isValid) {
@@ -1310,7 +1364,7 @@ export default function DraftMode() {
       }
     }
     if (data.type === 'submit_sealed_bid') {
-      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      const next: DraftState = structuredClone(cur);
       if (data.playerNum === 1) next.p1SealedBid = data.amount;
       else next.p2SealedBid = data.amount;
 
@@ -1321,7 +1375,7 @@ export default function DraftMode() {
       }
     }
     if (data.type === 'auction_pass') {
-      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      const next: DraftState = structuredClone(cur);
       if (data.playerNum === 1) next.p1Passed = true;
       else next.p2Passed = true;
 
@@ -1340,7 +1394,7 @@ export default function DraftMode() {
       resolveSnakePick(data.pkId);
     }
     if (data.type === 'submit_pack') {
-      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      const next: DraftState = structuredClone(cur);
       next.p2PackChoice = data.packType;
       if (next.p1PackChoice || !next.p1) {
         next.boosterPhase = 'DRAFTING_PACK';
@@ -1348,12 +1402,13 @@ export default function DraftMode() {
       }
       applyState(next); broadcastToGuest(next);
     }
-  }, [applyState, broadcastToGuest, resolveRound, resolveHeist, resolveAuctionWin, resolveChaosChoice, resolveSnakePick, resolveNuzlocke, stateDiscardAndDraw, pokemonList, generateOptions]);
+  }, [applyState, broadcastToGuest, resolveRound, resolveHeist, resolveAuctionWin, resolveChaosChoice, resolveSnakePick, resolveNuzlocke, stateDiscardAndDraw, pokemonList, generateOptions, resolveSealedBid, resolveSurvivorExecution]);
 
 
   const handleCreateRoom = useCallback(async () => {
     try {
       if (!usernameRef.current.trim()) return alert('Enter a username first');
+      setIsHost(true);
       isHostRef.current = true;
       // Generate a clean 8-char alphanumeric room code
       const code = Math.random().toString(36).substring(2, 6).toUpperCase() +
@@ -1374,7 +1429,7 @@ export default function DraftMode() {
         if (status === 'SUBSCRIBED') {
           const filters = buildFilters();
           const isVip = selectedMode === 'vip';
-          const totalRounds = isVip ? 6 : selectedMode === 'time_warp' || selectedMode === 'bingo' ? 9 : 3;
+          const totalRounds = isVip ? 6 : selectedMode === 'survivor' ? 10 : selectedMode === 'time_warp' || selectedMode === 'bingo' ? 9 : 3;
           const initial: DraftState = {
             code, status: 'LOBBY', gameMode: selectedMode, arena: selectedArena,
             optionsPerRound: selectedMode === 'wildcard' || isVip ? 3 : optionsPerRound, round: 1, totalRounds, filters,
@@ -1409,6 +1464,7 @@ export default function DraftMode() {
       const code = joinCode.trim().toUpperCase();
       if (!uname) return alert('Enter a username first');
       if (!code) return alert('Enter a room code');
+      setIsHost(false);
       isHostRef.current = false;
       roomCodeRef.current = code;
       const sb = getSupabase();
@@ -1457,6 +1513,7 @@ export default function DraftMode() {
     const initialStatus = selectedMode === 'monotype' ? 'MONOTYPE_ROULETTE' : 'DRAFTING';
     const totalRounds = (selectedMode === 'vip' || selectedMode === 'monotype' || selectedMode === 'roulette_steal' || selectedMode === 'balanced_budget') ? 6
       : selectedMode === 'tug_of_war' ? 5
+      : selectedMode === 'survivor' ? 10
       : selectedMode === 'time_warp' || selectedMode === 'bingo' ? 9
       : 3;
     const next: DraftState = { 
@@ -1530,7 +1587,7 @@ export default function DraftMode() {
     setGiveChoice(gId);
     if (isHostRef.current) {
       p1PendingRef.current = { keepId: kId, giveId: gId };
-      const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+      const next: DraftState = structuredClone(gameStateRef.current);
       next.p1.ready = true;
       if (p2PendingRef.current) { resolveRound(next); } else { applyState(next); broadcastToGuest(next); }
     } else {
@@ -1582,7 +1639,7 @@ export default function DraftMode() {
     setHeistSubmitted(true);
     if (isHostRef.current) {
       p1HeistRef.current = { stealIdx: myHeistStealIdx, swapIdx: myHeistSwapIdx };
-      const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+      const next: DraftState = structuredClone(gameStateRef.current);
       next.p1HeistChoice = myHeistStealIdx;
       if (p2HeistRef.current !== null) { resolveHeist(next); } else { applyState(next); broadcastToGuest(next); }
     } else {
@@ -1598,7 +1655,7 @@ export default function DraftMode() {
     playStealSound(); // Reuse sound
     setNuzlockeSubmitted(true);
     if (isHostRef.current) {
-      const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+      const next: DraftState = structuredClone(gameStateRef.current);
       next.nuzlockeP1Target = myNuzlockeTargetIdx;
       next.nuzlockeP1Protect = myNuzlockeProtectIdx;
       const p2Ready = next.nuzlockeP2Target !== null && next.nuzlockeP2Target !== undefined;
@@ -1610,13 +1667,32 @@ export default function DraftMode() {
       } else { alert('Lost connection to host!'); setNuzlockeSubmitted(false); }
     }
   }, [myNuzlockeTargetIdx, myNuzlockeProtectIdx, applyState, broadcastToGuest, resolveNuzlocke]);
+
+  const submitMySurvivor = useCallback(() => {
+    if (!gameStateRef.current || mySurvivorTarget === null) return;
+    playStealSound();
+    setSurvivorSubmitted(true);
+    if (isHostRef.current) {
+      const next: DraftState = structuredClone(gameStateRef.current);
+      next.survivorP1Target = mySurvivorTarget;
+      if (next.survivorP2Target !== null && next.survivorP2Target !== undefined) { resolveSurvivorExecution(next); } else { applyState(next); broadcastToGuest(next); }
+    } else {
+      const ch = channelRef.current;
+      if (ch) {
+        ch.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'submit_survivor_execution', playerNum: 2, targetIdx: mySurvivorTarget } });
+      } else { alert('Lost connection to host!'); setSurvivorSubmitted(false); }
+    }
+  }, [mySurvivorTarget, applyState, broadcastToGuest, resolveSurvivorExecution]);
   const submitBench = useCallback(() => {
-    if (benchedIndices.length !== 3) return;
+    if (!gameStateRef.current) return;
+    const teamLength = (isHostRef.current ? gameStateRef.current.p1 : gameStateRef.current.p2!).team.length;
+    const requiredToBench = Math.max(0, teamLength - 6);
+    if (benchedIndices.length !== requiredToBench) return;
     setSubmitted(true);
     playLockIn();
     
     if (isHostRef.current) {
-      const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+      const next: DraftState = structuredClone(gameStateRef.current!);
       next.p1Benched = benchedIndices;
       if (next.p1Benched && next.p2Benched) {
         next.status = 'REVEAL';
@@ -1666,7 +1742,7 @@ export default function DraftMode() {
     if (!gameStateRef.current) return;
     playLockIn();
     if (isHostRef.current) {
-      const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+      const next: DraftState = structuredClone(gameStateRef.current);
       next.p1PackChoice = type;
       if (next.p2PackChoice || !next.p2) {
         next.boosterPhase = 'DRAFTING_PACK';
@@ -1681,7 +1757,7 @@ export default function DraftMode() {
   const revealCards = useCallback(() => {
     if (!isHostRef.current || !gameStateRef.current) return;
     playRevealChime();
-    const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+    const next: DraftState = structuredClone(gameStateRef.current);
     next.p1.team = next.p1.team.map(m => ({ ...m, isMystery: false }));
     next.p2!.team = next.p2!.team.map(m => ({ ...m, isMystery: false }));
     applyState(next); broadcastToGuest(next);
@@ -1694,7 +1770,7 @@ export default function DraftMode() {
     
     setIsExporting(true);
     try {
-      const pokemonDataList = team.filter(m => !m.isMystery).map(m => m.actualPk);
+      const pokemonDataList = team.filter(m => !m.isMystery && !m.isDead).map(m => m.actualPk);
       const showdownText = await generateShowdownExport(pokemonDataList);
       
       await navigator.clipboard.writeText(showdownText);
@@ -1753,6 +1829,7 @@ export default function DraftMode() {
     
     const totalRounds = (cur.gameMode === 'vip' || cur.gameMode === 'monotype' || cur.gameMode === 'roulette_steal' || cur.gameMode === 'balanced_budget') ? 6
       : cur.gameMode === 'tug_of_war' ? 5
+      : cur.gameMode === 'survivor' ? 10
       : cur.gameMode === 'time_warp' || cur.gameMode === 'bingo' ? 9
       : 3;
       
@@ -1807,7 +1884,7 @@ export default function DraftMode() {
   const changeModeMidDraft = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     if (!isHostRef.current || !gameStateRef.current) return;
     const newMode = e.target.value as GameMode;
-    const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+    const next: DraftState = structuredClone(gameStateRef.current);
     next.gameMode = newMode;
     
     const newTotalRounds = (newMode === 'vip' || newMode === 'monotype' || newMode === 'roulette_steal' || newMode === 'balanced_budget') ? 6
@@ -1856,7 +1933,7 @@ export default function DraftMode() {
 
 
   // eslint-disable-next-line react-hooks/refs
-  const isHost = isHostRef.current;
+
   const myPlayerNum = isHost ? 1 : 2;
   const myOptions = (gameState?.gameMode === 'snake' || gameState?.gameMode === 'auction' || gameState?.gameMode === 'sealed_bid') ? gameState?.p1Options : (isHost ? gameState?.p1Options : gameState?.p2Options);
   const mySlot = isHost ? gameState?.p1 : gameState?.p2;
@@ -2315,7 +2392,7 @@ export default function DraftMode() {
           </div>
         ) : gameState.status === 'MONOTYPE_ROULETTE' ? (
           <MonotypeRoulettePanel gameState={gameState} isHost={isHost} onComplete={() => {
-             const next = JSON.parse(JSON.stringify(gameState));
+             const next = structuredClone(gameState);
              next.status = 'DRAFTING';
              applyState(next); broadcastToGuest(next);
           }} />
@@ -2325,6 +2402,31 @@ export default function DraftMode() {
           <HeistPhase gameState={gameState} isHost={isHost} myTeam={mySlot?.team ?? []} opponentTeam={opponentSlot?.team ?? []} myStealIdx={myHeistStealIdx} mySwapIdx={myHeistSwapIdx} setMyStealIdx={setMyHeistStealIdx} setMySwapIdx={setMyHeistSwapIdx} heistSubmitted={heistSubmitted} onSubmit={submitMyHeist} />
         ) : gameState.status === 'NUZLOCKE' ? (
           <NuzlockePhase gameState={gameState} isHost={isHost} myTeam={mySlot?.team ?? []} opponentTeam={opponentSlot?.team ?? []} myTargetIdx={myNuzlockeTargetIdx} myProtectIdx={myNuzlockeProtectIdx} setMyTargetIdx={setMyNuzlockeTargetIdx} setMyProtectIdx={setMyNuzlockeProtectIdx} submitted={nuzlockeSubmitted} onSubmit={submitMyNuzlocke} />
+        ) : gameState.status === 'SURVIVOR_EXECUTION' ? (
+          <div className="flex flex-col flex-1 relative max-w-7xl mx-auto w-full px-4 pt-16">
+             <h2 className="text-3xl font-black text-red-500 text-center mb-2 animate-pulse">🔪 TRIBAL COUNCIL 🔪</h2>
+             <p className="text-center text-red-400 mb-8">Execute one of your opponent's Pokémon! (Must get down to 6)</p>
+             <div className="flex justify-center">
+               <div className="bg-slate-900/80 rounded-xl p-4 border-2 border-red-900/50 max-w-2xl w-full">
+                 <h3 className="text-xl font-bold text-center text-slate-300 mb-4">{opponentSlot?.username}'s Team</h3>
+                 <div className="flex flex-wrap justify-center gap-4">
+                   {opponentSlot?.team.map((pk, idx) => (
+                     <div key={idx} className={`relative p-2 rounded-xl transition-all ${pk.isDead ? 'opacity-20 grayscale scale-90 pointer-events-none' : mySurvivorTarget === idx ? 'ring-4 ring-red-500 scale-110 bg-red-900/50' : 'hover:scale-105 cursor-pointer bg-slate-800'}`} onClick={() => !pk.isDead && !survivorSubmitted && setMySurvivorTarget(idx)}>
+                        <img src={pk.isMystery ? '/images/substitute.png' : pk.actualPk.sprite} className="w-16 h-16 object-contain drop-shadow" />
+                        {pk.isDead && <div className="absolute inset-0 flex items-center justify-center"><Skull className="w-8 h-8 text-red-500" /></div>}
+                     </div>
+                   ))}
+                 </div>
+                 {!survivorSubmitted ? (
+                   <button onClick={submitMySurvivor} disabled={mySurvivorTarget === null} className="mt-6 w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-lg disabled:opacity-50">
+                     EXECUTE
+                   </button>
+                 ) : (
+                   <p className="text-center text-red-400 mt-6 font-bold animate-pulse">Waiting for opponent...</p>
+                 )}
+               </div>
+             </div>
+          </div>
         ) : gameState.status === 'CHAOS_EVENT' ? (
           <ChaosEventPanel
             gameState={gameState}
@@ -2376,6 +2478,15 @@ export default function DraftMode() {
                   <p className="font-black text-xl text-white drop-shadow-[0_0_10px_rgba(236,72,153,0.8)]">{gameState.slotMachineRule}</p>
                 </div>
               )}
+              {gameState.gameMode === 'time_warp' && gameState.status === 'DRAFTING' && (
+                <div className="flex flex-col items-center gap-1 mt-2 mb-2">
+                  <div className="text-xl font-black text-blue-400 bg-blue-950/50 px-6 py-2 rounded-xl border-2 border-blue-500/50 flex items-center gap-3 animate-pulse shadow-[0_0_15px_rgba(59,130,246,0.5)]">
+                    <Timer className="w-6 h-6" />
+                    <span>TIME WARP: Drafting Generation {gameState.round}</span>
+                  </div>
+                  <p className="text-blue-300 text-xs font-bold uppercase tracking-widest">({9 - gameState.round} Generations Remaining)</p>
+                </div>
+              )}
               {gameState.gameMode === 'wildcard' && gameState.status === 'DRAFTING' && <p className="text-fuchsia-400 font-bold mt-1 text-sm animate-pulse">🃏 WILDCARD MODE: 1 of these is a trap!</p>}
               {gameState.gameMode === 'vip' && gameState.status === 'DRAFTING' && gameState.round > 1 && <p className="text-yellow-400 font-bold mt-1 text-sm">👑 PROTECT THE KING: Pick 1 to join your {mySlot?.team[0]?.actualPk.types[0]?.toUpperCase() ?? ''} King!</p>}
               {gameState.gameMode === 'vip' && gameState.status === 'DRAFTING' && gameState.round === 1 && <p className="text-yellow-400 font-bold mt-1 text-sm">👑 PROTECT THE KING: Choose your VIP! Your entire team will share their type!</p>}
@@ -2410,7 +2521,7 @@ export default function DraftMode() {
                           if (gameState.salaryNominationTurn === myPlayerNum) {
                             playSelectClick();
                             if (isHostRef.current) {
-                              const next = JSON.parse(JSON.stringify(gameState));
+                              const next = structuredClone(gameState);
                               next.p1Options = [pk];
                               next.salaryPhase = 'BIDDING';
                               applyState(next); broadcastToGuest(next);
@@ -2531,7 +2642,7 @@ export default function DraftMode() {
                                  if (!isNaN(val) && val >= 0 && val <= budget) {
                                    playSelectClick();
                                    if (isHostRef.current) {
-                                      const next = JSON.parse(JSON.stringify(gameState));
+                                      const next = structuredClone(gameState);
                                       next.p1SealedBid = val;
                                       if (next.p2SealedBid !== null && next.p2SealedBid !== undefined) resolveSealedBid(next);
                                       else { applyState(next); broadcastToGuest(next); }
@@ -2545,7 +2656,7 @@ export default function DraftMode() {
                              <button onClick={() => {
                                playSelectClick();
                                if (isHostRef.current) {
-                                  const next = JSON.parse(JSON.stringify(gameState));
+                                  const next = structuredClone(gameState);
                                   next.p1SealedBid = 0;
                                   if (next.p2SealedBid !== null && next.p2SealedBid !== undefined) resolveSealedBid(next);
                                   else { applyState(next); broadcastToGuest(next); }
@@ -2685,7 +2796,7 @@ export default function DraftMode() {
                             const isGive = giveChoice === pk.id;
                             const isBlind = gameState.gameMode === 'blind' || gameState.gameMode === 'sabotage';
                             const isShadow = gameState.gameMode === 'shadow';
-                            const isKeepOnlyMode = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo'].includes(gameState.gameMode);
+                            const isKeepOnlyMode = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor'].includes(gameState.gameMode);
                             
                             const shadowTypes = ['height', 'weight', 'habitat', 'shape'];
                             const currentShadowType = shadowTypes[(gameState.round - 1) % shadowTypes.length];
@@ -2759,8 +2870,8 @@ export default function DraftMode() {
                       <Timer className="w-10 h-10" />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-black text-white mb-2">Time Warp Bench Phase</h3>
-                      <p className="text-slate-400">Select exactly 3 Pokémon from your team to bench. Only 6 can travel with you to the final team!</p>
+                      <h3 className="text-2xl font-black text-white mb-2">{gameState.gameMode === 'bingo' ? 'Bingo Bench Phase' : 'Time Warp Bench Phase'}</h3>
+                      <p className="text-slate-400">Select exactly {Math.max(0, (isHost ? gameState.p1 : gameState.p2!).team.length - 6)} Pokémon from your team to bench. Only 6 can travel with you to the final team!</p>
                     </div>
                     <div className="w-full flex justify-center">
                       <div className="flex gap-4 overflow-x-auto max-w-full pb-2 px-2">
@@ -2768,7 +2879,8 @@ export default function DraftMode() {
                           <div key={idx} 
                             onClick={() => {
                               if (!submitted) {
-                                setBenchedIndices(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : prev.length < 3 ? [...prev, idx] : prev);
+                                const req = Math.max(0, (isHost ? gameState.p1 : gameState.p2!).team.length - 6);
+                                setBenchedIndices(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : prev.length < req ? [...prev, idx] : prev);
                               }
                             }}
                             className={`flex-shrink-0 w-24 h-24 sm:w-32 sm:h-32 rounded-xl border-2 overflow-hidden flex items-center justify-center relative cursor-pointer ${benchedIndices.includes(idx) ? 'border-blue-500 bg-blue-900/40 opacity-50' : 'border-slate-700 bg-slate-800 hover:border-blue-400'}`}>
@@ -2785,9 +2897,9 @@ export default function DraftMode() {
                     {submitted ? (
                       <p className="text-blue-400 animate-pulse font-bold">Waiting for opponent...</p>
                     ) : (
-                      <button onClick={submitBench} disabled={benchedIndices.length !== 3}
+                      <button onClick={submitBench} disabled={benchedIndices.length !== Math.max(0, (isHost ? gameState.p1 : gameState.p2!).team.length - 6)}
                         className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold py-3 rounded-xl transition-colors">
-                        Confirm Bench ({benchedIndices.length}/3)
+                        Confirm Bench ({benchedIndices.length}/{Math.max(0, (isHost ? gameState.p1 : gameState.p2!).team.length - 6)})
                       </button>
                     )}
                   </div>
