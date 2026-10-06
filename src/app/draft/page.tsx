@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import Image from 'next/image';
 import { usePokemon } from '@/context/PokemonContext';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { PokemonIndexItem, GameMode, ChaosEventId, DraftTeamMember, PlayerSlot, DraftState } from '@/lib/pokemon/types';
@@ -1887,15 +1888,21 @@ export default function DraftMode() {
   );
 
   return (
-    <div className={`min-h-screen text-slate-200 p-6 font-sans relative overflow-hidden transition-all duration-700 ease-out ${arenaImage ? 'bg-cover bg-center' : ''}`} 
+    <div className={`min-h-screen text-slate-200 p-6 font-sans relative overflow-hidden transition-all duration-700 ease-out`} 
       style={{
-        backgroundImage: arenaImage 
-          ? `linear-gradient(to bottom, rgba(11, 14, 22, 0.4), rgba(11, 14, 22, 0.95)), url('${arenaImage}')`
-          : hoveredTypeColor 
+        backgroundImage: !arenaImage 
+          ? (hoveredTypeColor 
             ? `radial-gradient(circle at 50% 10%, ${hoveredTypeColor}30, #0b0e16 60%), radial-gradient(circle at 50% 50%, transparent 20%, #000 100%)`
-            : `radial-gradient(ellipse at top, #1e293b, #0b0e16, #000000)`,
+            : `radial-gradient(ellipse at top, #1e293b, #0b0e16, #000000)`)
+          : 'none',
         backgroundColor: arenaImage ? '#0b0e16' : undefined
       }}>
+      {arenaImage && (
+        <div className="absolute inset-0 z-0">
+          <Image src={arenaImage} alt="Arena Background" fill className="object-cover" style={{ objectPosition: 'center 20%' }} priority />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0b0e1666] to-[#0b0e16f2]" />
+        </div>
+      )}
       {/* Dynamic Grid Background Overlay */}
       {!arenaImage && <div className="absolute inset-0 z-0 pointer-events-none opacity-20" style={{ backgroundImage: 'linear-gradient(to right, #475569 1px, transparent 1px), linear-gradient(to bottom, #475569 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>}
       {!arenaImage && <div className="absolute inset-0 z-0 pointer-events-none opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, transparent 20%, #000 100%)' }}></div>}
@@ -2117,7 +2124,9 @@ export default function DraftMode() {
                           : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-500'
                       }`}>
                       {arena.image && (
-                        <div className="w-full h-16 mb-2 rounded bg-slate-800 bg-cover bg-center overflow-hidden" style={{ backgroundImage: `url('${arena.image}')` }} />
+                        <div className="w-full h-16 mb-2 rounded bg-slate-800 bg-cover bg-center overflow-hidden relative">
+                           <Image src={arena.image} alt={arena.label} fill className="object-cover" sizes="200px" />
+                        </div>
                       )}
                       {!arena.image && (
                         <div className="w-full h-16 mb-2 rounded bg-slate-800 flex items-center justify-center text-slate-600">
