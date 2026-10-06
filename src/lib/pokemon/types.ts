@@ -66,7 +66,7 @@ export interface SavedTeam {
   tags?: string[];
 }
 
-export type GameMode = 'standard' | 'blind' | 'shadow' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos' | 'speedrun' | 'vip' | 'salary_cap' | 'nuzlocke' | 'slot_machine' | 'tug_of_war' | 'sealed_bid' | 'team_rocket' | 'evolution_roulette' | 'roulette_steal' | 'balanced_budget' | 'booster' | 'ditto';
+export type GameMode = 'standard' | 'blind' | 'shadow' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos' | 'speedrun' | 'vip' | 'salary_cap' | 'nuzlocke' | 'slot_machine' | 'tug_of_war' | 'sealed_bid' | 'team_rocket' | 'evolution_roulette' | 'roulette_steal' | 'balanced_budget' | 'booster' | 'ditto' | 'bingo' | 'sabotage' | 'time_warp';
 export type ChaosEventId = 'rocket' | 'safari' | 'ditto' | 'fossil' | 'celebi' | 'yveltal' | 'wonder' | 'gym' | 'glitch' | 'gamble';
 
 export type DraftTeamMember = {
@@ -87,7 +87,7 @@ export interface PlayerSlot {
 
 export interface DraftState {
   code: string;
-  status: 'LOBBY' | 'MONOTYPE_ROULETTE' | 'DRAFTING' | 'HEIST' | 'REVEAL' | 'CHAOS_EVENT' | 'NUZLOCKE' | 'ROULETTE_STEAL';
+  status: 'LOBBY' | 'MONOTYPE_ROULETTE' | 'DRAFTING' | 'HEIST' | 'REVEAL' | 'CHAOS_EVENT' | 'NUZLOCKE' | 'ROULETTE_STEAL' | 'BENCH_SELECTION';
   gameMode: GameMode;
   arena?: string;
   blindClueType?: 'ability' | 'color';
@@ -120,6 +120,21 @@ export interface DraftState {
   
   // Tug of War state
   tugOfWarSnapThreshold?: number;
+
+  // Sabotage State
+  p1SabotageTrap?: number | null;
+  p2SabotageTrap?: number | null;
+
+  // Bingo State
+  bingoBoard?: { requirementX: string, requirementY: string, claimedBy: 1 | 2 | null, pokemon: PokemonIndexItem | null }[][];
+  bingoTurn?: 1 | 2;
+  p1BingoReward?: boolean;
+  p2BingoReward?: boolean;
+
+  // Time Warp State
+  p1Benched?: number[];
+  p2Benched?: number[];
+
   // Modifiers
   wildcardModifier?: boolean;
   monotypeP1?: string;

@@ -60,7 +60,10 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'roulette_steal', icon: <Wand2 className="w-6 h-6" />, label: '🎡 Roulette Steal', description: 'Draft 5 rounds with a "keep only" format. After rounds 2 and 4, a random Pokémon is STOLEN from a random player!', color: 'text-rose-400', borderColor: 'border-rose-500' },
   { id: 'balanced_budget', icon: <Coins className="w-6 h-6" />, label: '💎 Balanced Budget', description: 'You have a BST cap for your whole team. If you can\'t afford anything this round, you skip! Strategy over power!', color: 'text-amber-400', borderColor: 'border-amber-500' },
   { id: 'booster', icon: <Wand2 className="w-6 h-6" />, label: '✨ Booster Gacha', description: '18 typed booster packs. Open a pack and draft from it!', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' },
-  { id: 'ditto', icon: <HelpCircle className="w-6 h-6" />, label: '🎭 Ditto\'s Deception', description: 'Two Pokémon on your team are secretly Dittos! During Reveal, they transform into completely random Pokémon!', color: 'text-purple-400', borderColor: 'border-purple-500' }
+  { id: 'ditto', icon: <HelpCircle className="w-6 h-6" />, label: '🎭 Ditto\'s Deception', description: 'Two Pokémon on your team are secretly Dittos! During Reveal, they transform into completely random Pokémon!', color: 'text-purple-400', borderColor: 'border-purple-500' },
+  { id: 'bingo', icon: <Shield className="w-6 h-6" />, label: '🎯 Bingo Matrix', description: 'Draft on a 3x3 grid! Claim slots by matching requirements. Get a Bingo for a huge reward!', color: 'text-cyan-400', borderColor: 'border-cyan-500' },
+  { id: 'sabotage', icon: <Skull className="w-6 h-6" />, label: '🪤 Sabotage', description: 'Options are always hidden! Set a trap on one slot. If your opponent picks it, you steal their Pokémon!', color: 'text-purple-400', borderColor: 'border-purple-500' },
+  { id: 'time_warp', icon: <Timer className="w-6 h-6" />, label: '⏳ Time Warp', description: 'Draft through 9 generations! Pick 9 Pokémon, then bench 3 at the end.', color: 'text-blue-400', borderColor: 'border-blue-500' }
 ];
 
 function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
@@ -481,6 +484,7 @@ export default function DraftMode() {
 
   const [myNuzlockeTargetIdx, setMyNuzlockeTargetIdx] = useState<number | null>(null);
   const [myNuzlockeProtectIdx, setMyNuzlockeProtectIdx] = useState<number | null>(null);
+  const [benchedIndices, setBenchedIndices] = useState<number[]>([]);
   const [nuzlockeSubmitted, setNuzlockeSubmitted] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const p1HeistRef = useRef<{ stealIdx: number; swapIdx: number } | null>(null);
@@ -566,6 +570,21 @@ export default function DraftMode() {
         p2Pool = basePool.filter(p => p.types.includes(p2Type));
         if (p2Pool.length === 0) p2Pool = basePool; // fallback
       }
+    }
+
+    if (state.gameMode === 'time_warp') {
+      const genNum = state.round; // Round 1 = Gen 1, Round 9 = Gen 9
+      const g1 = p1Pool.filter(p => p.generation === genNum);
+      const g2 = p2Pool.filter(p => p.generation === genNum);
+      if (g1.length >= state.optionsPerRound) p1Pool = g1;
+      if (g2.length >= state.optionsPerRound) p2Pool = g2;
+    }
+    
+    if (state.gameMode === 'sabotage') {
+      // Shared hidden options
+      const shared = pickUnique(state.optionsPerRound, basePool);
+      p1Pool = shared;
+      p2Pool = shared;
     }
 
     if (state.gameMode === 'slot_machine') {
@@ -916,26 +935,91 @@ export default function DraftMode() {
     const p2Keep = state.p2Options.find(p => p.id === act2.keepId);
     const p2Give = state.p2Options.find(p => p.id === act2.giveId);
 
-    const isBlind = state.gameMode === 'blind';
+    const isBlind = state.gameMode === 'blind' || state.gameMode === 'sabotage';
     
     const p1k = p1Keep ? getActualPk(p1Keep, pokemonList) : null;
     const p2k = p2Keep ? getActualPk(p2Keep, pokemonList) : null;
     const p1g = p1Give ? getActualPk(p1Give, pokemonList) : null;
     const p2g = p2Give ? getActualPk(p2Give, pokemonList) : null;
 
-    if (p1k) state.p1.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p1k, fromOpponent: false });
-    if (p2k) state.p2!.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p2k, fromOpponent: false });
-    
-    const noGiveModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget'];
-    if (!noGiveModes.includes(state.gameMode)) {
-      if (p2g) state.p1.team.push({ isMystery: true,  actualPk: p2g, fromOpponent: true  });
-      if (p1g) state.p2!.team.push({ isMystery: true,  actualPk: p1g, fromOpponent: true  });
+    if (state.gameMode === 'sabotage') {
+      let p1Stolen = false;
+      let p2Stolen = false;
+      if (act1.keepId === act2.giveId && p1k) {
+        state.p2!.team.push({ isMystery: true, actualPk: p1k, fromOpponent: true });
+        p1Stolen = true;
+      }
+      if (act2.keepId === act1.giveId && p2k) {
+        state.p1.team.push({ isMystery: true, actualPk: p2k, fromOpponent: true });
+        p2Stolen = true;
+      }
+      if (!p1Stolen && p1k) state.p1.team.push({ isMystery: true, actualPk: p1k, fromOpponent: false });
+      if (!p2Stolen && p2k) state.p2!.team.push({ isMystery: true, actualPk: p2k, fromOpponent: false });
+    } else {
+      if (p1k) state.p1.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p1k, fromOpponent: false });
+      if (p2k) state.p2!.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p2k, fromOpponent: false });
+      
+      const noGiveModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'sabotage', 'time_warp', 'bingo'];
+      if (!noGiveModes.includes(state.gameMode)) {
+        if (p2g) state.p1.team.push({ isMystery: true,  actualPk: p2g, fromOpponent: true  });
+        if (p1g) state.p2!.team.push({ isMystery: true,  actualPk: p1g, fromOpponent: true  });
+      }
     }
 
     // Track BST for Balanced Budget
     if (state.gameMode === 'balanced_budget') {
       if (p1k) state.p1BstUsed = (state.p1BstUsed ?? 0) + p1k.stats.total;
       if (p2k) state.p2BstUsed = (state.p2BstUsed ?? 0) + p2k.stats.total;
+    }
+
+    // Bingo Logic
+    if (state.gameMode === 'bingo' && state.bingoBoard) {
+      const checkBingo = (player: 1 | 2, pk: PokemonIndexItem) => {
+        let claimed = false;
+        for (let i = 0; i < 3; i++) {
+          for (let j = 0; j < 3; j++) {
+            const cell = state.bingoBoard![i][j];
+            if (cell.claimedBy === null) {
+              const matchType = pk.types.includes(cell.requirementX);
+              let matchGen = false;
+              if (cell.requirementY === 'Gen 1-3') matchGen = pk.generation <= 3;
+              else if (cell.requirementY === 'Gen 4-6') matchGen = pk.generation >= 4 && pk.generation <= 6;
+              else if (cell.requirementY === 'Gen 7-9') matchGen = pk.generation >= 7;
+
+              if (matchType && matchGen) {
+                cell.claimedBy = player;
+                cell.pokemon = pk;
+                claimed = true;
+                break;
+              }
+            }
+          }
+          if (claimed) break;
+        }
+
+        if (claimed) {
+          const b = state.bingoBoard!;
+          let hasBingo = false;
+          for(let k=0; k<3; k++){
+            if (b[k][0].claimedBy === player && b[k][1].claimedBy === player && b[k][2].claimedBy === player) hasBingo = true;
+            if (b[0][k].claimedBy === player && b[1][k].claimedBy === player && b[2][k].claimedBy === player) hasBingo = true;
+          }
+          if (b[0][0].claimedBy === player && b[1][1].claimedBy === player && b[2][2].claimedBy === player) hasBingo = true;
+          if (b[0][2].claimedBy === player && b[1][1].claimedBy === player && b[2][0].claimedBy === player) hasBingo = true;
+          
+          const rewardKey = player === 1 ? 'p1BingoReward' : 'p2BingoReward';
+          if (hasBingo && !state[rewardKey]) {
+             state[rewardKey] = true;
+             const legends = pokemonList.filter(p => p.isLegendary || p.isMythical);
+             const reward = legends[Math.floor(Math.random() * legends.length)];
+             if (player === 1) state.p1.team.push({ isMystery: false, actualPk: reward, fromOpponent: false });
+             else state.p2!.team.push({ isMystery: false, actualPk: reward, fromOpponent: false });
+          }
+        }
+      };
+
+      if (p1k) checkBingo(1, p1k);
+      if (p2k) checkBingo(2, p2k);
     }
 
     state.p1.ready = false;
@@ -1042,7 +1126,13 @@ export default function DraftMode() {
              });
            }
         }
-        state.status = 'REVEAL';
+        if (state.gameMode === 'time_warp') {
+          state.status = 'BENCH_SELECTION';
+          state.p1Benched = [];
+          state.p2Benched = [];
+        } else {
+          state.status = 'REVEAL';
+        }
       }
     } else {
       if (state.gameMode === 'chaos' && state.round === state.totalRounds) {
@@ -1180,6 +1270,16 @@ export default function DraftMode() {
         applyState(next); broadcastToGuest(next);
       }
     }
+    if (data.type === 'submit_bench') {
+      const next: DraftState = JSON.parse(JSON.stringify(cur));
+      next.p2Benched = data.benchedIndices;
+      if (next.p1Benched && next.p2Benched) {
+        next.status = 'REVEAL';
+        next.p1.team = next.p1.team.filter((_, i) => !next.p1Benched!.includes(i));
+        next.p2!.team = next.p2!.team.filter((_, i) => !next.p2Benched!.includes(i));
+      }
+      applyState(next); broadcastToGuest(next);
+    }
     if (data.type === 'chaos_choice') {
       resolveChaosChoice(2, data.choice);
     }
@@ -1273,7 +1373,7 @@ export default function DraftMode() {
         if (status === 'SUBSCRIBED') {
           const filters = buildFilters();
           const isVip = selectedMode === 'vip';
-          const totalRounds = isVip ? 6 : 3;
+          const totalRounds = isVip ? 6 : selectedMode === 'time_warp' || selectedMode === 'bingo' ? 9 : 3;
           const initial: DraftState = {
             code, status: 'LOBBY', gameMode: selectedMode, arena: selectedArena,
             optionsPerRound: selectedMode === 'wildcard' || isVip ? 3 : optionsPerRound, round: 1, totalRounds, filters,
@@ -1284,6 +1384,13 @@ export default function DraftMode() {
             p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
             wildcardModifier: false
           };
+          
+          if (selectedMode === 'bingo') {
+            const types = Object.keys(TYPE_COLORS).sort(() => Math.random() - 0.5);
+            const cols = [types[0], types[1], types[2]];
+            const rows = ['Gen 1-3', 'Gen 4-6', 'Gen 7-9'];
+            initial.bingoBoard = rows.map(r => cols.map(c => ({ requirementX: c, requirementY: r, claimedBy: null, pokemon: null })));
+          }
           applyState(initial);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           alert('Could not create room. Check your connection and try again.');
@@ -1349,6 +1456,7 @@ export default function DraftMode() {
     const initialStatus = selectedMode === 'monotype' ? 'MONOTYPE_ROULETTE' : 'DRAFTING';
     const totalRounds = (selectedMode === 'vip' || selectedMode === 'monotype' || selectedMode === 'roulette_steal' || selectedMode === 'balanced_budget') ? 6
       : selectedMode === 'tug_of_war' ? 5
+      : selectedMode === 'time_warp' || selectedMode === 'bingo' ? 9
       : 3;
     const next: DraftState = { 
        ...cur, 
@@ -1373,6 +1481,14 @@ export default function DraftMode() {
        p2PackChoice: null,
        bossId: undefined,
     };
+    
+    if (selectedMode === 'bingo') {
+      const types = Object.keys(TYPE_COLORS).sort(() => Math.random() - 0.5);
+      const cols = [types[0], types[1], types[2]];
+      const rows = ['Gen 1-3', 'Gen 4-6', 'Gen 7-9'];
+      next.bingoBoard = rows.map(r => cols.map(c => ({ requirementX: c, requirementY: r, claimedBy: null, pokemon: null })));
+      next.bingoTurn = 1;
+    }
     let availableTypes = ALL_TYPES;
     const basePoolForTypes = pokemonList.length > 0 ? filterPokemon(pokemonList, next.filters) : [];
     if (basePoolForTypes.length > 0) {
@@ -1493,6 +1609,28 @@ export default function DraftMode() {
       } else { alert('Lost connection to host!'); setNuzlockeSubmitted(false); }
     }
   }, [myNuzlockeTargetIdx, myNuzlockeProtectIdx, applyState, broadcastToGuest, resolveNuzlocke]);
+  const submitBench = useCallback(() => {
+    if (benchedIndices.length !== 3) return;
+    setSubmitted(true);
+    playLockIn();
+    
+    if (isHostRef.current) {
+      const next: DraftState = JSON.parse(JSON.stringify(gameStateRef.current));
+      next.p1Benched = benchedIndices;
+      if (next.p1Benched && next.p2Benched) {
+        next.status = 'REVEAL';
+        next.p1.team = next.p1.team.filter((_, i) => !next.p1Benched!.includes(i));
+        next.p2!.team = next.p2!.team.filter((_, i) => !next.p2Benched!.includes(i));
+      }
+      applyState(next);
+      broadcastToGuest(next);
+    } else {
+      const ch = channelRef.current;
+      if (ch) {
+        ch.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'submit_bench', benchedIndices } });
+      } else { alert('Lost connection to host!'); setSubmitted(false); }
+    }
+  }, [benchedIndices, applyState, broadcastToGuest, playLockIn]);
 
 
   const submitAuctionBid = useCallback((amount: number) => {
@@ -1614,6 +1752,7 @@ export default function DraftMode() {
     
     const totalRounds = (cur.gameMode === 'vip' || cur.gameMode === 'monotype' || cur.gameMode === 'roulette_steal' || cur.gameMode === 'balanced_budget') ? 6
       : cur.gameMode === 'tug_of_war' ? 5
+      : cur.gameMode === 'time_warp' || cur.gameMode === 'bingo' ? 9
       : 3;
       
     const next: DraftState = {
@@ -1629,6 +1768,14 @@ export default function DraftMode() {
       p1Budget: 100, p2Budget: 100, currentBid: 0, highestBidder: null, p1Passed: false, p2Passed: false,
       snakeTurn: 1, snakePickCount: 0
     };
+    
+    if (cur.gameMode === 'bingo') {
+      const types = Object.keys(TYPE_COLORS).sort(() => Math.random() - 0.5);
+      const cols = [types[0], types[1], types[2]];
+      const rows = ['Gen 1-3', 'Gen 4-6', 'Gen 7-9'];
+      next.bingoBoard = rows.map(r => cols.map(c => ({ requirementX: c, requirementY: r, claimedBy: null, pokemon: null })));
+      next.bingoTurn = 1;
+    }
     let availableTypes = ALL_TYPES;
     const basePoolForTypes = pokemonList.length > 0 ? filterPokemon(pokemonList, next.filters) : [];
     if (basePoolForTypes.length > 0) {
@@ -2492,14 +2639,44 @@ export default function DraftMode() {
                              </div>
                           </div>
                         )}
+                        {gameState.gameMode === 'bingo' && gameState.bingoBoard && (
+                          <div className="mb-8 p-4 bg-slate-900/50 rounded-2xl border border-cyan-500/30">
+                            <h3 className="text-center font-bold text-cyan-400 mb-4 uppercase tracking-widest text-sm flex items-center justify-center gap-2">
+                              <Shield className="w-4 h-4" /> Bingo Matrix
+                            </h3>
+                            <div className="grid grid-cols-4 gap-2">
+                              <div></div>
+                              {gameState.bingoBoard[0].map((c, i) => (
+                                <div key={i} className="text-center text-xs font-bold text-slate-400 uppercase flex items-center justify-center">{c.requirementX}</div>
+                              ))}
+                              {gameState.bingoBoard.map((row, i) => (
+                                <React.Fragment key={i}>
+                                  <div className="text-right text-xs font-bold text-slate-400 uppercase pr-2 flex items-center justify-end">{row[0].requirementY}</div>
+                                  {row.map((cell, j) => (
+                                    <div key={j} className={`aspect-square rounded-lg border flex flex-col items-center justify-center relative p-1
+                                      ${cell.claimedBy === 1 ? 'bg-indigo-900/40 border-indigo-500' : cell.claimedBy === 2 ? 'bg-rose-900/40 border-rose-500' : 'bg-slate-800/50 border-slate-700'}`}>
+                                      {cell.pokemon && (
+                                        <img src={cell.pokemon.sprite} alt={cell.pokemon.displayName} className="w-10 h-10 object-contain" style={{imageRendering: 'pixelated'}} />
+                                      )}
+                                      {!cell.pokemon && (
+                                        <span className="text-[10px] text-slate-500 opacity-50">Empty</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </React.Fragment>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
                         <h3 className="text-center font-bold text-slate-300 mb-6 uppercase tracking-widest text-sm">Your Choices</h3>
                         <div className="flex flex-col gap-3 mb-6">
                           {(myOptions ?? []).map(pk => {
                             const isKeep = keepChoice === pk.id;
                             const isGive = giveChoice === pk.id;
-                            const isBlind = gameState.gameMode === 'blind';
+                            const isBlind = gameState.gameMode === 'blind' || gameState.gameMode === 'sabotage';
                             const isShadow = gameState.gameMode === 'shadow';
-                            const isKeepOnlyMode = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget'].includes(gameState.gameMode);
+                            const isKeepOnlyMode = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo'].includes(gameState.gameMode);
                             
                             const shadowTypes = ['height', 'weight', 'habitat', 'shape'];
                             const currentShadowType = shadowTypes[(gameState.round - 1) % shadowTypes.length];
@@ -2552,7 +2729,7 @@ export default function DraftMode() {
                                       className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50 disabled:opacity-50'}`}>{isKeepOnlyMode ? 'Draft' : 'Keep'}</button>
                                     {!isKeepOnlyMode && (
                                       <button onClick={() => { playHoverTick(); setGiveChoice(pk.id); if (keepChoice === pk.id) setKeepChoice(null); }}
-                                        className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>Give</button>
+                                        className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>{gameState.gameMode === 'sabotage' ? 'Trap' : 'Give'}</button>
                                     )}
                                   </div>
                                 </HoloCard>
@@ -2565,6 +2742,44 @@ export default function DraftMode() {
                           {gameState.gameMode === 'balanced_budget' && keepChoice === null ? 'Skip Turn (Pass)' : 'Confirm Selection'}
                         </button>
                       </>
+                    )}
+                  </div>
+                ) : gameState.status === 'BENCH_SELECTION' ? (
+                  <div className="p-6 rounded-2xl border border-blue-500/30 flex flex-col items-center justify-center text-center gap-6 bg-slate-900/50">
+                    <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400">
+                      <Timer className="w-10 h-10" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-black text-white mb-2">Time Warp Bench Phase</h3>
+                      <p className="text-slate-400">Select exactly 3 Pokémon from your team to bench. Only 6 can travel with you to the final team!</p>
+                    </div>
+                    <div className="w-full flex justify-center">
+                      <div className="flex gap-4 overflow-x-auto max-w-full pb-2 px-2">
+                        {(isHost ? gameState.p1 : gameState.p2!).team.map((m, idx) => (
+                          <div key={idx} 
+                            onClick={() => {
+                              if (!submitted) {
+                                setBenchedIndices(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : prev.length < 3 ? [...prev, idx] : prev);
+                              }
+                            }}
+                            className={`flex-shrink-0 w-24 h-24 sm:w-32 sm:h-32 rounded-xl border-2 overflow-hidden flex items-center justify-center relative cursor-pointer ${benchedIndices.includes(idx) ? 'border-blue-500 bg-blue-900/40 opacity-50' : 'border-slate-700 bg-slate-800 hover:border-blue-400'}`}>
+                            <img src={m.actualPk.sprite} alt={m.actualPk.displayName} className={`w-16 h-16 sm:w-24 sm:h-24 ${benchedIndices.includes(idx) ? 'grayscale' : ''}`} style={{imageRendering: 'pixelated'}} />
+                            {benchedIndices.includes(idx) && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-3xl">🪑</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {submitted ? (
+                      <p className="text-blue-400 animate-pulse font-bold">Waiting for opponent...</p>
+                    ) : (
+                      <button onClick={submitBench} disabled={benchedIndices.length !== 3}
+                        className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold py-3 rounded-xl transition-colors">
+                        Confirm Bench ({benchedIndices.length}/3)
+                      </button>
                     )}
                   </div>
                 ) : gameState.status === 'REVEAL' ? (
