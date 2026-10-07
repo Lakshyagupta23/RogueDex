@@ -1163,25 +1163,23 @@ export default function DraftMode() {
              const fullyEvolved = pokemonList.filter(p => p.isFullyEvolved && !p.isMega && !p.isLegendary && !p.isMythical && p.types.includes(m.actualPk.types[0]));
              if (fullyEvolved.length > 0) {
                m.actualPk = { ...fullyEvolved[Math.floor(Math.random() * fullyEvolved.length)] };
+             } else {
+               const fallback = pokemonList.filter(p => p.isFullyEvolved && !p.isMega && !p.isLegendary && !p.isMythical);
+               if (fallback.length > 0) m.actualPk = { ...fallback[Math.floor(Math.random() * fallback.length)] };
              }
            };
            state.p1.team.forEach(evolve);
            state.p2!.team.forEach(evolve);
         } else if (state.gameMode === 'chaos' && state.chaosState?.eventId === 'ditto') {
-           if (state.p1.team.length >= 2) {
-             const indices = new Set<number>();
-             while(indices.size < 2) indices.add(Math.floor(Math.random() * state.p1.team.length));
-             indices.forEach(idx => {
-               state.p1.team[idx].actualPk = { ...pokemonList[Math.floor(Math.random() * pokemonList.length)] };
+           const transformDittos = (team: DraftTeamMember[]) => {
+             team.forEach(m => {
+               if (m.actualPk.id === 132) {
+                 m.actualPk = { ...pokemonList[Math.floor(Math.random() * pokemonList.length)] };
+               }
              });
-           }
-           if (state.p2! && state.p2!.team.length >= 2) {
-             const indices = new Set<number>();
-             while(indices.size < 2) indices.add(Math.floor(Math.random() * state.p2!.team.length));
-             indices.forEach(idx => {
-               state.p2!.team[idx].actualPk = { ...pokemonList[Math.floor(Math.random() * pokemonList.length)] };
-             });
-           }
+           };
+           transformDittos(state.p1.team);
+           if (state.p2) transformDittos(state.p2.team);
         }
         if (state.gameMode === 'time_warp' || state.gameMode === 'bingo') {
           state.status = 'BENCH_SELECTION';
@@ -1335,13 +1333,13 @@ export default function DraftMode() {
       applyState(next);
       broadcastToGuest(next);
     }
-    if (data.type === 'submit_choices') {
+    if (data.type === 'submit_choices' && (cur.status === 'DRAFTING' || cur.status === 'MONOTYPE_ROULETTE')) {
       const next: DraftState = structuredClone(cur);
       next.p2!.ready = true;
       p2PendingRef.current = { keepId: data.keepId, giveId: data.giveId };
       if (next.p1.ready) { resolveRound(next); } else { applyState(next); broadcastToGuest(next); }
     }
-    if (data.type === 'submit_survivor_execution') {
+    if (data.type === 'submit_survivor_execution' && cur.status === 'SURVIVOR_EXECUTION') {
       const next: DraftState = structuredClone(cur);
       if (data.playerNum === 1) next.survivorP1Target = data.targetIdx;
       else next.survivorP2Target = data.targetIdx;
@@ -1351,13 +1349,13 @@ export default function DraftMode() {
         applyState(next); broadcastToGuest(next);
       }
     }
-    if (data.type === 'submit_heist') {
+    if (data.type === 'submit_heist' && cur.status === 'HEIST') {
       const next: DraftState = structuredClone(cur);
       next.p2HeistChoice = data.stealIdx;
       p2HeistRef.current = { stealIdx: data.stealIdx, swapIdx: data.swapIdx };
       if (p1HeistRef.current !== null) { resolveHeist(next); } else { applyState(next); broadcastToGuest(next); }
     }
-    if (data.type === 'submit_nuzlocke') {
+    if (data.type === 'submit_nuzlocke' && cur.status === 'NUZLOCKE') {
       const next: DraftState = structuredClone(cur);
       if (data.playerNum === 1) {
         next.nuzlockeP1Target = data.targetIdx;
@@ -1376,7 +1374,7 @@ export default function DraftMode() {
         applyState(next); broadcastToGuest(next);
       }
     }
-    if (data.type === 'submit_bench') {
+    if (data.type === 'submit_bench' && cur.status === 'BENCH_SELECTION') {
       const next: DraftState = structuredClone(cur);
       next.p2Benched = data.benchedIndices;
       if (next.p1Benched && next.p2Benched) {
@@ -1386,10 +1384,10 @@ export default function DraftMode() {
       }
       applyState(next); broadcastToGuest(next);
     }
-    if (data.type === 'chaos_choice') {
+    if (data.type === 'chaos_choice' && cur.status === 'CHAOS_EVENT') {
       resolveChaosChoice(2, data.choice);
     }
-    if (data.type === 'nominate_salary_cap') {
+    if (data.type === 'nominate_salary_cap' && cur.status === 'DRAFTING') {
       const next: DraftState = structuredClone(cur);
       const pk = next.p1Options.find((p: any) => p.id === data.pkId);
       if (pk) {
@@ -1398,7 +1396,7 @@ export default function DraftMode() {
         applyState(next); broadcastToGuest(next);
       }
     }
-    if (data.type === 'auction_bid') {
+    if (data.type === 'auction_bid' && cur.status === 'DRAFTING') {
       const next: DraftState = structuredClone(cur);
       const budget = data.playerNum === 1 ? next.p1Budget : next.p2Budget;
       const isValid = data.amount <= budget && (data.amount > next.currentBid || (data.amount === 0 && next.highestBidder === null));
@@ -1414,7 +1412,7 @@ export default function DraftMode() {
          else { applyState(next); broadcastToGuest(next); }
       }
     }
-    if (data.type === 'submit_sealed_bid') {
+    if (data.type === 'submit_sealed_bid' && cur.status === 'DRAFTING') {
       const next: DraftState = structuredClone(cur);
       if (data.playerNum === 1) next.p1SealedBid = data.amount;
       else next.p2SealedBid = data.amount;
@@ -1425,7 +1423,7 @@ export default function DraftMode() {
         applyState(next); broadcastToGuest(next);
       }
     }
-    if (data.type === 'auction_pass') {
+    if (data.type === 'auction_pass' && cur.status === 'DRAFTING') {
       const next: DraftState = structuredClone(cur);
       if (data.playerNum === 1) next.p1Passed = true;
       else next.p2Passed = true;
@@ -1441,10 +1439,10 @@ export default function DraftMode() {
         applyState(next); broadcastToGuest(next);
       }
     }
-    if (data.type === 'snake_pick') {
+    if (data.type === 'snake_pick' && cur.status === 'DRAFTING') {
       resolveSnakePick(data.pkId);
     }
-    if (data.type === 'submit_pack') {
+    if (data.type === 'submit_pack' && cur.status === 'DRAFTING') {
       const next: DraftState = structuredClone(cur);
       next.p2PackChoice = data.packType;
       if (next.p1PackChoice || !next.p1) {
@@ -2462,7 +2460,7 @@ export default function DraftMode() {
                  <h3 className="text-xl font-bold text-center text-slate-300 mb-4">{opponentSlot?.username}'s Team</h3>
                  <div className="flex flex-wrap justify-center gap-4">
                    {opponentSlot?.team.map((pk, idx) => (
-                     <div key={idx} className={`relative p-2 rounded-xl transition-all ${pk.isDead ? 'opacity-20 grayscale scale-90 pointer-events-none' : mySurvivorTarget === idx ? 'ring-4 ring-red-500 scale-110 bg-red-900/50' : 'hover:scale-105 cursor-pointer bg-slate-800'}`} onClick={() => !pk.isDead && !survivorSubmitted && setMySurvivorTarget(idx)}>
+                     <div key={idx} className={`relative p-2 rounded-xl transition-all ${pk.isDead ? 'opacity-20 grayscale scale-90 pointer-events-none' : mySurvivorTarget === idx ? 'ring-4 ring-red-500 scale-110 bg-red-900/50' : 'hover:scale-105 cursor-pointer bg-slate-800'}`} onClick={() => { if (!pk.isDead && !survivorSubmitted) setMySurvivorTarget(idx); }}>
                         <img src={pk.isMystery ? '/images/substitute.png' : pk.actualPk.sprite} className="w-16 h-16 object-contain drop-shadow" />
                         {pk.isDead && <div className="absolute inset-0 flex items-center justify-center"><Skull className="w-8 h-8 text-red-500" /></div>}
                      </div>
@@ -2906,7 +2904,7 @@ export default function DraftMode() {
                                       className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50 disabled:opacity-50'}`}>{isKeepOnlyMode ? 'Draft' : 'Keep'}</button>
                                     {!isKeepOnlyMode && (
                                       <button onClick={() => { playHoverTick(); setGiveChoice(pk.id); if (keepChoice === pk.id) setKeepChoice(null); }}
-                                        className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>{gameState.gameMode === 'sabotage' ? 'Trap' : 'Give'}</button>
+                                        className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>{gameState.gameMode === 'sabotage' ? 'Trap this Slot' : 'Give'}</button>
                                     )}
                                   </div>
                                 </HoloCard>

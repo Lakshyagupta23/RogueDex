@@ -66,7 +66,7 @@ export interface SavedTeam {
   tags?: string[];
 }
 
-export type GameMode = 'standard' | 'blind' | 'shadow' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos' | 'speedrun' | 'vip' | 'salary_cap' | 'nuzlocke' | 'slot_machine' | 'tug_of_war' | 'sealed_bid' | 'team_rocket' | 'evolution_roulette' | 'roulette_steal' | 'balanced_budget' | 'booster' | 'ditto' | 'bingo' | 'sabotage' | 'time_warp' | 'survivor';
+export type GameMode = 'standard' | 'blind' | 'shadow' | 'heist' | 'auction' | 'snake' | 'monotype' | 'wildcard' | 'chaos' | 'speedrun' | 'vip' | 'salary_cap' | 'nuzlocke' | 'slot_machine' | 'tug_of_war' | 'sealed_bid' | 'team_rocket' | 'evolution_roulette' | 'roulette_steal' | 'balanced_budget' | 'booster' | 'ditto' | 'bingo' | 'sabotage' | 'time_warp' | 'survivor' | 'chain_reaction' | 'pokerus';
 export type ChaosEventId = 'rocket' | 'safari' | 'ditto' | 'fossil' | 'celebi' | 'yveltal' | 'wonder' | 'gym' | 'glitch' | 'gamble';
 
 export type DraftTeamMember = {
@@ -138,6 +138,7 @@ export interface DraftState {
   // Modifiers
   wildcardModifier?: boolean;
   monotypeP1?: string;
+  pokerusInfectionType?: string;
   monotypeP2?: string;
   snakeTurn?: 1 | 2;
   snakePickCount?: number;
