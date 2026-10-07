@@ -6,6 +6,7 @@ import { usePokemon } from '@/context/PokemonContext';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { PokemonIndexItem, GameMode, ChaosEventId, DraftTeamMember, PlayerSlot, DraftState } from '@/lib/pokemon/types';
 import { FilterCriteria, filterPokemon } from '@/lib/pokemon/data';
+import { TYPE_CHART } from '@/lib/pokemon/analysis';
 import { TYPE_COLORS } from '@/lib/pokemon/constants';
 import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp, Eye, Sword, Shield, Skull, Gavel, Infinity as InfinityIcon, Wand2, Zap, Volume2, VolumeX, ClipboardCopy, Timer, Crown, Coins } from 'lucide-react';
 import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemonCry, playHeistAlarm, playStealSound, startAmbientMusic, stopAmbientMusic, playThud, playSwish, playSlash, playLegendary } from '@/lib/audio';
@@ -593,6 +594,21 @@ export default function DraftMode() {
       }
     }
 
+    if (state.gameMode === 'chain_reaction' && state.round > 1) {
+      if (state.p1.team.length > 0) {
+        const p1LastPk = state.p1.team[state.p1.team.length - 1].actualPk;
+        const p1Types = p1LastPk.types;
+        const filtered = p1Pool.filter(p => p.types.some(t => p1Types.includes(t)));
+        if (filtered.length >= state.optionsPerRound) p1Pool = filtered;
+      }
+      if (state.p2?.team && state.p2.team.length > 0) {
+        const p2LastPk = state.p2.team[state.p2.team.length - 1].actualPk;
+        const p2Types = p2LastPk.types;
+        const filtered = p2Pool.filter(p => p.types.some(t => p2Types.includes(t)));
+        if (filtered.length >= state.optionsPerRound) p2Pool = filtered;
+      }
+    }
+
     if (state.gameMode === 'time_warp') {
       const genNum = state.round; // Round 1 = Gen 1, Round 9 = Gen 9
       const g1 = p1Pool.filter(p => p.generation === genNum);
@@ -601,11 +617,21 @@ export default function DraftMode() {
       if (g2.length >= state.optionsPerRound) p2Pool = g2;
     }
     
-    if (state.gameMode === 'sabotage') {
-      // Shared hidden options
-      const shared = pickUnique(state.optionsPerRound, basePool);
-      p1Pool = shared;
-      p2Pool = shared;
+    if (state.gameMode === 'bingo' && state.bingoBoard) {
+      const unclaimed = state.bingoBoard.flat().filter(c => c.claimedBy === null);
+      if (unclaimed.length > 0) {
+        const targetCell = unclaimed[Math.floor(Math.random() * unclaimed.length)];
+        const { requirementX: typeReq, requirementY: genReq } = targetCell;
+        let genAllowed: number[] = [];
+        if (genReq === 'Gen 1-3') genAllowed = [1, 2, 3];
+        if (genReq === 'Gen 4-6') genAllowed = [4, 5, 6];
+        if (genReq === 'Gen 7-9') genAllowed = [7, 8, 9];
+        const bingoFilter = (p: PokemonIndexItem) => p.types.includes(typeReq) && genAllowed.includes(p.generation);
+        const b1 = p1Pool.filter(bingoFilter);
+        const b2 = p2Pool.filter(bingoFilter);
+        if (b1.length >= state.optionsPerRound) p1Pool = b1;
+        if (b2.length >= state.optionsPerRound) p2Pool = b2;
+      }
     }
 
     if (state.gameMode === 'slot_machine') {
@@ -970,11 +996,17 @@ export default function DraftMode() {
     if (state.gameMode === 'sabotage') {
       let p1Stolen = false;
       let p2Stolen = false;
-      if (act1.keepId === act2.giveId && p1k) {
+      
+      const p1KeepIdx = state.p1Options.findIndex(p => p.id === act1.keepId);
+      const p2TrapIdx = state.p2Options.findIndex(p => p.id === act2.giveId);
+      const p2KeepIdx = state.p2Options.findIndex(p => p.id === act2.keepId);
+      const p1TrapIdx = state.p1Options.findIndex(p => p.id === act1.giveId);
+
+      if (p1KeepIdx !== -1 && p1KeepIdx === p2TrapIdx && p1k) {
         state.p2!.team.push({ isMystery: true, actualPk: p1k, fromOpponent: true });
         p1Stolen = true;
       }
-      if (act2.keepId === act1.giveId && p2k) {
+      if (p2KeepIdx !== -1 && p2KeepIdx === p1TrapIdx && p2k) {
         state.p1.team.push({ isMystery: true, actualPk: p2k, fromOpponent: true });
         p2Stolen = true;
       }
@@ -984,7 +1016,7 @@ export default function DraftMode() {
       if (p1k) state.p1.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p1k, fromOpponent: false });
       if (p2k) state.p2!.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p2k, fromOpponent: false });
       
-      const noGiveModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'sabotage', 'time_warp', 'bingo', 'survivor'];
+      const noGiveModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'sabotage', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus'];
       if (!noGiveModes.includes(state.gameMode)) {
         if (p2g) state.p1.team.push({ isMystery: true,  actualPk: p2g, fromOpponent: true  });
         if (p1g) state.p2!.team.push({ isMystery: true,  actualPk: p1g, fromOpponent: true  });
@@ -1159,6 +1191,25 @@ export default function DraftMode() {
           state.status = 'SURVIVOR_EXECUTION';
           state.survivorP1Target = null;
           state.survivorP2Target = null;
+        } else if (state.gameMode === 'pokerus') {
+          const allTypes = Object.keys(TYPE_CHART);
+          const infectiousType = allTypes[Math.floor(Math.random() * allTypes.length)];
+          state.pokerusInfectionType = infectiousType;
+          
+          const mutate = (m: DraftTeamMember) => {
+            const isWeak = m.actualPk.types.some(t => TYPE_CHART[infectiousType]?.[t] > 1);
+            if (isWeak) {
+              const infectionPool = pokemonList.filter(p => p.types.includes(infectiousType));
+              if (infectionPool.length > 0) {
+                m.actualPk = { ...infectionPool[Math.floor(Math.random() * infectionPool.length)] };
+                m.isMystery = false;
+              }
+            }
+          };
+          state.p1.team.forEach(mutate);
+          if (state.p2) state.p2.team.forEach(mutate);
+          
+          state.status = 'REVEAL';
         } else {
           state.status = 'REVEAL';
         }
@@ -1429,7 +1480,7 @@ export default function DraftMode() {
         if (status === 'SUBSCRIBED') {
           const filters = buildFilters();
           const isVip = selectedMode === 'vip';
-          const totalRounds = isVip ? 6 : selectedMode === 'survivor' ? 10 : selectedMode === 'time_warp' || selectedMode === 'bingo' ? 9 : 3;
+          const totalRounds = isVip ? 6 : selectedMode === 'survivor' ? 10 : selectedMode === 'time_warp' || selectedMode === 'bingo' ? 9 : selectedMode === 'chain_reaction' || selectedMode === 'pokerus' ? 6 : 3;
           const initial: DraftState = {
             code, status: 'LOBBY', gameMode: selectedMode, arena: selectedArena,
             optionsPerRound: selectedMode === 'wildcard' || isVip ? 3 : optionsPerRound, round: 1, totalRounds, filters,
@@ -1511,7 +1562,7 @@ export default function DraftMode() {
     if (!isHostRef.current || !gameStateRef.current) return;
     const cur = gameStateRef.current;
     const initialStatus = selectedMode === 'monotype' ? 'MONOTYPE_ROULETTE' : 'DRAFTING';
-    const totalRounds = (selectedMode === 'vip' || selectedMode === 'monotype' || selectedMode === 'roulette_steal' || selectedMode === 'balanced_budget') ? 6
+    const totalRounds = (selectedMode === 'vip' || selectedMode === 'monotype' || selectedMode === 'roulette_steal' || selectedMode === 'balanced_budget' || selectedMode === 'chain_reaction' || selectedMode === 'pokerus') ? 6
       : selectedMode === 'tug_of_war' ? 5
       : selectedMode === 'survivor' ? 10
       : selectedMode === 'time_warp' || selectedMode === 'bingo' ? 9
@@ -1827,7 +1878,7 @@ export default function DraftMode() {
     if (!isHostRef.current || !gameStateRef.current) return;
     const cur = gameStateRef.current;
     
-    const totalRounds = (cur.gameMode === 'vip' || cur.gameMode === 'monotype' || cur.gameMode === 'roulette_steal' || cur.gameMode === 'balanced_budget') ? 6
+    const totalRounds = (cur.gameMode === 'vip' || cur.gameMode === 'monotype' || cur.gameMode === 'roulette_steal' || cur.gameMode === 'balanced_budget' || cur.gameMode === 'chain_reaction' || cur.gameMode === 'pokerus') ? 6
       : cur.gameMode === 'tug_of_war' ? 5
       : cur.gameMode === 'survivor' ? 10
       : cur.gameMode === 'time_warp' || cur.gameMode === 'bingo' ? 9
@@ -2446,6 +2497,11 @@ export default function DraftMode() {
               <h2 className="text-3xl font-black text-white">
                 {gameState.status === 'REVEAL' ? 'Final Teams!' : gameState.gameMode === 'auction' ? 'Live Auction' : gameState.gameMode === 'snake' ? 'Snake Draft' : `Round ${gameState.round} / ${gameState.totalRounds}`}
               </h2>
+              {gameState.status === 'REVEAL' && gameState.gameMode === 'pokerus' && gameState.pokerusInfectionType && (
+                <div className="mt-4 p-4 rounded-xl border border-lime-500 bg-lime-900/30 text-lime-400 font-bold animate-pulse">
+                  🦠 POKERUS INFECTION: {gameState.pokerusInfectionType.toUpperCase()}! All Pokémon weak to {gameState.pokerusInfectionType} have mutated!
+                </div>
+              )}
               {gameState.gameMode === 'blind' && gameState.status === 'DRAFTING' && <p className="text-purple-400 font-bold mt-1 text-sm">👁 BLIND MODE - Pick by abilities!</p>}
               {gameState.gameMode === 'shadow' && gameState.status === 'DRAFTING' && <p className="text-slate-400 font-bold mt-1 text-sm">🌑 SHADOW PROTOCOL - Pick by clues!</p>}
               {gameState.gameMode === 'monotype' && gameState.status === 'DRAFTING' && (
@@ -2499,8 +2555,9 @@ export default function DraftMode() {
                   <p className="text-red-400 text-xs font-bold mt-2 uppercase tracking-widest">Pick fast or get the worst!</p>
                 </div>
               )}
-              {!['auction', 'snake', 'vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'salary_cap', 'sealed_bid'].includes(gameState.gameMode) && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
-              {['monotype', 'tug_of_war', 'roulette_steal'].includes(gameState.gameMode) && gameState.status === 'DRAFTING' && <p className="text-slate-400 font-bold mt-1 text-sm">Pick 1 to Draft for your Team!</p>}
+              {!['auction', 'snake', 'vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'salary_cap', 'sealed_bid', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'sabotage'].includes(gameState.gameMode) && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
+              {['monotype', 'tug_of_war', 'roulette_steal', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'vip'].includes(gameState.gameMode) && gameState.status === 'DRAFTING' && <p className="text-slate-400 font-bold mt-1 text-sm">Pick 1 to Draft for your Team!</p>}
+              {gameState.gameMode === 'sabotage' && gameState.status === 'DRAFTING' && <p className="text-purple-400 font-bold mt-1 text-sm">Pick 1 to Draft, and place a Trap on another slot!</p>}
               {gameState.gameMode === 'balanced_budget' && gameState.status === 'DRAFTING' && <p className="text-slate-400 font-bold mt-1 text-sm">Pick 1 to Draft for your Team, or skip if over budget!</p>}
               {gameState.status === 'REVEAL' && isHost && (
                 <button onClick={returnToLobby} className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition-colors">🔄 Play Again (Change Settings)</button>
@@ -2796,7 +2853,7 @@ export default function DraftMode() {
                             const isGive = giveChoice === pk.id;
                             const isBlind = gameState.gameMode === 'blind' || gameState.gameMode === 'sabotage';
                             const isShadow = gameState.gameMode === 'shadow';
-                            const isKeepOnlyMode = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor'].includes(gameState.gameMode);
+                            const isKeepOnlyMode = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus'].includes(gameState.gameMode);
                             
                             const shadowTypes = ['height', 'weight', 'habitat', 'shape'];
                             const currentShadowType = shadowTypes[(gameState.round - 1) % shadowTypes.length];
@@ -2857,7 +2914,7 @@ export default function DraftMode() {
                             );
                           })}
                         </div>
-                        <button onClick={submitMyChoices} disabled={(keepChoice === null && gameState.gameMode !== 'balanced_budget') || (!['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget'].includes(gameState.gameMode) && giveChoice === null)}
+                        <button onClick={submitMyChoices} disabled={(keepChoice === null && gameState.gameMode !== 'balanced_budget') || (!['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus'].includes(gameState.gameMode) && giveChoice === null)}
                           className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold py-3 rounded-xl transition-colors">
                           {gameState.gameMode === 'balanced_budget' && keepChoice === null ? 'Skip Turn (Pass)' : 'Confirm Selection'}
                         </button>
