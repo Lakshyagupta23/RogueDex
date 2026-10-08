@@ -31,6 +31,14 @@ function getSupabase() {
 const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison','ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy'];
 const ALL_GENS = [1,2,3,4,5,6,7,8,9];
 
+export function getTotalRoundsForMode(mode: GameMode): number {
+  if (['vip', 'monotype', 'roulette_steal', 'balanced_budget', 'chain_reaction', 'pokerus', 'sabotage'].includes(mode)) return 6;
+  if (mode === 'survivor') return 10;
+  if (['time_warp', 'bingo'].includes(mode)) return 9;
+  if (mode === 'tug_of_war') return 5;
+  return 3;
+}
+
 const ARENAS = [
   { id: 'none', label: 'Classic (No Arena)', image: '' },
   { id: 'arena1', label: 'Neon Arena', image: '/arenas/arena1.jpg' },
@@ -65,7 +73,10 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'ditto', icon: <HelpCircle className="w-6 h-6" />, label: '🎭 Ditto\'s Deception', description: 'Two Pokémon on your team are secretly Dittos! During Reveal, they transform into completely random Pokémon!', color: 'text-purple-400', borderColor: 'border-purple-500' },
   { id: 'bingo', icon: <Shield className="w-6 h-6" />, label: '🎯 Bingo Matrix', description: 'Draft on a 3x3 grid! Claim slots by matching requirements. Get a Bingo for a huge reward!', color: 'text-cyan-400', borderColor: 'border-cyan-500' },
   { id: 'sabotage', icon: <Skull className="w-6 h-6" />, label: '🪤 Sabotage', description: 'Options are always hidden! Set a trap on one slot. If your opponent picks it, you steal their Pokémon!', color: 'text-purple-400', borderColor: 'border-purple-500' },
-  { id: 'time_warp', icon: <Timer className="w-6 h-6" />, label: '⏳ Time Warp', description: 'Draft through 9 generations! Pick 9 Pokémon, then bench 3 at the end.', color: 'text-blue-400', borderColor: 'border-blue-500' }
+  { id: 'time_warp', icon: <Timer className="w-6 h-6" />, label: '⏳ Time Warp', description: 'Draft through 9 generations! Pick 9 Pokémon, then bench 3 at the end.', color: 'text-blue-400', borderColor: 'border-blue-500' },
+  { id: 'survivor', icon: <Skull className="w-6 h-6" />, label: '🔪 Survivor', description: 'Draft a massive team of 10. Each player secretly executes 1 Pokémon from the opponent!', color: 'text-red-500', borderColor: 'border-red-500' },
+  { id: 'chain_reaction', icon: <Wand2 className="w-6 h-6" />, label: '🔗 Chain Reaction', description: 'Draft 6 rounds. Each pick must share a type with your previous pick!', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' },
+  { id: 'pokerus', icon: <Skull className="w-6 h-6" />, label: '🦠 Pokérus Outbreak', description: 'Draft 6 Pokémon. A random type is infected at the end, mutating all Pokémon weak to it into random Legends!', color: 'text-purple-400', borderColor: 'border-purple-500' }
 ];
 
 function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
@@ -1478,7 +1489,7 @@ export default function DraftMode() {
         if (status === 'SUBSCRIBED') {
           const filters = buildFilters();
           const isVip = selectedMode === 'vip';
-          const totalRounds = isVip ? 6 : selectedMode === 'survivor' ? 10 : selectedMode === 'time_warp' || selectedMode === 'bingo' ? 9 : selectedMode === 'chain_reaction' || selectedMode === 'pokerus' ? 6 : 3;
+          const totalRounds = getTotalRoundsForMode(selectedMode);
           const initial: DraftState = {
             code, status: 'LOBBY', gameMode: selectedMode, arena: selectedArena,
             optionsPerRound: selectedMode === 'wildcard' || isVip ? 3 : optionsPerRound, round: 1, totalRounds, filters,
@@ -1560,11 +1571,7 @@ export default function DraftMode() {
     if (!isHostRef.current || !gameStateRef.current) return;
     const cur = gameStateRef.current;
     const initialStatus = selectedMode === 'monotype' ? 'MONOTYPE_ROULETTE' : 'DRAFTING';
-    const totalRounds = (selectedMode === 'vip' || selectedMode === 'monotype' || selectedMode === 'roulette_steal' || selectedMode === 'balanced_budget' || selectedMode === 'chain_reaction' || selectedMode === 'pokerus') ? 6
-      : selectedMode === 'tug_of_war' ? 5
-      : selectedMode === 'survivor' ? 10
-      : selectedMode === 'time_warp' || selectedMode === 'bingo' ? 9
-      : 3;
+    const totalRounds = getTotalRoundsForMode(selectedMode);
     const next: DraftState = { 
        ...cur, 
        status: initialStatus,
@@ -1648,7 +1655,7 @@ export default function DraftMode() {
   }, [applyState, broadcastToGuest, resolveRound]);
 
   const submitMyChoices = useCallback(() => {
-    const keepOnlyModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget'];
+    const keepOnlyModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus'];
     const isKeepOnly = keepOnlyModes.includes(gameState?.gameMode ?? '');
     if (keepChoice !== null && (giveChoice !== null || isKeepOnly)) {
       playThud();
@@ -1876,11 +1883,7 @@ export default function DraftMode() {
     if (!isHostRef.current || !gameStateRef.current) return;
     const cur = gameStateRef.current;
     
-    const totalRounds = (cur.gameMode === 'vip' || cur.gameMode === 'monotype' || cur.gameMode === 'roulette_steal' || cur.gameMode === 'balanced_budget' || cur.gameMode === 'chain_reaction' || cur.gameMode === 'pokerus') ? 6
-      : cur.gameMode === 'tug_of_war' ? 5
-      : cur.gameMode === 'survivor' ? 10
-      : cur.gameMode === 'time_warp' || cur.gameMode === 'bingo' ? 9
-      : 3;
+    const totalRounds = getTotalRoundsForMode(cur.gameMode);
       
     const next: DraftState = {
       ...cur,
@@ -1936,9 +1939,7 @@ export default function DraftMode() {
     const next: DraftState = structuredClone(gameStateRef.current);
     next.gameMode = newMode;
     
-    const newTotalRounds = (newMode === 'vip' || newMode === 'monotype' || newMode === 'roulette_steal' || newMode === 'balanced_budget') ? 6
-      : newMode === 'tug_of_war' ? 5
-      : 3;
+    const newTotalRounds = getTotalRoundsForMode(newMode);
     next.totalRounds = newTotalRounds;
     
     let availableTypes = ALL_TYPES;
@@ -2739,7 +2740,7 @@ export default function DraftMode() {
               <div className="flex flex-col gap-4 order-2 lg:order-1">
                 <h3 className="text-xl font-bold text-indigo-400 text-center">{gameState.p1.username}&apos;s Team</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {[...Array(6)].map((_, i) => <TeamSlot key={i} data={gameState.p1.team[i]} index={i} playerNum={1} />)}
+                  {[...Array(Math.max(gameState.status === 'REVEAL' ? 6 : (['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus'].includes(gameState.gameMode) ? gameState.totalRounds : gameState.totalRounds * 2), gameState.p1.team.length, 6))].map((_, i) => <TeamSlot key={i} data={gameState.p1.team[i]} index={i} playerNum={1} />)}
                 </div>
               </div>
 
@@ -2992,7 +2993,7 @@ export default function DraftMode() {
               <div className="flex flex-col gap-4 order-3">
                 <h3 className="text-xl font-bold text-rose-400 text-center">{gameState.p2?.username ?? 'Opponent'}&apos;s Team</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {[...Array(6)].map((_, i) => <TeamSlot key={i} data={gameState.p2?.team[i]} index={i} playerNum={2} />)}
+                  {[...Array(Math.max(gameState.status === 'REVEAL' ? 6 : (['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus'].includes(gameState.gameMode) ? gameState.totalRounds : gameState.totalRounds * 2), gameState.p2?.team.length || 0, 6))].map((_, i) => <TeamSlot key={i} data={gameState.p2?.team[i]} index={i} playerNum={2} />)}
                 </div>
               </div>
             </div>
