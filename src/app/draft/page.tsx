@@ -633,15 +633,30 @@ export default function DraftMode() {
     if (state.gameMode === 'bingo' && state.bingoBoard) {
       const unclaimed = state.bingoBoard.flat().filter(c => c.claimedBy === null);
       if (unclaimed.length > 0) {
-        const targetCell = unclaimed[Math.floor(Math.random() * unclaimed.length)];
-        const { requirementX: typeReq, requirementY: genReq } = targetCell;
-        let genAllowed: number[] = [];
-        if (genReq === 'Gen 1-3') genAllowed = [1, 2, 3];
-        if (genReq === 'Gen 4-6') genAllowed = [4, 5, 6];
-        if (genReq === 'Gen 7-9') genAllowed = [7, 8, 9];
-        const bingoFilter = (p: PokemonIndexItem) => p.types.includes(typeReq) && genAllowed.includes(p.generation);
-        const b1 = p1Pool.filter(bingoFilter);
-        const b2 = p2Pool.filter(bingoFilter);
+        const getGenAllowed = (genReq: string) => {
+          if (genReq === 'Gen 1-3') return [1, 2, 3];
+          if (genReq === 'Gen 4-6') return [4, 5, 6];
+          if (genReq === 'Gen 7-9') return [7, 8, 9];
+          return [1, 2, 3, 4, 5, 6, 7, 8, 9];
+        };
+        const filterForCell = (c: { requirementX: string; requirementY: string }) => {
+          const gens = getGenAllowed(c.requirementY);
+          return (p: PokemonIndexItem) => p.types.includes(c.requirementX) && gens.includes(p.generation);
+        };
+
+        const validCellsP1 = unclaimed.filter(c => p1Pool.filter(filterForCell(c)).length >= state.optionsPerRound);
+        const targetCell1 = validCellsP1.length > 0
+          ? validCellsP1[Math.floor(Math.random() * validCellsP1.length)]
+          : unclaimed[Math.floor(Math.random() * unclaimed.length)];
+
+        const remainingUnclaimed = unclaimed.filter(c => c !== targetCell1);
+        const validCellsP2 = (remainingUnclaimed.length > 0 ? remainingUnclaimed : unclaimed).filter(c => p2Pool.filter(filterForCell(c)).length >= state.optionsPerRound);
+        const targetCell2 = validCellsP2.length > 0
+          ? validCellsP2[Math.floor(Math.random() * validCellsP2.length)]
+          : (remainingUnclaimed.length > 0 ? remainingUnclaimed[Math.floor(Math.random() * remainingUnclaimed.length)] : targetCell1);
+
+        const b1 = p1Pool.filter(filterForCell(targetCell1));
+        const b2 = p2Pool.filter(filterForCell(targetCell2));
         if (b1.length >= state.optionsPerRound) p1Pool = b1;
         if (b2.length >= state.optionsPerRound) p2Pool = b2;
       }
@@ -2019,6 +2034,13 @@ export default function DraftMode() {
     }
     if (newMode === 'blind') {
        next.blindClueType = blindClueType;
+    }
+    if (newMode === 'bingo' && !next.bingoBoard) {
+       const types = Object.keys(TYPE_COLORS).sort(() => Math.random() - 0.5);
+       const cols = [types[0], types[1], types[2]];
+       const rows = ['Gen 1-3', 'Gen 4-6', 'Gen 7-9'];
+       next.bingoBoard = rows.map(r => cols.map(c => ({ requirementX: c, requirementY: r, claimedBy: null, pokemon: null })));
+       next.bingoTurn = 1;
     }
     generateOptions(next, pokemonList);
     applyState(next); broadcastToGuest(next);
