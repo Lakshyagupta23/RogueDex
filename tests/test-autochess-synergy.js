@@ -36,42 +36,41 @@ console.log('Testing Auto-Chess and Synergy Ascension logic...');
     if (available.length >= 3) {
       const triplet = available.slice(0, 3);
       triplet.forEach(m => usedMembers.add(m));
-      const fullyEvolved = pokemonList.filter(p => p.isFullyEvolved && !p.isLegendary && !p.isMythical);
+      const legends = pokemonList.filter(p => (p.isLegendary || p.isMythical));
+      const typeLegends = legends.filter(p => p.types.includes(type));
+      const teamMemberIds = new Set(state.p1.team.map(m => m.actualPk.id));
 
-      triplet.forEach(t => {
-        const idx = state.p1.team.indexOf(t);
-        let evolvedForm = null;
-        const chainMembers = pokemonList.filter(p => p.evolutionChainId === t.actualPk.evolutionChainId);
-        const chainFullyEvolved = chainMembers.filter(p => p.isFullyEvolved && p.id < 10000 && !p.isMega);
-
-        if (chainFullyEvolved.length > 0 && (!t.actualPk.isFullyEvolved || chainFullyEvolved.some(c => c.id !== t.actualPk.id))) {
-          const matchingTypeEvo = chainFullyEvolved.filter(p => p.types.includes(type));
-          evolvedForm = matchingTypeEvo.length > 0
-            ? matchingTypeEvo[Math.floor(Math.random() * matchingTypeEvo.length)]
-            : chainFullyEvolved[Math.floor(Math.random() * chainFullyEvolved.length)];
+      const selectedLegends = [];
+      const unusedTypeLegends = [...typeLegends.filter(p => !teamMemberIds.has(p.id))].sort(() => Math.random() - 0.5);
+      for (const leg of unusedTypeLegends) {
+        if (selectedLegends.length < 3 && !selectedLegends.some(s => s.id === leg.id)) {
+          selectedLegends.push(leg);
         }
-
-        const megaForms = pokemonList.filter(p => p.speciesId === (evolvedForm ? evolvedForm.speciesId : t.actualPk.speciesId) && p.isMega);
-        if (megaForms.length > 0 && (Math.random() > 0.4 || t.actualPk.isFullyEvolved)) {
-          evolvedForm = megaForms[Math.floor(Math.random() * megaForms.length)];
-        }
-
-        if (!evolvedForm) {
-          const highTierPool = pokemonList.filter(p => 
-            p.types.includes(type) && (p.isLegendary || p.isMega || (p.isFullyEvolved && p.stats.total >= 520))
-          );
-          if (highTierPool.length > 0) {
-            evolvedForm = highTierPool[Math.floor(Math.random() * highTierPool.length)];
-          } else {
-            let typeEvolved = fullyEvolved.filter(p => p.types.includes(type));
-            if (typeEvolved.length === 0) typeEvolved = fullyEvolved;
-            evolvedForm = typeEvolved[Math.floor(Math.random() * typeEvolved.length)];
+      }
+      if (selectedLegends.length < 3) {
+        const anyTypeLegends = [...typeLegends].sort(() => Math.random() - 0.5);
+        for (const leg of anyTypeLegends) {
+          if (selectedLegends.length < 3 && !selectedLegends.some(s => s.id === leg.id)) {
+            selectedLegends.push(leg);
           }
         }
+      }
+      if (selectedLegends.length < 3) {
+        const unusedGeneral = [...legends.filter(p => !teamMemberIds.has(p.id))].sort(() => Math.random() - 0.5);
+        for (const leg of unusedGeneral) {
+          if (selectedLegends.length < 3 && !selectedLegends.some(s => s.id === leg.id)) {
+            selectedLegends.push(leg);
+          }
+        }
+      }
+
+      triplet.forEach((t, i) => {
+        const idx = state.p1.team.indexOf(t);
+        const legendaryForm = selectedLegends[i] || selectedLegends[0] || t.actualPk;
 
         state.p1.team[idx] = {
           ...t,
-          actualPk: { ...evolvedForm },
+          actualPk: { ...legendaryForm },
           merged: true,
           ascended: true,
           isMystery: false
@@ -82,7 +81,9 @@ console.log('Testing Auto-Chess and Synergy Ascension logic...');
 
   assert.strictEqual(state.p1.team.length, 3, 'Synergy mode keeps all 3 Pokemon in team');
   assert.ok(state.p1.team.every(m => m.ascended && m.merged), 'All 3 members are marked ascended');
-  assert.ok(state.p1.team.every(m => m.actualPk.isFullyEvolved || m.actualPk.isMega || m.actualPk.isLegendary), 'All 3 members transformed into powerful forms');
+  assert.ok(state.p1.team.every(m => m.actualPk.isLegendary || m.actualPk.isMythical), 'All 3 members transformed into Legendaries/Mythicals');
+  const distinctIds = new Set(state.p1.team.map(m => m.actualPk.id));
+  assert.strictEqual(distinctIds.size, 3, 'All 3 ascended Legendaries are distinct');
   console.log('✓ Synergy Ascension with base stage passed: [', state.p1.team.map(m => m.actualPk.displayName).join(', '), ']');
 }
 

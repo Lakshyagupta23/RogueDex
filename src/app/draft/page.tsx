@@ -78,7 +78,7 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'chain_reaction', icon: <Wand2 className="w-6 h-6" />, label: '🔗 Chain Reaction', description: 'Draft 6 rounds. Each pick must share a type with your previous pick!', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' },
   { id: 'pokerus', icon: <Skull className="w-6 h-6" />, label: '🦠 Pokérus Outbreak', description: 'Draft 6 Pokémon. A random type is infected at the end, mutating all Pokémon weak to it into random Legends!', color: 'text-purple-400', borderColor: 'border-purple-500' },
   { id: 'auto_chess', icon: <Wand2 className="w-6 h-6" />, label: '♟️ Auto-Chess Merge', description: 'Draft 9 Pokémon! If you draft 3 of the same type, they merge into a Legendary. Bench 3 at the end.', color: 'text-indigo-400', borderColor: 'border-indigo-500' },
-  { id: 'synergy', icon: <Zap className="w-6 h-6" />, label: '⚡ Synergy Ascension', description: 'Draft 6 base-stage Pokémon. If you get 3 of the same type, they ALL instantly evolve into powerful Pokémon!', color: 'text-yellow-400', borderColor: 'border-yellow-500' }
+  { id: 'synergy', icon: <Zap className="w-6 h-6" />, label: '⚡ Synergy Ascension', description: 'Draft base-stage Pokémon. When you collect 3 of the same type, they ALL instantly ascend into 3 unique Legendary Pokémon!', color: 'text-yellow-400', borderColor: 'border-yellow-500' }
 ];
 
 function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
@@ -764,9 +764,10 @@ export default function DraftMode() {
       }
     } else {
       if (state.gameMode === 'synergy' || state.gameMode === 'auto_chess') {
-        const baseStagePool = p1Pool.filter(p => !p.isFullyEvolved && !p.isLegendary && !p.isMythical);
-        p1Pool = baseStagePool.length >= state.optionsPerRound ? baseStagePool : p1Pool;
-        p2Pool = baseStagePool.length >= state.optionsPerRound ? baseStagePool : p2Pool;
+        const baseStageP1 = p1Pool.filter(p => !p.isFullyEvolved && !p.isLegendary && !p.isMythical);
+        const baseStageP2 = p2Pool.filter(p => !p.isFullyEvolved && !p.isLegendary && !p.isMythical);
+        p1Pool = baseStageP1.length >= state.optionsPerRound ? baseStageP1 : p1Pool;
+        p2Pool = baseStageP2.length >= state.optionsPerRound ? baseStageP2 : p2Pool;
       }
       state.p1Options = pickUnique(state.optionsPerRound, p1Pool);
       if (state.gameMode === 'sabotage') {
@@ -1091,48 +1092,60 @@ export default function DraftMode() {
               // Grant 2 extra draft rounds so players can always draft a full 6-Pokemon team!
               state.totalRounds += 2;
             } else if (state.gameMode === 'synergy') {
-              // Synergy Ascension: Transform ALL 3 Pokemon of the triplet into authentic powerful/fully evolved forms!
-              triplet.forEach(t => {
-                const idx = playerTeam.indexOf(t);
-                if (idx === -1) return;
+              // Synergy Ascension: Transform ALL 3 Pokemon of the triplet into 3 unique Legendary Pokémon!
+              const typeLegends = legends.filter(p => p.types.includes(type));
+              const teamMemberIds = new Set(playerTeam.map(m => m.actualPk.id));
 
-                // Priority 1: Evolve along authentic evolutionary chain
-                let evolvedForm: PokemonIndexItem | null = null;
-                const chainMembers = pokemonList.filter(p => p.evolutionChainId === t.actualPk.evolutionChainId);
-                const chainFullyEvolved = chainMembers.filter(p => p.isFullyEvolved && p.id < 10000 && !p.isMega);
-                
-                if (chainFullyEvolved.length > 0 && (!t.actualPk.isFullyEvolved || chainFullyEvolved.some(c => c.id !== t.actualPk.id))) {
-                  // Prefer evolution that shares the synergy type
-                  const matchingTypeEvo = chainFullyEvolved.filter(p => p.types.includes(type));
-                  evolvedForm = matchingTypeEvo.length > 0
-                    ? matchingTypeEvo[Math.floor(Math.random() * matchingTypeEvo.length)]
-                    : chainFullyEvolved[Math.floor(Math.random() * chainFullyEvolved.length)];
+              // Pick 3 unique Legendaries, prioritizing matching type and avoiding duplicates on the team
+              const selectedLegends: PokemonIndexItem[] = [];
+
+              // Phase 1: Type-matching legendaries not already on the team
+              const unusedTypeLegends = [...typeLegends.filter(p => !teamMemberIds.has(p.id))].sort(() => Math.random() - 0.5);
+              for (const leg of unusedTypeLegends) {
+                if (selectedLegends.length < 3 && !selectedLegends.some(s => s.id === leg.id)) {
+                  selectedLegends.push(leg);
                 }
+              }
 
-                // Priority 2: Check for Mega Evolution of this species
-                const megaForms = pokemonList.filter(p => p.speciesId === (evolvedForm ? evolvedForm.speciesId : t.actualPk.speciesId) && p.isMega);
-                if (megaForms.length > 0 && (Math.random() > 0.4 || t.actualPk.isFullyEvolved)) {
-                  evolvedForm = megaForms[Math.floor(Math.random() * megaForms.length)];
-                }
-
-                // Priority 3: If already fully evolved with no mega, or no chain form found, ascend into a powerhouse of the synergy type
-                if (!evolvedForm) {
-                  const highTierPool = pokemonList.filter(p => 
-                    p.types.includes(type) && (p.isLegendary || p.isMega || (p.isFullyEvolved && p.stats.total >= 520))
-                  );
-                  if (highTierPool.length > 0) {
-                    evolvedForm = highTierPool[Math.floor(Math.random() * highTierPool.length)];
-                  } else {
-                    let typeEvolved = fullyEvolved.filter(p => p.types.includes(type));
-                    if (typeEvolved.length === 0) typeEvolved = fullyEvolved;
-                    evolvedForm = typeEvolved[Math.floor(Math.random() * typeEvolved.length)];
+              // Phase 2: Any type-matching legendaries
+              if (selectedLegends.length < 3) {
+                const anyTypeLegends = [...typeLegends].sort(() => Math.random() - 0.5);
+                for (const leg of anyTypeLegends) {
+                  if (selectedLegends.length < 3 && !selectedLegends.some(s => s.id === leg.id)) {
+                    selectedLegends.push(leg);
                   }
                 }
+              }
 
-                // Replace member with fresh object reference for React reactivity
+              // Phase 3: If this type has fewer than 3 legendaries (e.g. Bug, Normal, Ground), backfill with unused general legendaries
+              if (selectedLegends.length < 3) {
+                const unusedGeneral = [...legends.filter(p => !teamMemberIds.has(p.id))].sort(() => Math.random() - 0.5);
+                for (const leg of unusedGeneral) {
+                  if (selectedLegends.length < 3 && !selectedLegends.some(s => s.id === leg.id)) {
+                    selectedLegends.push(leg);
+                  }
+                }
+              }
+
+              // Phase 4: Any general legendaries as final fallback
+              if (selectedLegends.length < 3) {
+                const anyGeneral = [...legends].sort(() => Math.random() - 0.5);
+                for (const leg of anyGeneral) {
+                  if (selectedLegends.length < 3 && !selectedLegends.some(s => s.id === leg.id)) {
+                    selectedLegends.push(leg);
+                  }
+                }
+              }
+
+              // Transform ALL 3 Pokemon of the triplet into 3 unique Legendaries!
+              triplet.forEach((t, i) => {
+                const idx = playerTeam.indexOf(t);
+                if (idx === -1) return;
+                const legendaryForm = selectedLegends[i] || selectedLegends[0] || t.actualPk;
+
                 playerTeam[idx] = {
                   ...t,
-                  actualPk: { ...evolvedForm },
+                  actualPk: { ...legendaryForm },
                   merged: true,
                   ascended: true,
                   isMystery: false
@@ -1140,8 +1153,11 @@ export default function DraftMode() {
               });
 
               try {
-                confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+                confetti({ particleCount: 60, spread: 80, origin: { y: 0.6 } });
                 playLegendary();
+                if (selectedLegends[0]?.id) {
+                  playPokemonCry(selectedLegends[0].id);
+                }
               } catch (_) {}
             }
           }
@@ -3384,7 +3400,7 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
         </div>
 
         {/* BACK: POKEMON */}
-        <div className={`absolute inset-0 w-full h-full border rounded-2xl p-3 flex flex-col items-center justify-between overflow-hidden transition-all ${data.isDead ? 'bg-slate-900 border-rose-900/50 grayscale' : 'bg-slate-900/80 border-slate-700'}`}
+        <div className={`absolute inset-0 w-full h-full border rounded-2xl p-3 flex flex-col items-center justify-between overflow-hidden transition-all ${data.isDead ? 'bg-slate-900 border-rose-900/50 grayscale' : data.ascended ? 'bg-gradient-to-b from-yellow-950/40 to-slate-900 border-yellow-500/60 shadow-[0_0_15px_rgba(234,179,8,0.25)]' : data.merged ? 'bg-gradient-to-b from-amber-950/40 to-slate-900 border-amber-500/50' : 'bg-slate-900/80 border-slate-700'}`}
              style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
           {data.fromOpponent && <span className="absolute top-2 right-2 text-[8px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase z-10">Given</span>}
           {data.ascended && <span className="absolute top-2 left-2 text-[8px] bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 px-1.5 py-0.5 rounded font-black uppercase z-10 animate-pulse">⚡ Ascended</span>}
