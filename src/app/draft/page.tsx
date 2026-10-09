@@ -1043,8 +1043,8 @@ export default function DraftMode() {
     
     // Auto-Chess Merge & Synergy Ascension Logic
     if (state.gameMode === 'auto_chess' || state.gameMode === 'synergy') {
-      const processSynergy = (playerTeam: any[]) => {
-        const typeCounts: Record<string, any[]> = {};
+      const processSynergy = (playerTeam: DraftTeamMember[]) => {
+        const typeCounts: Record<string, DraftTeamMember[]> = {};
         playerTeam.forEach(member => {
           if (state.gameMode === 'synergy' && member.actualPk.isFullyEvolved) return; // Skip already evolved for synergy
           if (member.merged) return; // Skip already processed/merged members
@@ -1054,9 +1054,12 @@ export default function DraftMode() {
           });
         });
 
+        const usedMembers = new Set<DraftTeamMember>();
         for (const [type, members] of Object.entries(typeCounts)) {
-          if (members.length >= 3) {
-            const triplet = members.slice(0, 3);
+          const available = members.filter(m => !usedMembers.has(m) && playerTeam.includes(m) && !m.merged);
+          if (available.length >= 3) {
+            const triplet = available.slice(0, 3);
+            triplet.forEach(m => usedMembers.add(m));
             const legends = pokemonList.filter(p => (p.isLegendary || p.isMythical));
             const fullyEvolved = pokemonList.filter(p => p.isFullyEvolved && !p.isLegendary && !p.isMythical);
             
@@ -2980,7 +2983,7 @@ export default function DraftMode() {
                       <Timer className="w-10 h-10" />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-black text-white mb-2">{gameState.gameMode === 'bingo' ? 'Bingo Bench Phase' : 'Time Warp Bench Phase'}</h3>
+                      <h3 className="text-2xl font-black text-white mb-2">{gameState.gameMode === 'bingo' ? 'Bingo Bench Phase' : gameState.gameMode === 'auto_chess' ? 'Auto-Chess Bench Phase' : 'Time Warp Bench Phase'}</h3>
                       <p className="text-slate-400">Select exactly {Math.max(0, (isHost ? gameState.p1 : gameState.p2!).team.length - 6)} Pokémon from your team to bench. Only 6 can travel with you to the final team!</p>
                     </div>
                     <div className="w-full flex justify-center">
@@ -3270,6 +3273,7 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
         <div className={`absolute inset-0 w-full h-full border rounded-2xl p-3 flex flex-col items-center justify-between overflow-hidden transition-all ${data.isDead ? 'bg-slate-900 border-rose-900/50 grayscale' : 'bg-slate-900/80 border-slate-700'}`}
              style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
           {data.fromOpponent && <span className="absolute top-2 right-2 text-[8px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase z-10">Given</span>}
+          {data.merged && <span className="absolute top-2 left-2 text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-black uppercase z-10">⚡ Merged</span>}
           {data.cost !== undefined && <span className="absolute top-2 left-2 text-[8px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-black z-10">${data.cost}</span>}
           {data.isDead && <div className="absolute inset-0 z-20 flex items-center justify-center bg-rose-950/40 backdrop-blur-[1px]"><span className="text-4xl">☠️</span></div>}
           
