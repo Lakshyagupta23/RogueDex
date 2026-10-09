@@ -3,7 +3,7 @@ const pokemonList = require('../public/data/pokemon_index.json');
 
 console.log('Testing Auto-Chess and Synergy Ascension logic...');
 
-// Test 1: Synergy Ascension with base-stage Pokemon
+// Test 1: Synergy Ascension with fully-evolved Pokemon (e.g. Blastoise, Seismitoad, Carracosta)
 {
   const state = {
     gameMode: 'synergy',
@@ -12,13 +12,13 @@ console.log('Testing Auto-Chess and Synergy Ascension logic...');
     totalRounds: 6
   };
 
-  const bulbasaur = pokemonList.find(p => p.name === 'bulbasaur');
-  const oddish = pokemonList.find(p => p.name === 'oddish');
-  const bellsprout = pokemonList.find(p => p.name === 'bellsprout');
+  const blastoise = pokemonList.find(p => p.name === 'blastoise');
+  const seismitoad = pokemonList.find(p => p.name === 'seismitoad');
+  const carracosta = pokemonList.find(p => p.name === 'carracosta');
 
-  state.p1.team.push({ isMystery: false, actualPk: { ...bulbasaur }, fromOpponent: false });
-  state.p1.team.push({ isMystery: false, actualPk: { ...oddish }, fromOpponent: false });
-  state.p1.team.push({ isMystery: false, actualPk: { ...bellsprout }, fromOpponent: false });
+  state.p1.team.push({ isMystery: false, actualPk: { ...blastoise }, fromOpponent: false });
+  state.p1.team.push({ isMystery: false, actualPk: { ...seismitoad }, fromOpponent: false });
+  state.p1.team.push({ isMystery: false, actualPk: { ...carracosta }, fromOpponent: false });
 
   // Run synergy logic
   const typeCounts = {};
@@ -84,7 +84,7 @@ console.log('Testing Auto-Chess and Synergy Ascension logic...');
   assert.ok(state.p1.team.every(m => m.actualPk.isLegendary || m.actualPk.isMythical), 'All 3 members transformed into Legendaries/Mythicals');
   const distinctIds = new Set(state.p1.team.map(m => m.actualPk.id));
   assert.strictEqual(distinctIds.size, 3, 'All 3 ascended Legendaries are distinct');
-  console.log('✓ Synergy Ascension with base stage passed: [', state.p1.team.map(m => m.actualPk.displayName).join(', '), ']');
+  console.log('✓ Synergy Ascension with fully evolved passed: [', state.p1.team.map(m => m.actualPk.displayName).join(', '), ']');
 }
 
 // Test 2: Synergy Ascension with single-stage Pokemon (e.g. Lapras)

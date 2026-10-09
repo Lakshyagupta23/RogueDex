@@ -78,7 +78,7 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'chain_reaction', icon: <Wand2 className="w-6 h-6" />, label: '🔗 Chain Reaction', description: 'Draft 6 rounds. Each pick must share a type with your previous pick!', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' },
   { id: 'pokerus', icon: <Skull className="w-6 h-6" />, label: '🦠 Pokérus Outbreak', description: 'Draft 6 Pokémon. A random type is infected at the end, mutating all Pokémon weak to it into random Legends!', color: 'text-purple-400', borderColor: 'border-purple-500' },
   { id: 'auto_chess', icon: <Wand2 className="w-6 h-6" />, label: '♟️ Auto-Chess Merge', description: 'Draft 9 Pokémon! If you draft 3 of the same type, they merge into a Legendary. Bench 3 at the end.', color: 'text-indigo-400', borderColor: 'border-indigo-500' },
-  { id: 'synergy', icon: <Zap className="w-6 h-6" />, label: '⚡ Synergy Ascension', description: 'Draft base-stage Pokémon. When you collect 3 of the same type, they ALL instantly ascend into 3 unique Legendary Pokémon!', color: 'text-yellow-400', borderColor: 'border-yellow-500' }
+  { id: 'synergy', icon: <Zap className="w-6 h-6" />, label: '⚡ Synergy Ascension', description: 'Draft 6 fully-evolved Pokémon! When you collect 3 of the same type, they ALL instantly ascend into 3 unique Legendary Pokémon!', color: 'text-yellow-400', borderColor: 'border-yellow-500' }
 ];
 
 function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
@@ -763,7 +763,12 @@ export default function DraftMode() {
         state.p2Options = genPack(state.p2PackChoice ?? null);
       }
     } else {
-      if (state.gameMode === 'synergy' || state.gameMode === 'auto_chess') {
+      if (state.gameMode === 'synergy') {
+        const fullyEvolvedP1 = p1Pool.filter(p => p.isFullyEvolved && !p.isMega && !p.isLegendary && !p.isMythical);
+        const fullyEvolvedP2 = p2Pool.filter(p => p.isFullyEvolved && !p.isMega && !p.isLegendary && !p.isMythical);
+        p1Pool = fullyEvolvedP1.length >= state.optionsPerRound ? fullyEvolvedP1 : p1Pool;
+        p2Pool = fullyEvolvedP2.length >= state.optionsPerRound ? fullyEvolvedP2 : p2Pool;
+      } else if (state.gameMode === 'auto_chess') {
         const baseStageP1 = p1Pool.filter(p => !p.isFullyEvolved && !p.isLegendary && !p.isMythical);
         const baseStageP2 = p2Pool.filter(p => !p.isFullyEvolved && !p.isLegendary && !p.isMythical);
         p1Pool = baseStageP1.length >= state.optionsPerRound ? baseStageP1 : p1Pool;
