@@ -1061,8 +1061,7 @@ export default function DraftMode() {
       const processSynergy = (playerTeam: DraftTeamMember[]) => {
         const typeCounts: Record<string, DraftTeamMember[]> = {};
         playerTeam.forEach(member => {
-          if (state.gameMode === 'synergy' && member.actualPk.isFullyEvolved) return; // Skip already evolved for synergy
-          if (member.merged) return; // Skip already processed/merged members
+          if (member.merged || member.ascended) return; // Skip already merged/ascended members
           member.actualPk.types.forEach((t: string) => {
             if (!typeCounts[t]) typeCounts[t] = [];
             if (!typeCounts[t].includes(member)) typeCounts[t].push(member);
@@ -1071,7 +1070,7 @@ export default function DraftMode() {
 
         const usedMembers = new Set<DraftTeamMember>();
         for (const [type, members] of Object.entries(typeCounts)) {
-          const available = members.filter(m => !usedMembers.has(m) && playerTeam.includes(m) && !m.merged);
+          const available = members.filter(m => !usedMembers.has(m) && playerTeam.includes(m) && !m.merged && !m.ascended);
           if (available.length >= 3) {
             const triplet = available.slice(0, 3);
             triplet.forEach(m => usedMembers.add(m));
@@ -1087,16 +1086,63 @@ export default function DraftMode() {
                 const idx = playerTeam.indexOf(t);
                 if (idx > -1) playerTeam.splice(idx, 1);
               });
-              playerTeam.push({ isMystery: false, actualPk: mergedLegend, fromOpponent: false, merged: true });
+              playerTeam.push({ isMystery: false, actualPk: { ...mergedLegend }, fromOpponent: false, merged: true });
+              // In auto-chess, each merge removes 3 and spawns 1 (-2 net).
+              // Grant 2 extra draft rounds so players can always draft a full 6-Pokemon team!
+              state.totalRounds += 2;
             } else if (state.gameMode === 'synergy') {
-              let typeEvolved = fullyEvolved.filter(p => p.types.includes(type));
-              if (typeEvolved.length === 0) typeEvolved = fullyEvolved;
-              
+              // Synergy Ascension: Transform ALL 3 Pokemon of the triplet into authentic powerful/fully evolved forms!
               triplet.forEach(t => {
-                const evolvedForm = typeEvolved[Math.floor(Math.random() * typeEvolved.length)];
-                t.actualPk = evolvedForm;
-                t.merged = true;
+                const idx = playerTeam.indexOf(t);
+                if (idx === -1) return;
+
+                // Priority 1: Evolve along authentic evolutionary chain
+                let evolvedForm: PokemonIndexItem | null = null;
+                const chainMembers = pokemonList.filter(p => p.evolutionChainId === t.actualPk.evolutionChainId);
+                const chainFullyEvolved = chainMembers.filter(p => p.isFullyEvolved && p.id < 10000 && !p.isMega);
+                
+                if (chainFullyEvolved.length > 0 && (!t.actualPk.isFullyEvolved || chainFullyEvolved.some(c => c.id !== t.actualPk.id))) {
+                  // Prefer evolution that shares the synergy type
+                  const matchingTypeEvo = chainFullyEvolved.filter(p => p.types.includes(type));
+                  evolvedForm = matchingTypeEvo.length > 0
+                    ? matchingTypeEvo[Math.floor(Math.random() * matchingTypeEvo.length)]
+                    : chainFullyEvolved[Math.floor(Math.random() * chainFullyEvolved.length)];
+                }
+
+                // Priority 2: Check for Mega Evolution of this species
+                const megaForms = pokemonList.filter(p => p.speciesId === (evolvedForm ? evolvedForm.speciesId : t.actualPk.speciesId) && p.isMega);
+                if (megaForms.length > 0 && (Math.random() > 0.4 || t.actualPk.isFullyEvolved)) {
+                  evolvedForm = megaForms[Math.floor(Math.random() * megaForms.length)];
+                }
+
+                // Priority 3: If already fully evolved with no mega, or no chain form found, ascend into a powerhouse of the synergy type
+                if (!evolvedForm) {
+                  const highTierPool = pokemonList.filter(p => 
+                    p.types.includes(type) && (p.isLegendary || p.isMega || (p.isFullyEvolved && p.stats.total >= 520))
+                  );
+                  if (highTierPool.length > 0) {
+                    evolvedForm = highTierPool[Math.floor(Math.random() * highTierPool.length)];
+                  } else {
+                    let typeEvolved = fullyEvolved.filter(p => p.types.includes(type));
+                    if (typeEvolved.length === 0) typeEvolved = fullyEvolved;
+                    evolvedForm = typeEvolved[Math.floor(Math.random() * typeEvolved.length)];
+                  }
+                }
+
+                // Replace member with fresh object reference for React reactivity
+                playerTeam[idx] = {
+                  ...t,
+                  actualPk: { ...evolvedForm },
+                  merged: true,
+                  ascended: true,
+                  isMystery: false
+                };
               });
+
+              try {
+                confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+                playLegendary();
+              } catch (_) {}
             }
           }
         }
@@ -1225,6 +1271,15 @@ export default function DraftMode() {
       }
     }
 
+    // For auto_chess: Drafting MUST NOT end if either player has fewer than 6 Pokémon!
+    if (state.gameMode === 'auto_chess') {
+      const p1Count = state.p1.team.length;
+      const p2Count = state.p2 ? state.p2.team.length : 6;
+      if (p1Count < 6 || p2Count < 6) {
+        state.totalRounds = Math.max(state.totalRounds, state.round);
+      }
+    }
+
     if (state.round > state.totalRounds) {
       if (state.gameMode === 'heist') {
         state.status = 'HEIST';
@@ -1265,6 +1320,17 @@ export default function DraftMode() {
            if (state.p2) transformDittos(state.p2.team);
         }
         if (state.gameMode === 'time_warp' || state.gameMode === 'bingo' || state.gameMode === 'auto_chess') {
+          // Failsafe: Ensure both teams have at least 6 Pokémon before bench phase
+          const ensureSix = (team: DraftTeamMember[]) => {
+            while (team.length < 6) {
+              const strong = pokemonList.filter(p => (p.isLegendary || p.isMythical || p.isFullyEvolved) && !team.some(m => m.actualPk.id === p.id));
+              const fallback = strong.length > 0 ? strong[Math.floor(Math.random() * strong.length)] : pokemonList[0];
+              team.push({ isMystery: false, actualPk: { ...fallback }, fromOpponent: false });
+            }
+          };
+          ensureSix(state.p1.team);
+          if (state.p2) ensureSix(state.p2.team);
+
           state.status = 'BENCH_SELECTION';
           state.p1Benched = undefined;
           state.p2Benched = undefined;
@@ -1310,6 +1376,8 @@ export default function DraftMode() {
         generateOptions(state, pokemonList);
       }
     }
+    state.p1.team = [...state.p1.team];
+    if (state.p2) state.p2.team = [...state.p2.team];
     applyState({ ...state });
     broadcastToGuest({ ...state });
   }, [applyState, broadcastToGuest, generateOptions, pokemonList, triggerChaosEvent, getActualPk, getRandomWeakFullyEvolved]);
@@ -1464,6 +1532,15 @@ export default function DraftMode() {
         next.status = 'REVEAL';
         next.p1.team = next.p1.team.filter((_, i) => !next.p1Benched!.includes(i));
         next.p2!.team = next.p2!.team.filter((_, i) => !next.p2Benched!.includes(i));
+        const ensureSix = (team: DraftTeamMember[]) => {
+          while (team.length < 6) {
+            const strong = pokemonList.filter(p => (p.isLegendary || p.isMythical || p.isFullyEvolved) && !team.some(m => m.actualPk.id === p.id));
+            const fallback = strong.length > 0 ? strong[Math.floor(Math.random() * strong.length)] : pokemonList[0];
+            team.push({ isMystery: false, actualPk: { ...fallback }, fromOpponent: false });
+          }
+        };
+        ensureSix(next.p1.team);
+        ensureSix(next.p2!.team);
       }
       applyState(next); broadcastToGuest(next);
     }
@@ -1822,10 +1899,19 @@ export default function DraftMode() {
     if (isHostRef.current) {
       const next: DraftState = structuredClone(gameStateRef.current!);
       next.p1Benched = benchedIndices;
-      if (next.p1Benched && next.p2Benched) {
+      if (next.p1Benched && (!next.p2 || next.p2Benched)) {
         next.status = 'REVEAL';
         next.p1.team = next.p1.team.filter((_, i) => !next.p1Benched!.includes(i));
-        next.p2!.team = next.p2!.team.filter((_, i) => !next.p2Benched!.includes(i));
+        if (next.p2) next.p2.team = next.p2.team.filter((_, i) => !next.p2Benched!.includes(i));
+        const ensureSix = (team: DraftTeamMember[]) => {
+          while (team.length < 6) {
+            const strong = pokemonList.filter(p => (p.isLegendary || p.isMythical || p.isFullyEvolved) && !team.some(m => m.actualPk.id === p.id));
+            const fallback = strong.length > 0 ? strong[Math.floor(Math.random() * strong.length)] : pokemonList[0];
+            team.push({ isMystery: false, actualPk: { ...fallback }, fromOpponent: false });
+          }
+        };
+        ensureSix(next.p1.team);
+        if (next.p2) ensureSix(next.p2.team);
       }
       applyState(next);
       broadcastToGuest(next);
@@ -1835,7 +1921,7 @@ export default function DraftMode() {
         ch.send({ type: 'broadcast', event: 'guest_action', payload: { type: 'submit_bench', benchedIndices } });
       } else { alert('Lost connection to host!'); setSubmitted(false); }
     }
-  }, [benchedIndices, applyState, broadcastToGuest, playLockIn]);
+  }, [benchedIndices, applyState, broadcastToGuest, playLockIn, pokemonList]);
 
 
   const submitAuctionBid = useCallback((amount: number) => {
@@ -3006,7 +3092,11 @@ export default function DraftMode() {
                     </div>
                     <div>
                       <h3 className="text-2xl font-black text-white mb-2">{gameState.gameMode === 'bingo' ? 'Bingo Bench Phase' : gameState.gameMode === 'auto_chess' ? 'Auto-Chess Bench Phase' : 'Time Warp Bench Phase'}</h3>
-                      <p className="text-slate-400">Select exactly {Math.max(0, (isHost ? gameState.p1 : gameState.p2!).team.length - 6)} Pokémon from your team to bench. Only 6 can travel with you to the final team!</p>
+                      {Math.max(0, (isHost ? gameState.p1 : gameState.p2!).team.length - 6) === 0 ? (
+                        <p className="text-slate-400">Your final team of 6 is complete! Confirm to travel to the final battle roster.</p>
+                      ) : (
+                        <p className="text-slate-400">Select exactly {Math.max(0, (isHost ? gameState.p1 : gameState.p2!).team.length - 6)} Pokémon from your team to bench. Only 6 can travel with you to the final team!</p>
+                      )}
                     </div>
                     <div className="w-full flex justify-center">
                       <div className="flex gap-4 overflow-x-auto max-w-full pb-2 px-2">
@@ -3034,7 +3124,9 @@ export default function DraftMode() {
                     ) : (
                       <button onClick={submitBench} disabled={benchedIndices.length !== Math.max(0, (isHost ? gameState.p1 : gameState.p2!).team.length - 6)}
                         className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold py-3 rounded-xl transition-colors">
-                        Confirm Bench ({benchedIndices.length}/{Math.max(0, (isHost ? gameState.p1 : gameState.p2!).team.length - 6)})
+                        {Math.max(0, (isHost ? gameState.p1 : gameState.p2!).team.length - 6) === 0
+                          ? 'Confirm Team (6/6)'
+                          : `Confirm Bench (${benchedIndices.length}/${Math.max(0, (isHost ? gameState.p1 : gameState.p2!).team.length - 6)})`}
                       </button>
                     )}
                   </div>
@@ -3295,7 +3387,8 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
         <div className={`absolute inset-0 w-full h-full border rounded-2xl p-3 flex flex-col items-center justify-between overflow-hidden transition-all ${data.isDead ? 'bg-slate-900 border-rose-900/50 grayscale' : 'bg-slate-900/80 border-slate-700'}`}
              style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
           {data.fromOpponent && <span className="absolute top-2 right-2 text-[8px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase z-10">Given</span>}
-          {data.merged && <span className="absolute top-2 left-2 text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-black uppercase z-10">⚡ Merged</span>}
+          {data.ascended && <span className="absolute top-2 left-2 text-[8px] bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 px-1.5 py-0.5 rounded font-black uppercase z-10 animate-pulse">⚡ Ascended</span>}
+          {!data.ascended && data.merged && <span className="absolute top-2 left-2 text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-black uppercase z-10">⚡ Merged</span>}
           {data.cost !== undefined && <span className="absolute top-2 left-2 text-[8px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-black z-10">${data.cost}</span>}
           {data.isDead && <div className="absolute inset-0 z-20 flex items-center justify-center bg-rose-950/40 backdrop-blur-[1px]"><span className="text-4xl">☠️</span></div>}
           

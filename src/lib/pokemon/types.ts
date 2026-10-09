@@ -77,6 +77,7 @@ export type DraftTeamMember = {
   isDead?: boolean;
   wasAssassinated?: boolean;
   merged?: boolean;
+  ascended?: boolean;
 };
 
 export interface PlayerSlot {
