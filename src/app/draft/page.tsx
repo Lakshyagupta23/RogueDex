@@ -32,9 +32,9 @@ const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','
 const ALL_GENS = [1,2,3,4,5,6,7,8,9];
 
 export function getTotalRoundsForMode(mode: GameMode): number {
-  if (['vip', 'monotype', 'roulette_steal', 'balanced_budget', 'chain_reaction', 'pokerus', 'sabotage'].includes(mode)) return 6;
+  if (['vip', 'monotype', 'roulette_steal', 'balanced_budget', 'chain_reaction', 'pokerus', 'sabotage', 'synergy'].includes(mode)) return 6;
   if (mode === 'survivor') return 10;
-  if (['time_warp', 'bingo'].includes(mode)) return 9;
+  if (['time_warp', 'bingo', 'auto_chess'].includes(mode)) return 9;
   if (mode === 'tug_of_war') return 5;
   return 3;
 }
@@ -76,7 +76,9 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'time_warp', icon: <Timer className="w-6 h-6" />, label: '⏳ Time Warp', description: 'Draft through 9 generations! Pick 9 Pokémon, then bench 3 at the end.', color: 'text-blue-400', borderColor: 'border-blue-500' },
   { id: 'survivor', icon: <Skull className="w-6 h-6" />, label: '🔪 Survivor', description: 'Draft a massive team of 10. Each player secretly executes 1 Pokémon from the opponent!', color: 'text-red-500', borderColor: 'border-red-500' },
   { id: 'chain_reaction', icon: <Wand2 className="w-6 h-6" />, label: '🔗 Chain Reaction', description: 'Draft 6 rounds. Each pick must share a type with your previous pick!', color: 'text-fuchsia-400', borderColor: 'border-fuchsia-500' },
-  { id: 'pokerus', icon: <Skull className="w-6 h-6" />, label: '🦠 Pokérus Outbreak', description: 'Draft 6 Pokémon. A random type is infected at the end, mutating all Pokémon weak to it into random Legends!', color: 'text-purple-400', borderColor: 'border-purple-500' }
+  { id: 'pokerus', icon: <Skull className="w-6 h-6" />, label: '🦠 Pokérus Outbreak', description: 'Draft 6 Pokémon. A random type is infected at the end, mutating all Pokémon weak to it into random Legends!', color: 'text-purple-400', borderColor: 'border-purple-500' },
+  { id: 'auto_chess', icon: <Wand2 className="w-6 h-6" />, label: '♟️ Auto-Chess Merge', description: 'Draft 9 Pokémon! If you draft 3 of the same type, they merge into a Legendary. Bench 3 at the end.', color: 'text-indigo-400', borderColor: 'border-indigo-500' },
+  { id: 'synergy', icon: <Zap className="w-6 h-6" />, label: '⚡ Synergy Ascension', description: 'Draft 6 base-stage Pokémon. If you get 3 of the same type, they ALL instantly evolve into powerful Pokémon!', color: 'text-yellow-400', borderColor: 'border-yellow-500' }
 ];
 
 function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
@@ -746,6 +748,11 @@ export default function DraftMode() {
         state.p2Options = genPack(state.p2PackChoice ?? null);
       }
     } else {
+      if (state.gameMode === 'synergy' || state.gameMode === 'auto_chess') {
+        const baseStagePool = p1Pool.filter(p => !p.isFullyEvolved && !p.isLegendary && !p.isMythical);
+        p1Pool = baseStagePool.length >= state.optionsPerRound ? baseStagePool : p1Pool;
+        p2Pool = baseStagePool.length >= state.optionsPerRound ? baseStagePool : p2Pool;
+      }
       state.p1Options = pickUnique(state.optionsPerRound, p1Pool);
       if (state.gameMode === 'sabotage') {
         state.p2Options = state.p1Options.map(p => ({ ...p }));
@@ -1027,11 +1034,58 @@ export default function DraftMode() {
       if (p1k) state.p1.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p1k, fromOpponent: false });
       if (p2k) state.p2!.team.push({ isMystery: isBlind || state.gameMode === 'shadow', actualPk: p2k, fromOpponent: false });
       
-      const noGiveModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'sabotage', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus'];
+      const noGiveModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'sabotage', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'auto_chess', 'synergy'];
       if (!noGiveModes.includes(state.gameMode)) {
         if (p2g) state.p1.team.push({ isMystery: true,  actualPk: p2g, fromOpponent: true  });
         if (p1g) state.p2!.team.push({ isMystery: true,  actualPk: p1g, fromOpponent: true  });
       }
+    }
+    
+    // Auto-Chess Merge & Synergy Ascension Logic
+    if (state.gameMode === 'auto_chess' || state.gameMode === 'synergy') {
+      const processSynergy = (playerTeam: any[]) => {
+        const typeCounts: Record<string, any[]> = {};
+        playerTeam.forEach(member => {
+          if (state.gameMode === 'synergy' && member.actualPk.isFullyEvolved) return; // Skip already evolved for synergy
+          if (member.merged) return; // Skip already processed/merged members
+          member.actualPk.types.forEach((t: string) => {
+            if (!typeCounts[t]) typeCounts[t] = [];
+            if (!typeCounts[t].includes(member)) typeCounts[t].push(member);
+          });
+        });
+
+        for (const [type, members] of Object.entries(typeCounts)) {
+          if (members.length >= 3) {
+            const triplet = members.slice(0, 3);
+            const legends = pokemonList.filter(p => (p.isLegendary || p.isMythical));
+            const fullyEvolved = pokemonList.filter(p => p.isFullyEvolved && !p.isLegendary && !p.isMythical);
+            
+            if (state.gameMode === 'auto_chess') {
+              let typeLegends = legends.filter(p => p.types.includes(type));
+              if (typeLegends.length === 0) typeLegends = legends;
+              const mergedLegend = typeLegends[Math.floor(Math.random() * typeLegends.length)];
+              
+              triplet.forEach(t => {
+                const idx = playerTeam.indexOf(t);
+                if (idx > -1) playerTeam.splice(idx, 1);
+              });
+              playerTeam.push({ isMystery: false, actualPk: mergedLegend, fromOpponent: false, merged: true });
+            } else if (state.gameMode === 'synergy') {
+              let typeEvolved = fullyEvolved.filter(p => p.types.includes(type));
+              if (typeEvolved.length === 0) typeEvolved = fullyEvolved;
+              
+              triplet.forEach(t => {
+                const evolvedForm = typeEvolved[Math.floor(Math.random() * typeEvolved.length)];
+                t.actualPk = evolvedForm;
+                t.merged = true;
+              });
+            }
+          }
+        }
+      };
+
+      processSynergy(state.p1.team);
+      if (state.p2) processSynergy(state.p2.team);
     }
 
     // Track BST for Balanced Budget
@@ -1192,7 +1246,7 @@ export default function DraftMode() {
            transformDittos(state.p1.team);
            if (state.p2) transformDittos(state.p2.team);
         }
-        if (state.gameMode === 'time_warp' || state.gameMode === 'bingo') {
+        if (state.gameMode === 'time_warp' || state.gameMode === 'bingo' || state.gameMode === 'auto_chess') {
           state.status = 'BENCH_SELECTION';
           state.p1Benched = undefined;
           state.p2Benched = undefined;
@@ -1655,7 +1709,7 @@ export default function DraftMode() {
   }, [applyState, broadcastToGuest, resolveRound]);
 
   const submitMyChoices = useCallback(() => {
-    const keepOnlyModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus'];
+    const keepOnlyModes = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'auto_chess', 'synergy'];
     const isKeepOnly = keepOnlyModes.includes(gameState?.gameMode ?? '');
     if (keepChoice !== null && (giveChoice !== null || isKeepOnly)) {
       playThud();
@@ -2554,8 +2608,8 @@ export default function DraftMode() {
                   <p className="text-red-400 text-xs font-bold mt-2 uppercase tracking-widest">Pick fast or get the worst!</p>
                 </div>
               )}
-              {!['auction', 'snake', 'vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'salary_cap', 'sealed_bid', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'sabotage'].includes(gameState.gameMode) && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
-              {['monotype', 'tug_of_war', 'roulette_steal', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'vip'].includes(gameState.gameMode) && gameState.status === 'DRAFTING' && <p className="text-slate-400 font-bold mt-1 text-sm">Pick 1 to Draft for your Team!</p>}
+              {!['auction', 'snake', 'vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'salary_cap', 'sealed_bid', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'sabotage', 'auto_chess', 'synergy'].includes(gameState.gameMode) && gameState.status !== 'REVEAL' && <p className="text-slate-400 mt-2">Pick 1 to Keep, give 1 to your opponent!</p>}
+              {['monotype', 'tug_of_war', 'roulette_steal', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'vip', 'auto_chess', 'synergy'].includes(gameState.gameMode) && gameState.status === 'DRAFTING' && <p className="text-slate-400 font-bold mt-1 text-sm">Pick 1 to Draft for your Team!</p>}
               {gameState.gameMode === 'sabotage' && gameState.status === 'DRAFTING' && <p className="text-purple-400 font-bold mt-1 text-sm">Pick 1 to Draft, and place a Trap on another slot!</p>}
               {gameState.gameMode === 'balanced_budget' && gameState.status === 'DRAFTING' && <p className="text-slate-400 font-bold mt-1 text-sm">Pick 1 to Draft for your Team, or skip if over budget!</p>}
               {gameState.status === 'REVEAL' && isHost && (
@@ -2740,7 +2794,7 @@ export default function DraftMode() {
               <div className="flex flex-col gap-4 order-2 lg:order-1">
                 <h3 className="text-xl font-bold text-indigo-400 text-center">{gameState.p1.username}&apos;s Team</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {[...Array(Math.max(gameState.status === 'REVEAL' ? 6 : (['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus'].includes(gameState.gameMode) ? gameState.totalRounds : gameState.totalRounds * 2), gameState.p1.team.length, 6))].map((_, i) => <TeamSlot key={i} data={gameState.p1.team[i]} index={i} playerNum={1} />)}
+                  {[...Array(Math.max(gameState.status === 'REVEAL' ? 6 : (['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'auto_chess', 'synergy'].includes(gameState.gameMode) ? gameState.totalRounds : gameState.totalRounds * 2), gameState.p1.team.length, 6))].map((_, i) => <TeamSlot key={i} data={gameState.p1.team[i]} index={i} playerNum={1} />)}
                 </div>
               </div>
 
@@ -2852,7 +2906,7 @@ export default function DraftMode() {
                             const isGive = giveChoice === pk.id;
                             const isBlind = gameState.gameMode === 'blind' || gameState.gameMode === 'sabotage';
                             const isShadow = gameState.gameMode === 'shadow';
-                            const isKeepOnlyMode = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus'].includes(gameState.gameMode);
+                            const isKeepOnlyMode = ['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'auto_chess', 'synergy'].includes(gameState.gameMode);
                             
                             const shadowTypes = ['height', 'weight', 'habitat', 'shape'];
                             const currentShadowType = shadowTypes[(gameState.round - 1) % shadowTypes.length];
@@ -2913,7 +2967,7 @@ export default function DraftMode() {
                             );
                           })}
                         </div>
-                        <button onClick={submitMyChoices} disabled={(keepChoice === null && gameState.gameMode !== 'balanced_budget') || (!['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus'].includes(gameState.gameMode) && giveChoice === null)}
+                        <button onClick={submitMyChoices} disabled={(keepChoice === null && gameState.gameMode !== 'balanced_budget') || (!['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'auto_chess', 'synergy'].includes(gameState.gameMode) && giveChoice === null)}
                           className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold py-3 rounded-xl transition-colors">
                           {gameState.gameMode === 'balanced_budget' && keepChoice === null ? 'Skip Turn (Pass)' : 'Confirm Selection'}
                         </button>
@@ -2993,7 +3047,7 @@ export default function DraftMode() {
               <div className="flex flex-col gap-4 order-3">
                 <h3 className="text-xl font-bold text-rose-400 text-center">{gameState.p2?.username ?? 'Opponent'}&apos;s Team</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {[...Array(Math.max(gameState.status === 'REVEAL' ? 6 : (['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus'].includes(gameState.gameMode) ? gameState.totalRounds : gameState.totalRounds * 2), gameState.p2?.team.length || 0, 6))].map((_, i) => <TeamSlot key={i} data={gameState.p2?.team[i]} index={i} playerNum={2} />)}
+                  {[...Array(Math.max(gameState.status === 'REVEAL' ? 6 : (['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'auto_chess', 'synergy'].includes(gameState.gameMode) ? gameState.totalRounds : gameState.totalRounds * 2), gameState.p2?.team.length || 0, 6))].map((_, i) => <TeamSlot key={i} data={gameState.p2?.team[i]} index={i} playerNum={2} />)}
                 </div>
               </div>
             </div>
