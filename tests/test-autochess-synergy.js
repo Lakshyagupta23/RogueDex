@@ -143,7 +143,7 @@ console.log('Testing Auto-Chess and Synergy Ascension logic...');
     if (idx > -1) state.p1.team.splice(idx, 1);
   });
   state.p1.team.push({ isMystery: false, actualPk: { ...mergedLegend }, fromOpponent: false, merged: true });
-  state.totalRounds += 2;
+  state.totalRounds = Math.min(30, state.totalRounds + 2);
 
   assert.strictEqual(state.p1.team.length, 1, '3 units merged into 1 legendary');
   assert.strictEqual(state.totalRounds, 11, 'Total rounds extended by 2 for the merge');
@@ -160,23 +160,32 @@ console.log('Testing Auto-Chess and Synergy Ascension logic...');
     if (idx > -1) state.p1.team.splice(idx, 1);
   });
   state.p1.team.push({ isMystery: false, actualPk: { ...fireLegends[0] }, fromOpponent: false, merged: true });
-  state.totalRounds += 2;
+  state.totalRounds = Math.min(30, state.totalRounds + 2);
 
   assert.strictEqual(state.p1.team.length, 2, 'Team now has 2 merged legendaries');
   assert.strictEqual(state.totalRounds, 13, 'Total rounds extended to 13 to account for 2 merges');
 
-  // Verify round guard prevents premature ending if team.length < 6
-  state.round = 10; // Originally round 9 was end
+  // Simulate multiple merges beyond 30 to test the hard cap
+  for (let i = 0; i < 20; i++) {
+    state.totalRounds = Math.min(30, state.totalRounds + 2);
+  }
+  assert.strictEqual(state.totalRounds, 30, 'Total rounds strictly capped at 30 maximum even after 20 merges');
+
+  // Verify round guard respects 30-round cap
+  state.round = 30;
   if (state.gameMode === 'auto_chess') {
-    const p1Count = state.p1.team.length;
-    const p2Count = state.p2 ? state.p2.team.length : 6;
-    if (p1Count < 6 || p2Count < 6) {
-      state.totalRounds = Math.max(state.totalRounds, state.round);
+    const p1Count = 2; // Under 6
+    const p2Count = 2;
+    if ((p1Count < 6 || p2Count < 6) && state.round < 30) {
+      state.totalRounds = Math.min(30, Math.max(state.totalRounds, state.round));
+    }
+    if (state.totalRounds > 30) {
+      state.totalRounds = 30;
     }
   }
 
-  assert.ok(state.round <= state.totalRounds, 'Drafting continues because team size is < 6');
-  console.log('✓ Auto-Chess dynamic round extension and team size check passed');
+  assert.strictEqual(state.totalRounds, 30, 'Round guard does not exceed 30');
+  console.log('✓ Auto-Chess dynamic round extension and 30-round max cap check passed');
 }
 
 console.log('All automated tests passed successfully!');

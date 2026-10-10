@@ -1094,8 +1094,8 @@ export default function DraftMode() {
               });
               playerTeam.push({ isMystery: false, actualPk: { ...mergedLegend }, fromOpponent: false, merged: true });
               // In auto-chess, each merge removes 3 and spawns 1 (-2 net).
-              // Grant 2 extra draft rounds so players can always draft a full 6-Pokemon team!
-              state.totalRounds += 2;
+              // Grant 2 extra draft rounds so players can draft a full team, strictly capped at 30 rounds maximum.
+              state.totalRounds = Math.min(30, state.totalRounds + 2);
             } else if (state.gameMode === 'synergy') {
               // Synergy Ascension: Transform ALL 3 Pokemon of the triplet into 3 unique Legendary Pokémon!
               const typeLegends = legends.filter(p => p.types.includes(type));
@@ -1292,12 +1292,15 @@ export default function DraftMode() {
       }
     }
 
-    // For auto_chess: Drafting MUST NOT end if either player has fewer than 6 Pokémon!
+    // For auto_chess: Drafting MUST NOT end if either player has fewer than 6 Pokémon, but strictly capped at 30 rounds!
     if (state.gameMode === 'auto_chess') {
       const p1Count = state.p1.team.length;
       const p2Count = state.p2 ? state.p2.team.length : 6;
-      if (p1Count < 6 || p2Count < 6) {
-        state.totalRounds = Math.max(state.totalRounds, state.round);
+      if ((p1Count < 6 || p2Count < 6) && state.round < 30) {
+        state.totalRounds = Math.min(30, Math.max(state.totalRounds, state.round));
+      }
+      if (state.totalRounds > 30) {
+        state.totalRounds = 30;
       }
     }
 
