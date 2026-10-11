@@ -8,7 +8,14 @@ module.exports = defineConfig({
   workers: 1, // Ensure sequential execution for stability if needed
   reporter: 'list',
   use: {
+    baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
+  },
+  webServer: {
+    command: 'npm run start',
+    url: 'http://localhost:3000',
+    reuseExistingServer: true,
+    timeout: 60000,
   },
   projects: [
     {
