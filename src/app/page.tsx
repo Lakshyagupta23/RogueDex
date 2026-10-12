@@ -1239,11 +1239,11 @@ function RandomizerContent() {
         )}
 
         {/* Generate / Reroll trigger */}
-        <div className="w-full flex justify-center gap-4">
+        <div className="w-full flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4">
           <button
             onClick={handleRandomize}
             disabled={filteredCount === 0 || isSpinning}
-            className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold rounded-2xl shadow-xl shadow-blue-600/20 active:scale-98 transition-all hover:shadow-blue-600/35 border border-blue-500/35 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
+            className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold rounded-2xl shadow-xl shadow-blue-600/20 active:scale-98 transition-all hover:shadow-blue-600/35 border border-blue-500/35 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
           >
             <RefreshCw className={`w-5 h-5 ${(isSpinning || spinningSlots.some(Boolean)) ? 'animate-spin' : ''}`} />
             {quantity > 1 ? 'Reroll Unlocked Slots' : 'Generate Pokémon'}
@@ -1253,7 +1253,7 @@ function RandomizerContent() {
             <button
               onClick={handleExportShowdown}
               disabled={isExporting || isSpinning}
-              className="flex items-center gap-3 px-6 py-4 bg-slate-800 hover:bg-slate-700 text-indigo-400 font-extrabold rounded-2xl active:scale-98 transition-all border border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
+              className="w-full sm:w-auto flex items-center justify-center gap-3 px-6 py-4 bg-slate-800 hover:bg-slate-700 text-indigo-400 font-extrabold rounded-2xl active:scale-98 transition-all border border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
             >
               {isExporting ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sword className="w-5 h-5" />}
               Showdown Export

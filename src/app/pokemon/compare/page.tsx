@@ -314,10 +314,10 @@ export default function ComparePage() {
 
                         {/* Visual Sliders bars comparison */}
                         <div className="col-span-8 flex flex-col gap-1 items-center justify-center relative">
-                          <div className="w-full flex justify-between items-center text-[10px] text-slate-500 font-bold mb-0.5 select-none">
-                            <span>{pkA.displayName}</span>
-                            <span className="text-slate-400 uppercase tracking-wider">{stat.label}</span>
-                            <span>{pkB.displayName}</span>
+                          <div className="w-full flex justify-between items-center text-[10px] text-slate-500 font-bold mb-0.5 select-none gap-1">
+                            <span className="truncate max-w-[80px] sm:max-w-none">{pkA.displayName}</span>
+                            <span className="text-slate-400 uppercase tracking-wider shrink-0">{stat.label}</span>
+                            <span className="truncate max-w-[80px] sm:max-w-none text-right">{pkB.displayName}</span>
                           </div>
                           
                           {/* Split Dual Progress Bar */}
@@ -358,7 +358,7 @@ export default function ComparePage() {
                       </span>
                     </div>
                     <div className="col-span-8 text-center text-xs tracking-wider uppercase text-slate-550">
-                      Base Stat Total (BST) Difference:{' '}
+                      <span className="hidden sm:inline">Base Stat Total </span>BST Diff:{' '}
                       <span className="font-extrabold text-blue-400">
                         {Math.abs(pkA.stats.total - pkB.stats.total)}
                       </span>

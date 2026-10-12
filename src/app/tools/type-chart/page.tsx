@@ -34,6 +34,8 @@ const TYPE_CHART: Record<string, Record<string, number>> = {
 
 export default function TypeChartPage() {
   const router = useRouter();
+  const [viewMode, setViewMode] = useState<'quick' | 'matrix'>('quick');
+  const [selectedLookupType, setSelectedLookupType] = useState<string>('fire');
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   const [hoveredCol, setHoveredCol] = useState<string | null>(null);
 
@@ -59,6 +61,15 @@ export default function TypeChartPage() {
     return '';
   };
 
+  // Quick lookup calculations for selected type
+  const attackSuperEffective = TYPES.filter(t => getCellMultiplier(selectedLookupType, t) === 2);
+  const attackNotVery = TYPES.filter(t => getCellMultiplier(selectedLookupType, t) === 0.5);
+  const attackNoEffect = TYPES.filter(t => getCellMultiplier(selectedLookupType, t) === 0);
+
+  const defendWeakTo = TYPES.filter(t => getCellMultiplier(t, selectedLookupType) === 2);
+  const defendResists = TYPES.filter(t => getCellMultiplier(t, selectedLookupType) === 0.5);
+  const defendImmuneTo = TYPES.filter(t => getCellMultiplier(t, selectedLookupType) === 0);
+
   return (
     <div className="flex-grow w-full max-w-6xl mx-auto px-4 py-8 flex flex-col gap-6">
       
@@ -77,17 +88,219 @@ export default function TypeChartPage() {
         </span>
       </div>
 
-      <div className="text-center md:text-left">
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">
-          Type <span className="text-blue-500">Chart</span>
-        </h1>
-        <p className="text-slate-400 text-xs sm:text-sm">
-          A damage multipliers matrix detailing strengths, weaknesses, and immunities. Rows represent attackers; columns represent defenders.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="text-center sm:text-left">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">
+            Type <span className="text-blue-500">Chart</span>
+          </h1>
+          <p className="text-slate-400 text-xs sm:text-sm">
+            Instant damage multipliers detailing strengths, weaknesses, and immunities.
+          </p>
+        </div>
+
+        {/* View toggle */}
+        <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800 w-full sm:w-auto self-center sm:self-auto">
+          <button
+            onClick={() => setViewMode('quick')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              viewMode === 'quick' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            ⚡ Quick Lookup
+          </button>
+          <button
+            onClick={() => setViewMode('matrix')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              viewMode === 'matrix' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            📊 18×18 Matrix
+          </button>
+        </div>
       </div>
 
+      {/* Quick Lookup View */}
+      {viewMode === 'quick' && (
+        <div className="flex flex-col gap-6">
+          {/* Type Selectors Grid */}
+          <div className="glass-panel border-slate-850 p-4 rounded-2xl flex flex-col gap-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Select a Type to Inspect:</span>
+            <div className="flex flex-wrap gap-2">
+              {TYPES.map(type => (
+                <button
+                  key={type}
+                  onClick={() => setSelectedLookupType(type)}
+                  style={{
+                    backgroundColor: selectedLookupType === type ? TYPE_COLORS[type] : `${TYPE_COLORS[type]}15`,
+                    borderColor: TYPE_COLORS[type],
+                    color: selectedLookupType === type ? '#ffffff' : TYPE_COLORS[type],
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all ${
+                    selectedLookupType === type ? 'shadow-lg scale-105' : 'hover:scale-102 opacity-80 hover:opacity-100'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Type Matchup Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Attacking Card */}
+            <div className="glass-panel border-slate-850 p-5 rounded-2xl flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <span className="text-sm font-black uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                  ⚔️ Attacking with <span style={{ color: TYPE_COLORS[selectedLookupType] }} className="capitalize">{selectedLookupType}</span>
+                </span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Damage Output</span>
+              </div>
+
+              {/* Super Effective */}
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-bold text-green-400 flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-green-500/20 border border-green-500/40 text-[10px] flex items-center justify-center font-black">2x</span>
+                  Super Effective Against ({attackSuperEffective.length})
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {attackSuperEffective.length > 0 ? attackSuperEffective.map(t => (
+                    <span
+                      key={t}
+                      style={{ backgroundColor: `${TYPE_COLORS[t]}20`, borderColor: TYPE_COLORS[t], color: TYPE_COLORS[t] }}
+                      className="px-2.5 py-1 rounded-md text-xs font-bold uppercase border"
+                    >
+                      {t}
+                    </span>
+                  )) : (
+                    <span className="text-xs text-slate-600 italic">None</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Not Very Effective */}
+              <div className="flex flex-col gap-2 pt-2 border-t border-slate-900">
+                <span className="text-xs font-bold text-orange-400 flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-orange-500/20 border border-orange-500/40 text-[10px] flex items-center justify-center font-black">½</span>
+                  Not Very Effective Against ({attackNotVery.length})
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {attackNotVery.length > 0 ? attackNotVery.map(t => (
+                    <span
+                      key={t}
+                      style={{ backgroundColor: `${TYPE_COLORS[t]}20`, borderColor: TYPE_COLORS[t], color: TYPE_COLORS[t] }}
+                      className="px-2.5 py-1 rounded-md text-xs font-bold uppercase border"
+                    >
+                      {t}
+                    </span>
+                  )) : (
+                    <span className="text-xs text-slate-600 italic">None</span>
+                  )}
+                </div>
+              </div>
+
+              {/* No Effect */}
+              {attackNoEffect.length > 0 && (
+                <div className="flex flex-col gap-2 pt-2 border-t border-slate-900">
+                  <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded bg-slate-800 border border-slate-700 text-[10px] flex items-center justify-center font-black">0</span>
+                    No Effect Against ({attackNoEffect.length})
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {attackNoEffect.map(t => (
+                      <span
+                        key={t}
+                        style={{ backgroundColor: `${TYPE_COLORS[t]}20`, borderColor: TYPE_COLORS[t], color: TYPE_COLORS[t] }}
+                        className="px-2.5 py-1 rounded-md text-xs font-bold uppercase border"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Defending Card */}
+            <div className="glass-panel border-slate-850 p-5 rounded-2xl flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <span className="text-sm font-black uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                  🛡️ Defending as <span style={{ color: TYPE_COLORS[selectedLookupType] }} className="capitalize">{selectedLookupType}</span>
+                </span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Damage Taken</span>
+              </div>
+
+              {/* Weak To */}
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-rose-500/20 border border-rose-500/40 text-[10px] flex items-center justify-center font-black">2x</span>
+                  Weak to ({defendWeakTo.length})
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {defendWeakTo.length > 0 ? defendWeakTo.map(t => (
+                    <span
+                      key={t}
+                      style={{ backgroundColor: `${TYPE_COLORS[t]}20`, borderColor: TYPE_COLORS[t], color: TYPE_COLORS[t] }}
+                      className="px-2.5 py-1 rounded-md text-xs font-bold uppercase border"
+                    >
+                      {t}
+                    </span>
+                  )) : (
+                    <span className="text-xs text-slate-600 italic">None</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Resists */}
+              <div className="flex flex-col gap-2 pt-2 border-t border-slate-900">
+                <span className="text-xs font-bold text-green-400 flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-green-500/20 border border-green-500/40 text-[10px] flex items-center justify-center font-black">½</span>
+                  Resists ({defendResists.length})
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {defendResists.length > 0 ? defendResists.map(t => (
+                    <span
+                      key={t}
+                      style={{ backgroundColor: `${TYPE_COLORS[t]}20`, borderColor: TYPE_COLORS[t], color: TYPE_COLORS[t] }}
+                      className="px-2.5 py-1 rounded-md text-xs font-bold uppercase border"
+                    >
+                      {t}
+                    </span>
+                  )) : (
+                    <span className="text-xs text-slate-600 italic">None</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Immunities */}
+              {defendImmuneTo.length > 0 && (
+                <div className="flex flex-col gap-2 pt-2 border-t border-slate-900">
+                  <span className="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded bg-indigo-500/20 border border-indigo-500/40 text-[10px] flex items-center justify-center font-black">0</span>
+                    Immune to ({defendImmuneTo.length})
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {defendImmuneTo.map(t => (
+                      <span
+                        key={t}
+                        style={{ backgroundColor: `${TYPE_COLORS[t]}20`, borderColor: TYPE_COLORS[t], color: TYPE_COLORS[t] }}
+                        className="px-2.5 py-1 rounded-md text-xs font-bold uppercase border"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Grid wrapper */}
-      <div className="glass-panel border-slate-850 p-4 rounded-3xl overflow-x-auto shadow-2xl mt-2 select-none">
+      <div className={`glass-panel border-slate-850 p-4 rounded-3xl overflow-x-auto shadow-2xl mt-2 select-none ${viewMode === 'quick' ? 'hidden sm:block' : 'block'}`}>
+        <div className="flex items-center justify-between text-xs text-slate-500 mb-2 sm:hidden">
+          <span>👈 Swipe table horizontally 👉</span>
+        </div>
         
         <div className="min-w-[850px] flex flex-col gap-1">
           

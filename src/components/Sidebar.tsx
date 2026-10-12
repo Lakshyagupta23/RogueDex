@@ -203,6 +203,65 @@ export default function Sidebar() {
         </div>
 
       </aside>
+
+      {/* Mobile Fixed Bottom Navigation Bar (Thumb-Accessible) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-16 bg-[#080b12]/95 border-t border-slate-800/80 backdrop-blur-lg px-2 flex items-center justify-around select-none shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+        <Link
+          href="/randomizer"
+          className={`flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl transition-all ${
+            pathname === '/' || pathname.startsWith('/randomizer')
+              ? 'text-blue-400 font-extrabold'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Zap className="w-4.5 h-4.5" />
+          <span className="text-[10px] font-bold">Randomizer</span>
+        </Link>
+
+        <Link
+          href="/pokemon"
+          className={`flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl transition-all ${
+            pathname.startsWith('/pokemon') && !pathname.includes('/compare')
+              ? 'text-blue-400 font-extrabold'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Shield className="w-4.5 h-4.5" />
+          <span className="text-[10px] font-bold">Pokédex</span>
+        </Link>
+
+        <Link
+          href="/team-builder"
+          className={`flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl transition-all ${
+            pathname.startsWith('/team-builder')
+              ? 'text-blue-400 font-extrabold'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Layers className="w-4.5 h-4.5" />
+          <span className="text-[10px] font-bold">Team</span>
+        </Link>
+
+        <Link
+          href="/draft"
+          className={`flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl transition-all relative ${
+            pathname.startsWith('/draft')
+              ? 'text-indigo-400 font-extrabold'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Users className="w-4.5 h-4.5" />
+          <span className="text-[10px] font-bold">Draft</span>
+        </Link>
+
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl text-slate-400 hover:text-slate-200 transition-all"
+        >
+          <Menu className="w-4.5 h-4.5" />
+          <span className="text-[10px] font-bold">More</span>
+        </button>
+      </nav>
     </>
   );
 }

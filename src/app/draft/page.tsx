@@ -81,6 +81,47 @@ const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; descript
   { id: 'synergy', icon: <Zap className="w-6 h-6" />, label: '⚡ Synergy Ascension', description: 'Draft 6 fully-evolved Pokémon! When you collect 3 of the same type, they ALL instantly ascend into 3 unique Legendary Pokémon!', color: 'text-yellow-400', borderColor: 'border-yellow-500' }
 ];
 
+const MODE_CATEGORIES = [
+  { id: 'all', label: 'All Modes' },
+  { id: 'classic', label: 'Classic' },
+  { id: 'chaotic', label: 'Chaotic & RNG' },
+  { id: 'strategy', label: 'Strategy & PVP' },
+  { id: 'economy', label: 'Economy & Stealth' },
+] as const;
+
+const MODE_CATEGORY_MAP: Record<GameMode, 'classic' | 'chaotic' | 'strategy' | 'economy'> = {
+  standard: 'classic',
+  snake: 'classic',
+  monotype: 'classic',
+  vip: 'classic',
+  time_warp: 'classic',
+  chaos: 'chaotic',
+  wildcard: 'chaotic',
+  slot_machine: 'chaotic',
+  roulette_steal: 'chaotic',
+  evolution_roulette: 'chaotic',
+  pokerus: 'chaotic',
+  ditto: 'chaotic',
+  heist: 'strategy',
+  nuzlocke: 'strategy',
+  survivor: 'strategy',
+  sabotage: 'strategy',
+  team_rocket: 'strategy',
+  tug_of_war: 'strategy',
+  bingo: 'strategy',
+  auto_chess: 'strategy',
+  synergy: 'strategy',
+  chain_reaction: 'strategy',
+  auction: 'economy',
+  salary_cap: 'economy',
+  sealed_bid: 'economy',
+  balanced_budget: 'economy',
+  booster: 'economy',
+  blind: 'economy',
+  shadow: 'economy',
+  speedrun: 'economy',
+};
+
 function ShadowClueHint({ id, speciesId, type }: { id: number, speciesId: number, type: string }) {
   const [clue, setClue] = useState<string>('Loading...');
   const [clueLabel, setClueLabel] = useState<string>('Analyzing...');
@@ -397,6 +438,7 @@ export default function DraftMode() {
   const [joinCode, setJoinCode] = useState('');
   const [optionsPerRound, setOptionsPerRound] = useState(3);
   const [selectedMode, setSelectedMode] = useState<GameMode>('standard');
+  const [selectedModeCategory, setSelectedModeCategory] = useState<string>('all');
   const [selectedArena, setSelectedArena] = useState<string>('none');
   const [musicOn, setMusicOn] = useState(false);
   const [criesOn, setCriesOn] = useState(() => {
@@ -2342,9 +2384,31 @@ export default function DraftMode() {
               )}
 
               <div className="flex flex-col gap-3">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Game Mode</label>
-                <div className="flex flex-col gap-2">
-                  {GAME_MODES.map(mode => (
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Game Mode</label>
+                  <span className="text-[11px] text-slate-500 font-bold">{selectedModeCategory === 'all' ? `${GAME_MODES.length} modes` : `${GAME_MODES.filter(m => MODE_CATEGORY_MAP[m.id] === selectedModeCategory).length} modes`}</span>
+                </div>
+
+                {/* Category Pills */}
+                <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+                  {MODE_CATEGORIES.map(cat => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => { playHoverTick(); setSelectedModeCategory(cat.id); }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all border ${
+                        selectedModeCategory === cat.id
+                          ? 'bg-indigo-600 border-indigo-500 text-white shadow-sm'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex flex-col gap-2 max-h-[340px] sm:max-h-[440px] overflow-y-auto pr-1">
+                  {GAME_MODES.filter(m => selectedModeCategory === 'all' || MODE_CATEGORY_MAP[m.id] === selectedModeCategory).map(mode => (
                     <button key={mode.id} onClick={() => { playHoverTick(); setSelectedMode(mode.id); }}
                       className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
                         selectedMode === mode.id
@@ -2358,7 +2422,6 @@ export default function DraftMode() {
                       </div>
                     </button>
                   ))}
-
                 </div>
               </div>
 
@@ -2928,7 +2991,7 @@ export default function DraftMode() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="flex flex-col gap-4 order-2 lg:order-1">
                 <h3 className="text-xl font-bold text-indigo-400 text-center">{gameState.p1.username}&apos;s Team</h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-2 gap-2 sm:gap-3">
                   {[...Array(Math.max(gameState.status === 'REVEAL' ? 6 : (['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'auto_chess', 'synergy'].includes(gameState.gameMode) ? gameState.totalRounds : gameState.totalRounds * 2), gameState.p1.team.length, 6))].map((_, i) => <TeamSlot key={i} data={gameState.p1.team[i]} index={i} playerNum={1} />)}
                 </div>
               </div>
@@ -3088,13 +3151,13 @@ export default function DraftMode() {
                                       </>
                                     )}
                                   </div>
-                                  <div className="flex flex-col gap-1 relative z-30">
+                                  <div className="flex flex-col sm:flex-row gap-1.5 relative z-30 shrink-0">
                                     <button onClick={() => { playHoverTick(); setKeepChoice(pk.id); if (giveChoice === pk.id) setGiveChoice(null); }}
                                       disabled={overBudget}
-                                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50 disabled:opacity-50'}`}>{isKeepOnlyMode ? 'Draft' : 'Keep'}</button>
+                                      className={`min-h-[38px] px-3.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shadow-lg flex items-center justify-center ${isKeep ? 'bg-indigo-500 text-white shadow-indigo-500/50' : 'bg-slate-900 text-slate-300 hover:bg-slate-700 shadow-black/50 disabled:opacity-50'}`}>{isKeepOnlyMode ? 'Draft' : 'Keep'}</button>
                                     {!isKeepOnlyMode && (
                                       <button onClick={() => { playHoverTick(); setGiveChoice(pk.id); if (keepChoice === pk.id) setKeepChoice(null); }}
-                                        className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors shadow-lg ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-400 hover:bg-slate-700 shadow-black/50'}`}>{gameState.gameMode === 'sabotage' ? 'Trap this Slot' : 'Give'}</button>
+                                        className={`min-h-[38px] px-3.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shadow-lg flex items-center justify-center ${isGive ? 'bg-rose-500 text-white shadow-rose-500/50' : 'bg-slate-900 text-slate-300 hover:bg-slate-700 shadow-black/50'}`}>{gameState.gameMode === 'sabotage' ? 'Trap Slot' : 'Give'}</button>
                                     )}
                                   </div>
                                 </HoloCard>
@@ -3187,7 +3250,7 @@ export default function DraftMode() {
 
               <div className="flex flex-col gap-4 order-3">
                 <h3 className="text-xl font-bold text-rose-400 text-center">{gameState.p2?.username ?? 'Opponent'}&apos;s Team</h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-2 gap-2 sm:gap-3">
                   {[...Array(Math.max(gameState.status === 'REVEAL' ? 6 : (['vip', 'monotype', 'tug_of_war', 'roulette_steal', 'balanced_budget', 'time_warp', 'bingo', 'survivor', 'chain_reaction', 'pokerus', 'auto_chess', 'synergy'].includes(gameState.gameMode) ? gameState.totalRounds : gameState.totalRounds * 2), gameState.p2?.team.length || 0, 6))].map((_, i) => <TeamSlot key={i} data={gameState.p2?.team[i]} index={i} playerNum={2} />)}
                 </div>
               </div>
@@ -3361,8 +3424,8 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
 
   if (!data) {
     return (
-      <div className="aspect-square bg-slate-900/50 border-2 border-slate-800 border-dashed rounded-2xl flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full bg-slate-800/80" />
+      <div className="aspect-square bg-slate-900/50 border-2 border-slate-800 border-dashed rounded-xl sm:rounded-2xl flex items-center justify-center">
+        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-slate-800/80" />
       </div>
     );
   }
@@ -3402,27 +3465,27 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
         <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl flex flex-col items-center justify-center overflow-hidden"
              style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #334155 1px, transparent 1px)', backgroundSize: '10px 10px' }} />
-          <HelpCircle className="w-12 h-12 text-slate-600 mb-2 relative z-10 animate-pulse" />
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest relative z-10">Mystery</span>
+          <HelpCircle className="w-8 h-8 sm:w-12 sm:h-12 text-slate-600 mb-1 sm:mb-2 relative z-10 animate-pulse" />
+          <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-widest relative z-10">Mystery</span>
           {data.fromOpponent && <span className="absolute top-2 right-2 text-[8px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase z-10">Given</span>}
         </div>
 
         {/* BACK: POKEMON */}
-        <div className={`absolute inset-0 w-full h-full border rounded-2xl p-3 flex flex-col items-center justify-between overflow-hidden transition-all ${data.isDead ? 'bg-slate-900 border-rose-900/50 grayscale' : data.ascended ? 'bg-gradient-to-b from-yellow-950/40 to-slate-900 border-yellow-500/60 shadow-[0_0_15px_rgba(234,179,8,0.25)]' : data.merged ? 'bg-gradient-to-b from-amber-950/40 to-slate-900 border-amber-500/50' : 'bg-slate-900/80 border-slate-700'}`}
+        <div className={`absolute inset-0 w-full h-full border rounded-2xl p-2 sm:p-3 flex flex-col items-center justify-between overflow-hidden transition-all ${data.isDead ? 'bg-slate-900 border-rose-900/50 grayscale' : data.ascended ? 'bg-gradient-to-b from-yellow-950/40 to-slate-900 border-yellow-500/60 shadow-[0_0_15px_rgba(234,179,8,0.25)]' : data.merged ? 'bg-gradient-to-b from-amber-950/40 to-slate-900 border-amber-500/50' : 'bg-slate-900/80 border-slate-700'}`}
              style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-          {data.fromOpponent && <span className="absolute top-2 right-2 text-[8px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase z-10">Given</span>}
-          {data.ascended && <span className="absolute top-2 left-2 text-[8px] bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 px-1.5 py-0.5 rounded font-black uppercase z-10 animate-pulse">⚡ Ascended</span>}
-          {!data.ascended && data.merged && <span className="absolute top-2 left-2 text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-black uppercase z-10">⚡ Merged</span>}
-          {data.cost !== undefined && <span className="absolute top-2 left-2 text-[8px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-black z-10">${data.cost}</span>}
-          {data.isDead && <div className="absolute inset-0 z-20 flex items-center justify-center bg-rose-950/40 backdrop-blur-[1px]"><span className="text-4xl">☠️</span></div>}
+          {data.fromOpponent && <span className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2 text-[8px] bg-rose-500/20 text-rose-400 px-1 py-0.5 rounded font-bold uppercase z-10">Given</span>}
+          {data.ascended && <span className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 text-[8px] bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 px-1 py-0.5 rounded font-black uppercase z-10 animate-pulse">⚡ Ascended</span>}
+          {!data.ascended && data.merged && <span className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 py-0.5 rounded font-black uppercase z-10">⚡ Merged</span>}
+          {data.cost !== undefined && <span className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 text-[8px] bg-amber-500/20 text-amber-400 px-1 py-0.5 rounded font-black z-10">${data.cost}</span>}
+          {data.isDead && <div className="absolute inset-0 z-20 flex items-center justify-center bg-rose-950/40 backdrop-blur-[1px]"><span className="text-3xl sm:text-4xl">☠️</span></div>}
           
           {!data.isMystery && (
             <>
-              <img src={pk.sprite} alt={pk.name} className={`w-16 h-16 object-contain z-10 drop-shadow-md ${data.isDead ? 'opacity-50 mix-blend-luminosity' : ''}`} />
-              <div className="text-center z-10">
-                <p className={`font-bold text-xs capitalize ${data.isDead ? 'text-slate-500 line-through' : 'text-white'}`}>{pk.displayName}</p>
-                <div className="flex gap-1 justify-center mt-1">
-                  {pk.types.map(t => <div key={t} style={{ backgroundColor: TYPE_COLORS[t] }} className={`w-2 h-2 rounded-full ${data.isDead ? 'opacity-20' : ''}`} />)}
+              <img src={pk.sprite} alt={pk.name} className={`w-12 h-12 sm:w-16 sm:h-16 object-contain z-10 drop-shadow-md ${data.isDead ? 'opacity-50 mix-blend-luminosity' : ''}`} />
+              <div className="text-center z-10 w-full px-0.5">
+                <p className={`font-bold text-[10px] sm:text-xs capitalize truncate w-full ${data.isDead ? 'text-slate-500 line-through' : 'text-white'}`}>{pk.displayName}</p>
+                <div className="flex gap-1 justify-center mt-0.5">
+                  {pk.types.map(t => <div key={t} style={{ backgroundColor: TYPE_COLORS[t] }} className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${data.isDead ? 'opacity-20' : ''}`} />)}
                 </div>
               </div>
             </>

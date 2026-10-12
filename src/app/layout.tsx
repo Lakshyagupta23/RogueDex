@@ -63,7 +63,7 @@ export default function RootLayout({
           <div className="flex flex-col md:flex-row w-full min-h-screen relative z-10">
             <Sidebar />
             <div className="flex-grow flex flex-col min-w-0">
-              <main className="flex-grow flex flex-col">
+              <main className="flex-grow flex flex-col pb-20 md:pb-0">
                 {children}
               </main>
               <Footer />

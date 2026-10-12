@@ -209,16 +209,35 @@ function PokemonBrowseContent() {
           </p>
         </div>
 
-        {/* Global Text Search */}
-        <div className="relative w-full max-w-xs md:max-w-sm">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search name, ID, or type..."
-            className="w-full pl-10 pr-4 py-2 bg-[#111622] border border-slate-800 rounded-xl text-slate-250 placeholder-slate-500 focus:outline-none focus:border-blue-500 text-sm transition-all"
-          />
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-500" />
+        {/* Global Text Search & Mobile Filter Trigger */}
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="relative flex-1 md:w-80">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search name, ID, or type..."
+              className="w-full pl-10 pr-4 py-2 bg-[#111622] border border-slate-800 rounded-xl text-slate-250 placeholder-slate-500 focus:outline-none focus:border-blue-500 text-sm transition-all"
+            />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-500" />
+          </div>
+
+          <button
+            onClick={() => setShowMobileFilters(!showMobileFilters)}
+            className={`lg:hidden shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
+              showMobileFilters || (selectedGens.length + selectedTypes.length + selectedCats.length > 0)
+                ? 'bg-blue-600/20 border-blue-500 text-blue-400 shadow-lg shadow-blue-500/10'
+                : 'bg-[#111622] border-slate-800 text-slate-300 hover:text-white'
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span>Filters</span>
+            {(selectedGens.length + selectedTypes.length + selectedCats.length) > 0 && (
+              <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[9px] font-black flex items-center justify-center">
+                {selectedGens.length + selectedTypes.length + selectedCats.length}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -393,6 +412,16 @@ function PokemonBrowseContent() {
                   </label>
                 ))}
               </div>
+            </div>
+
+            {/* Mobile Close / Apply Button */}
+            <div className="lg:hidden border-t border-slate-800 pt-3">
+              <button
+                onClick={() => setShowMobileFilters(false)}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-blue-600/30 active:scale-98"
+              >
+                Apply Filters & View Results
+              </button>
             </div>
 
           </div>

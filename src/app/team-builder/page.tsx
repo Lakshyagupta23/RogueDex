@@ -32,6 +32,7 @@ function TeamBuilderContent() {
   const [minSpDef, setMinSpDef] = useState(0);
   const [minSpe, setMinSpe] = useState(0);
   const [isShinyMode, setIsShinyMode] = useState(false);
+  const [showMobileRules, setShowMobileRules] = useState(false);
 
   // Active Team State
   const [team, setTeam] = useState<(PokemonIndexItem | null)[]>(Array(6).fill(null));
@@ -390,14 +391,21 @@ function TeamBuilderContent() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* Rules Sidebar Left */}
-        <div className="lg:col-span-3">
+        <div className="order-2 lg:order-1 lg:col-span-3">
           <div className="glass-panel rounded-2xl p-5 flex flex-col gap-5 border border-slate-850 shadow-md">
             
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h2 className="font-bold text-slate-200 text-sm">Drafting Rules</h2>
-              <span className="text-[10px] text-slate-550 font-bold uppercase">Settings</span>
+              <button
+                onClick={() => setShowMobileRules(!showMobileRules)}
+                className="lg:hidden text-xs font-bold text-blue-400 bg-blue-600/10 px-2.5 py-1 rounded-lg border border-blue-500/30"
+              >
+                {showMobileRules ? 'Hide Rules' : 'Customize Rules'}
+              </button>
+              <span className="hidden lg:inline text-[10px] text-slate-550 font-bold uppercase">Settings</span>
             </div>
 
+            <div className={`flex flex-col gap-5 ${showMobileRules ? 'flex' : 'hidden lg:flex'}`}>
             {/* Gen Select */}
             <div>
               <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wider mb-2">Generation</h3>
@@ -550,13 +558,14 @@ function TeamBuilderContent() {
               </div>
             </div>
 
+            </div>
           </div>
         </div>
 
         {/* Team Slots Middle Area */}
-        <div className="lg:col-span-6 flex flex-col gap-6">
+        <div className="order-1 lg:order-2 lg:col-span-6 flex flex-col gap-6">
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
             {team.slice(0, teamSize).map((member, idx) => {
               const primaryType = member?.types[0] || 'normal';
               const typeColor = TYPE_COLORS[primaryType];
@@ -566,8 +575,8 @@ function TeamBuilderContent() {
               return (
                 <div
                   key={idx}
-                  className={`glass-panel rounded-2xl p-4 flex flex-col items-center relative border border-slate-850 ${
-                    member ? 'min-h-[220px]' : 'min-h-[220px] justify-center'
+                  className={`glass-panel rounded-2xl p-3 sm:p-4 flex flex-col items-center relative border border-slate-850 ${
+                    member ? 'min-h-[190px] sm:min-h-[220px]' : 'min-h-[190px] sm:min-h-[220px] justify-center'
                   } overflow-hidden group`}
                 >
                   
@@ -615,7 +624,7 @@ function TeamBuilderContent() {
                   {member ? (
                     <>
                       {/* Sprite artwork */}
-                      <div className="w-20 h-20 flex items-center justify-center relative my-3">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative my-2 sm:my-3">
                         <div
                           style={{ backgroundColor: `${typeColor}08` }}
                           className="absolute inset-0 rounded-full blur-xl animate-pulse scale-90"
@@ -696,7 +705,7 @@ function TeamBuilderContent() {
         </div>
 
         {/* Analysis & Actions Sidebar Right */}
-        <div className="lg:col-span-3 flex flex-col gap-6">
+        <div className="order-3 lg:order-3 lg:col-span-3 flex flex-col gap-6">
           
           {/* Global actions */}
           <div className="glass-panel rounded-2xl p-4 flex flex-col gap-2 border border-slate-850">
