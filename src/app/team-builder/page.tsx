@@ -9,6 +9,9 @@ import { getRandomTeam, getRandomPokemon, FilterCriteria } from '@/lib/pokemon/d
 import { analyzeTeam } from '@/lib/pokemon/analysis';
 import { generateShowdownTeam } from '@/lib/pokemon/showdown';
 import { TYPE_COLORS, GENERATIONS, POKEMON_TYPES } from '@/lib/pokemon/constants';
+import DefensiveHeatmap from '@/components/DefensiveHeatmap';
+import SpeedAndRoleBreakdown from '@/components/SpeedAndRoleBreakdown';
+import { scoreCandidates } from '@/lib/pokemon/recommendation';
 
 function TeamBuilderContent() {
   const router = useRouter();
@@ -286,6 +289,30 @@ function TeamBuilderContent() {
   const analysis = useMemo(() => {
     return analyzeTeam(activeTeamItems);
   }, [activeTeamItems]);
+
+  const recommendedAdditions = useMemo(() => {
+    const activeMembers = team.slice(0, teamSize).filter((m): m is PokemonIndexItem => m !== null);
+    if (activeMembers.length === 0 || activeMembers.length === teamSize || pokemonList.length === 0) return [];
+    
+    const candidatePool = pokemonList.filter(p => {
+      if (activeMembers.some(m => m.id === p.id)) return false;
+      return p.isFullyEvolved || !p.canEvolve;
+    }).slice(0, 120);
+
+    const scored = scoreCandidates(activeMembers, candidatePool);
+    return scored.slice(0, 4);
+  }, [team, teamSize, pokemonList]);
+
+  const addRecommendedPokemon = (pk: PokemonIndexItem) => {
+    const emptyIndex = team.slice(0, teamSize).findIndex(m => m === null);
+    if (emptyIndex === -1) return;
+    setTeam(prev => {
+      const next = [...prev];
+      next[emptyIndex] = pk;
+      return next;
+    });
+    showToastNotification(`Added ${pk.displayName} to team!`);
+  };
 
   const showToastNotification = (msg: string) => {
     setToastMessage(msg);
@@ -813,6 +840,63 @@ function TeamBuilderContent() {
 
         </div>
 
+      </div>
+
+      {/* Advanced Team Intelligence */}
+      <div className="flex flex-col gap-6 mt-4">
+        {/* Smart Recommendations for Empty Slots */}
+        {recommendedAdditions.length > 0 && (
+          <div className="glass-panel rounded-2xl p-4 sm:p-5 border border-slate-850 flex flex-col gap-3 shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                Co-Pilot Suggestions for Empty Slot ({team.slice(0, teamSize).filter(m => m === null).length} left)
+              </span>
+              <span className="text-[10px] text-indigo-400 font-bold uppercase bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                Synergy Boosted
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {recommendedAdditions.map(rec => (
+                <div
+                  key={rec.pokemon.id}
+                  className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3 hover:border-indigo-500/50 transition-all group"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <img src={rec.pokemon.sprite} alt={rec.pokemon.displayName} className="w-10 h-10 object-contain shrink-0 group-hover:scale-105 transition-transform" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white capitalize truncate">{rec.pokemon.displayName}</p>
+                      <div className="flex gap-1 mt-0.5">
+                        {rec.pokemon.types.map(t => (
+                          <span key={t} style={{ color: TYPE_COLORS[t] }} className="text-[9px] font-black uppercase">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-indigo-300 font-semibold truncate mt-0.5">
+                        {rec.reasonBadges[0]}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => addRecommendedPokemon(rec.pokemon)}
+                    className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shrink-0 transition-colors shadow-sm"
+                  >
+                    + Add
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Defensive Weakness Heatmap */}
+        <DefensiveHeatmap team={activeTeamItems} />
+
+        {/* Speed Tier & Role Breakdown */}
+        <SpeedAndRoleBreakdown team={activeTeamItems} />
       </div>
 
       {/* Save Team Modal */}

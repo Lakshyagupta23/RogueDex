@@ -10,6 +10,7 @@ import { PlayerProfileProvider } from "@/context/PlayerProfileContext";
 import Sidebar from "@/components/Sidebar";
 import Footer from "@/components/Footer";
 import CinematicOverlay from "@/components/CinematicOverlay";
+import PwaInstallBanner from "@/components/PwaInstallBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -70,6 +71,7 @@ export default function RootLayout({
             </div>
           </div>
           <CinematicOverlay />
+          <PwaInstallBanner />
           </PlayerProfileProvider>
         </PokemonProvider>
       </body>

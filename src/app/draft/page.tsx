@@ -8,12 +8,15 @@ import { PokemonIndexItem, GameMode, ChaosEventId, DraftTeamMember, PlayerSlot, 
 import { FilterCriteria, filterPokemon } from '@/lib/pokemon/data';
 import { TYPE_CHART } from '@/lib/pokemon/analysis';
 import { TYPE_COLORS } from '@/lib/pokemon/constants';
-import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp, Eye, Sword, Shield, Skull, Gavel, Infinity as InfinityIcon, Wand2, Zap, Volume2, VolumeX, ClipboardCopy, Timer, Crown, Coins } from 'lucide-react';
+import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp, Eye, Sword, Shield, Skull, Gavel, Infinity as InfinityIcon, Wand2, Zap, Volume2, VolumeX, ClipboardCopy, Timer, Crown, Coins, Sparkles } from 'lucide-react';
 import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemonCry, playHeistAlarm, playStealSound, startAmbientMusic, stopAmbientMusic, playThud, playSwish, playSlash, playLegendary } from '@/lib/audio';
 import { CHAOS_EVENTS, getRandomFullyEvolved, getRandomLegendary, getRandomFossil } from '@/lib/pokemon/chaos';
 import Link from 'next/link';
 import HoloCard from '@/components/HoloCard';
 import SynergyHUD from '@/components/SynergyHUD';
+import DefensiveHeatmap from '@/components/DefensiveHeatmap';
+import SpeedAndRoleBreakdown from '@/components/SpeedAndRoleBreakdown';
+import { scoreCandidates } from '@/lib/pokemon/recommendation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateShowdownExport } from '@/lib/showdown';
 import { createClient } from '@supabase/supabase-js';
@@ -507,6 +510,7 @@ export default function DraftMode() {
   const [hoveredTypeColor, setHoveredTypeColor] = useState<string | null>(null);
   const p1PendingRef = useRef<{ keepId: number; giveId: number } | null>(null);
   const p2PendingRef = useRef<{ keepId: number; giveId: number } | null>(null);
+  const [showSynergyModal, setShowSynergyModal] = useState(false);
 
   // Heist state
   const [myHeistStealIdx, setMyHeistStealIdx] = useState<number | null>(null);
@@ -2219,6 +2223,15 @@ export default function DraftMode() {
   const myOptions = (gameState?.gameMode === 'snake' || gameState?.gameMode === 'auction' || gameState?.gameMode === 'sealed_bid') ? gameState?.p1Options : (isHost ? gameState?.p1Options : gameState?.p2Options);
   const mySlot = isHost ? gameState?.p1 : gameState?.p2;
   const opponentSlot = isHost ? gameState?.p2 : gameState?.p1;
+
+  const recMap = useMemo(() => {
+    if (!myOptions || myOptions.length === 0 || !mySlot?.team) return new Map();
+    const currentTeamPks = mySlot.team.map((m: any) => m.actualPk);
+    const scored = scoreCandidates(currentTeamPks, myOptions);
+    const map = new Map();
+    scored.forEach(s => map.set(s.pokemon.id, s));
+    return map;
+  }, [myOptions, mySlot?.team]);
   const activeFilterCount = [
     selectedGens.length > 0, selectedTypes.length > 0, formsMode !== 'all', maxBst600,
     excludeLegendary, excludeMythical, excludeParadox, excludeStarters, excludeUltraBeast,
@@ -2335,6 +2348,15 @@ export default function DraftMode() {
               <button onClick={returnToLobby} className="whitespace-nowrap inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-indigo-400 font-bold px-3 py-2 rounded-lg text-xs transition-colors border border-slate-700 hover:border-indigo-500/50">⬅️ Lobby</button>
               <div className="hidden md:block w-px h-6 bg-slate-800 mx-1"></div>
             </>
+          )}
+          {gameState && gameState.status !== 'LOBBY' && (
+            <button
+              onClick={() => { playHoverTick(); setShowSynergyModal(true); }}
+              className="whitespace-nowrap inline-flex items-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 font-bold px-3 py-2 rounded-lg text-xs transition-colors border border-indigo-500/40 shadow-sm"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              Synergy & Heatmap
+            </button>
           )}
           <button 
             onClick={toggleCries}
@@ -3116,6 +3138,7 @@ export default function DraftMode() {
                             const bstUsed = myPlayerNum === 1 ? (gameState.p1BstUsed ?? 0) : (gameState.p2BstUsed ?? 0);
                             const bstCap = gameState.bstCap ?? 3000;
                             const overBudget = gameState.gameMode === 'balanced_budget' && (bstUsed + pk.stats.total > bstCap);
+                            const rec = recMap.get(pk.id);
                             
                             return (
                               <motion.div
@@ -3130,7 +3153,7 @@ export default function DraftMode() {
                               >
                                 <HoloCard typeColor={cardColor} className={`relative p-3 rounded-xl border flex items-center justify-between transition-all overflow-hidden ${
                                   isKeep ? 'bg-indigo-500/20 border-indigo-500' : isGive ? 'bg-rose-500/20 border-rose-500' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'
-                                } ${overBudget ? 'opacity-50 grayscale' : ''}`}>
+                                } ${overBudget ? 'opacity-50 grayscale' : ''} ${rec?.isTopPick ? 'ring-1 ring-amber-400/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : ''}`}>
                                   <div className="flex items-center gap-3 relative z-30">
                                     {isBlind ? (
                                       <BlindClueHint id={pk.id} speciesId={pk.speciesId} type={gameState.blindClueType} />
@@ -3140,10 +3163,27 @@ export default function DraftMode() {
                                       <>
                                         <img src={pk.sprite} alt={pk.name} className="w-12 h-12 object-contain" />
                                         <div>
-                                          <p className="font-bold text-sm text-white capitalize">{pk.displayName}</p>
-                                          <div className="flex gap-1 mt-1">
-                                            {pk.types.map(t => <span key={t} style={{ color: TYPE_COLORS[t] }} className="text-[10px] font-bold uppercase">{t}</span>)}
+                                          <div className="flex items-center gap-2">
+                                            <p className="font-bold text-sm text-white capitalize">{pk.displayName}</p>
+                                            {rec?.isTopPick && (
+                                              <span className="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/50 text-[8px] font-black uppercase flex items-center gap-0.5 shadow-[0_0_10px_rgba(245,158,11,0.3)] animate-pulse">
+                                                ★ Top Pick
+                                              </span>
+                                            )}
                                           </div>
+                                          <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                            {pk.types.map(t => <span key={t} style={{ color: TYPE_COLORS[t] }} className="text-[10px] font-bold uppercase">{t}</span>)}
+                                            {rec && (
+                                              <span className="text-[9px] text-slate-400 font-semibold bg-slate-900 px-1.5 py-0.2 rounded border border-slate-800">
+                                                {rec.role}
+                                              </span>
+                                            )}
+                                          </div>
+                                          {rec?.reasonBadges && rec.reasonBadges.length > 0 && (
+                                            <p className="text-[9px] text-indigo-300 font-semibold mt-0.5 truncate max-w-[200px] sm:max-w-xs">
+                                              💡 {rec.reasonBadges.join(' • ')}
+                                            </p>
+                                          )}
                                           {gameState.gameMode === 'balanced_budget' && (
                                             <p className={`text-[10px] font-bold mt-1 ${overBudget ? 'text-rose-400' : 'text-amber-400'}`}>BST: {pk.stats.total}</p>
                                           )}
@@ -3260,6 +3300,29 @@ export default function DraftMode() {
         
         {gameState && gameState.status !== 'LOBBY' && mySlot?.team && (
           <SynergyHUD team={mySlot.team} />
+        )}
+
+        {/* Live Squad Synergy & Heatmap Modal */}
+        {showSynergyModal && mySlot?.team && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col gap-6 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  <h2 className="text-base sm:text-lg font-black text-white">Live Squad Synergy & Threat Heatmap</h2>
+                </div>
+                <button
+                  onClick={() => setShowSynergyModal(false)}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+
+              <DefensiveHeatmap team={mySlot.team.map((m: any) => m.actualPk)} />
+              <SpeedAndRoleBreakdown team={mySlot.team.map((m: any) => m.actualPk)} />
+            </div>
+          </div>
         )}
       </div>
     </div>
