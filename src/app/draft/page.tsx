@@ -8,7 +8,7 @@ import { PokemonIndexItem, GameMode, ChaosEventId, DraftTeamMember, PlayerSlot, 
 import { FilterCriteria, filterPokemon } from '@/lib/pokemon/data';
 import { TYPE_CHART } from '@/lib/pokemon/analysis';
 import { TYPE_COLORS } from '@/lib/pokemon/constants';
-import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp, Eye, Sword, Shield, Skull, Gavel, Infinity as InfinityIcon, Wand2, Zap, Volume2, VolumeX, ClipboardCopy, Timer, Crown, Coins, Sparkles } from 'lucide-react';
+import { Users, UserPlus, Check, HelpCircle, Loader2, Play, SlidersHorizontal, ChevronDown, ChevronUp, Eye, Sword, Shield, Skull, Gavel, Infinity as InfinityIcon, Wand2, Zap, Volume2, VolumeX, ClipboardCopy, Timer, Crown, Coins, Sparkles, RefreshCw } from 'lucide-react';
 import { playHoverTick, playSelectClick, playLockIn, playRevealChime, playPokemonCry, playHeistAlarm, playStealSound, startAmbientMusic, stopAmbientMusic, playThud, playSwish, playSlash, playLegendary } from '@/lib/audio';
 import { CHAOS_EVENTS, getRandomFullyEvolved, getRandomLegendary, getRandomFossil } from '@/lib/pokemon/chaos';
 import Link from 'next/link';
@@ -42,14 +42,16 @@ export function getTotalRoundsForMode(mode: GameMode): number {
   return 3;
 }
 
-const ARENAS = [
-  { id: 'none', label: 'Classic (No Arena)', image: '' },
+export const ARENAS = [
   { id: 'arena1', label: 'Neon Arena', image: '/arenas/arena1.jpg' },
   { id: 'arena2', label: 'Desert Ruins', image: '/arenas/arena2.png' },
   { id: 'arena3', label: 'Lush Stadium', image: '/arenas/arena3.jpg' },
-  { id: 'arena4', label: 'Cyberpunk City', image: '/arenas/arena4.jpg' },
-  { id: 'arena5', label: 'Mystic Forest', image: '/arenas/arena5.jpg' },
 ];
+
+export const getRandomArenaId = (): string => {
+  const pool = ['arena1', 'arena2', 'arena3'];
+  return pool[Math.floor(Math.random() * pool.length)];
+};
 
 const GAME_MODES: { id: GameMode; icon: React.ReactNode; label: string; description: string; color: string; borderColor: string }[] = [
   { id: 'standard', icon: <Shield className="w-6 h-6" />, label: 'Standard Draft', description: 'Classic 3-round draft. Pick to keep, give to opponent.', color: 'text-indigo-400', borderColor: 'border-indigo-500' },
@@ -442,7 +444,7 @@ export default function DraftMode() {
   const [optionsPerRound, setOptionsPerRound] = useState(3);
   const [selectedMode, setSelectedMode] = useState<GameMode>('standard');
   const [selectedModeCategory, setSelectedModeCategory] = useState<string>('all');
-  const [selectedArena, setSelectedArena] = useState<string>('none');
+  const [selectedArena, setSelectedArena] = useState<string>(() => getRandomArenaId());
   const [musicOn, setMusicOn] = useState(false);
   const [criesOn, setCriesOn] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -1709,8 +1711,10 @@ export default function DraftMode() {
           const filters = buildFilters();
           const isVip = selectedMode === 'vip';
           const totalRounds = getTotalRoundsForMode(selectedMode);
+          const assignedArena = getRandomArenaId();
+          setSelectedArena(assignedArena);
           const initial: DraftState = {
-            code, status: 'LOBBY', gameMode: selectedMode, arena: selectedArena,
+            code, status: 'LOBBY', gameMode: selectedMode, arena: assignedArena,
             optionsPerRound: selectedMode === 'wildcard' || isVip ? 3 : optionsPerRound, round: 1, totalRounds, filters,
             tugOfWarSnapThreshold: selectedMode === 'tug_of_war' ? tugOfWarSnapThreshold : undefined,
             p1: { id: code, username: usernameRef.current, team: [], ready: false },
@@ -2071,8 +2075,11 @@ export default function DraftMode() {
   const returnToLobby = useCallback(() => {
     if (!isHostRef.current || !gameStateRef.current) return;
     const cur = gameStateRef.current;
+    const nextArena = getRandomArenaId();
+    setSelectedArena(nextArena);
     const next: DraftState = {
       ...cur,
+      arena: nextArena,
       status: 'LOBBY',
     };
     applyState(next); broadcastToGuest(next);
@@ -2112,9 +2119,12 @@ export default function DraftMode() {
     const cur = gameStateRef.current;
     
     const totalRounds = getTotalRoundsForMode(cur.gameMode);
+    const nextArena = getRandomArenaId();
+    setSelectedArena(nextArena);
       
     const next: DraftState = {
       ...cur,
+      arena: nextArena,
       status: cur.gameMode === 'monotype' ? 'MONOTYPE_ROULETTE' : 'DRAFTING',
       round: 1,
       totalRounds,
@@ -2250,11 +2260,11 @@ export default function DraftMode() {
   };
 
   const activeArenaId = gameState?.arena || selectedArena;
-  const arenaImage = activeArenaId && activeArenaId !== 'none' ? ARENAS.find(a => a.id === activeArenaId)?.image : null;
+  const arenaImage = ARENAS.find(a => a.id === activeArenaId)?.image || ARENAS[0].image;
 
   if (loading) return (
     <div className="min-h-screen bg-[#0b0e16] flex items-center justify-center text-white">
-      <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+      <Loader2 className="w-10 h-10 animate-spin text-red-500" />
     </div>
   );
 
@@ -2327,7 +2337,7 @@ export default function DraftMode() {
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between mb-8 pb-4 border-b border-slate-800 gap-4">
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">RogueDex</Link>
+            <Link href="/" className="text-xl font-black bg-gradient-to-r from-red-500 via-rose-500 to-amber-400 bg-clip-text text-transparent">RogueDex</Link>
             <span className="text-slate-600 font-bold hidden sm:inline">/</span>
             <h1 className="text-lg font-bold text-slate-300 flex items-center gap-2">
               <Users className="w-5 h-5 text-indigo-400 hidden sm:block" /> <span className="hidden sm:inline">Clash Draft</span>
@@ -2514,29 +2524,34 @@ export default function DraftMode() {
                 </div>
               )}
 
-              <div className="flex flex-col gap-3 pt-4 border-t border-slate-800">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Theme Draft Arena</label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {ARENAS.map(arena => (
-                    <button key={arena.id} onClick={() => { playHoverTick(); setSelectedArena(arena.id); }}
-                      className={`relative flex flex-col items-center p-2 rounded-xl border transition-all overflow-hidden ${
-                        selectedArena === arena.id
-                          ? `bg-slate-800 border-purple-500 ring-2 ring-purple-500/50`
-                          : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-500'
-                      }`}>
-                      {arena.image && (
-                        <div className="w-full h-16 mb-2 rounded bg-slate-800 bg-cover bg-center overflow-hidden relative">
-                           <Image src={arena.image} alt={arena.label} fill className="object-cover" sizes="200px" />
-                        </div>
-                      )}
-                      {!arena.image && (
-                        <div className="w-full h-16 mb-2 rounded bg-slate-800 flex items-center justify-center text-slate-600">
-                          <HelpCircle className="w-6 h-6" />
-                        </div>
-                      )}
-                      <span className={`text-xs font-bold ${selectedArena === arena.id ? 'text-purple-400' : 'text-white'}`}>{arena.label}</span>
+              <div className="flex flex-col gap-2.5 pt-4 border-t border-slate-800">
+                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-200">Battle Stadium Arena</div>
+                      <div className="text-[11px] text-slate-400">Randomized across your 3 custom arenas for each match</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black uppercase tracking-wider px-3 py-1 rounded-full bg-gradient-to-r from-red-500/20 to-amber-500/20 border border-amber-500/30 text-amber-300">
+                      {ARENAS.find(a => a.id === (gameState?.arena || selectedArena))?.label || 'Random Arena'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playHoverTick();
+                        const next = getRandomArenaId();
+                        setSelectedArena(next);
+                      }}
+                      title="Reroll random arena"
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
                     </button>
-                  ))}
+                  </div>
                 </div>
               </div>
 
@@ -2559,7 +2574,7 @@ export default function DraftMode() {
                   </button>
                 ) : (
                   <button onClick={handleCreateRoom}
-                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-colors flex justify-center items-center gap-2">
+                    className="w-full bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white font-black py-3 rounded-xl shadow-lg shadow-red-600/25 transition-all flex justify-center items-center gap-2">
                     <UserPlus className="w-5 h-5" /> Create Draft Room
                   </button>
                 )}

@@ -202,7 +202,7 @@ function PokemonBrowseContent() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-900 pb-6">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-white mb-1">
-            RogueDex <span className="text-blue-500">Database</span>
+            RogueDex <span className="text-red-500 glow-text-primary">Database</span>
           </h1>
           <p className="text-slate-400 text-sm">
             Browse through all {pokemonList.length} Pokémon varieties, regionals, and special forms.
@@ -217,7 +217,7 @@ function PokemonBrowseContent() {
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search name, ID, or type..."
-              className="w-full pl-10 pr-4 py-2 bg-[#111622] border border-slate-800 rounded-xl text-slate-250 placeholder-slate-500 focus:outline-none focus:border-blue-500 text-sm transition-all"
+              className="w-full pl-10 pr-4 py-2 bg-[#111622] border border-slate-800 rounded-xl text-slate-250 placeholder-slate-500 focus:outline-none focus:border-red-500 text-sm transition-all"
             />
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-500" />
           </div>
@@ -226,14 +226,14 @@ function PokemonBrowseContent() {
             onClick={() => setShowMobileFilters(!showMobileFilters)}
             className={`lg:hidden shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
               showMobileFilters || (selectedGens.length + selectedTypes.length + selectedCats.length > 0)
-                ? 'bg-blue-600/20 border-blue-500 text-blue-400 shadow-lg shadow-blue-500/10'
+                ? 'bg-red-500/20 border-red-500 text-red-400 shadow-lg shadow-red-500/10'
                 : 'bg-[#111622] border-slate-800 text-slate-300 hover:text-white'
             }`}
           >
-            <SlidersHorizontal className="w-4 h-4" />
+            <SlidersHorizontal className="w-4 h-4 text-amber-400" />
             <span>Filters</span>
             {(selectedGens.length + selectedTypes.length + selectedCats.length) > 0 && (
-              <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[9px] font-black flex items-center justify-center">
+              <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center">
                 {selectedGens.length + selectedTypes.length + selectedCats.length}
               </span>
             )}
@@ -271,7 +271,7 @@ function PokemonBrowseContent() {
                     onClick={() => handleGenToggle(gen.value)}
                     className={`py-1.5 px-2 rounded-lg text-[10px] font-bold border text-center transition-all ${
                       selectedGens.includes(gen.value)
-                        ? 'bg-blue-600/15 border-blue-500 text-blue-400'
+                        ? 'bg-red-500/15 border-red-500 text-red-400'
                         : 'bg-[#0b0e16] border-slate-850 text-slate-450 hover:text-slate-200 hover:border-slate-800'
                     }`}
                   >
@@ -316,7 +316,7 @@ function PokemonBrowseContent() {
                     onClick={() => handleCatToggle(cat.value)}
                     className={`text-[10px] font-semibold px-2 py-1 rounded-full border transition-all ${
                       selectedCats.includes(cat.value)
-                        ? 'bg-blue-600/10 border-blue-500 text-blue-400'
+                        ? 'bg-amber-500/15 border-amber-500 text-amber-300'
                         : 'bg-[#0b0e16] border-slate-850 text-slate-400 hover:text-slate-200'
                     }`}
                   >
@@ -404,9 +404,9 @@ function PokemonBrowseContent() {
                       className="sr-only"
                     />
                     <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                      formsMode === form.value ? 'border-blue-500 bg-blue-600/10' : 'border-slate-800 bg-transparent'
+                      formsMode === form.value ? 'border-red-500 bg-red-600/10' : 'border-slate-800 bg-transparent'
                     }`}>
-                      {formsMode === form.value && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                      {formsMode === form.value && <div className="w-1.5 h-1.5 rounded-full bg-red-500" />}
                     </div>
                     {form.label}
                   </label>
@@ -418,7 +418,7 @@ function PokemonBrowseContent() {
             <div className="lg:hidden border-t border-slate-800 pt-3">
               <button
                 onClick={() => setShowMobileFilters(false)}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-blue-600/30 active:scale-98"
+                className="w-full py-2.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-red-600/25 active:scale-98"
               >
                 Apply Filters & View Results
               </button>
@@ -546,7 +546,7 @@ function PokemonBrowseContent() {
               </div>
               <button
                 onClick={handleResetFilters}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-full transition-all duration-200"
+                className="px-5 py-2 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white text-xs font-semibold rounded-full transition-all duration-200"
               >
                 Clear Search & Filters
               </button>

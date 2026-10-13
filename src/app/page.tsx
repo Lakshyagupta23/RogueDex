@@ -562,7 +562,7 @@ function RandomizerContent() {
   if (loading) {
     return (
       <div className="flex-grow flex flex-col items-center justify-center py-20">
-        <RefreshCw className="w-12 h-12 text-blue-500 animate-spin mb-4" />
+        <RefreshCw className="w-12 h-12 text-red-500 animate-spin mb-4" />
         <p className="text-slate-400 font-semibold animate-pulse">Loading Pokédex database...</p>
       </div>
     );
@@ -579,7 +579,7 @@ function RandomizerContent() {
         <p className="text-slate-400 text-sm max-w-md mb-6">{error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-full transition-all duration-200"
+          className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-semibold rounded-full transition-all duration-200"
         >
           Retry Connection
         </button>
@@ -599,7 +599,7 @@ function RandomizerContent() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-900 pb-6 text-center md:text-left">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-white mb-1.5 animate-in fade-in slide-in-from-top duration-300">
-            RogueDex <span className="text-blue-500 glow-text-primary">Randomizer</span>
+            RogueDex <span className="text-red-500 glow-text-primary">Randomizer</span>
           </h1>
           <p className="text-slate-400 text-sm max-w-xl">
             Generate random Pokémon and discovery grids. Customize sizes, locking properties, type requirements, and stat minimums.
@@ -635,11 +635,11 @@ function RandomizerContent() {
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold transition-all duration-200 ${
               showFilters
-                ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/25'
+                ? 'bg-red-600 border-red-500 text-white shadow-lg shadow-red-600/25'
                 : 'bg-[#111622] border-slate-800 text-slate-300 hover:border-slate-700'
             }`}
           >
-            <SlidersHorizontal className="w-4 h-4" />
+            <SlidersHorizontal className="w-4 h-4 text-amber-400" />
             Advanced Filters
           </button>
         </div>
@@ -651,7 +651,7 @@ function RandomizerContent() {
           
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <h2 className="text-sm font-black uppercase text-slate-300 tracking-wider flex items-center gap-2">
-              <SlidersHorizontal className="w-4.5 h-4.5 text-blue-500" />
+              <SlidersHorizontal className="w-4.5 h-4.5 text-amber-500" />
               Generator Options Setup
             </h2>
             <button
@@ -677,7 +677,7 @@ function RandomizerContent() {
                       onClick={() => handleGenToggle(gen.value)}
                       className={`py-1.5 px-2 rounded-lg text-[10px] font-bold border text-center transition-all ${
                         isChecked
-                          ? 'bg-blue-600/15 border-blue-500 text-blue-400'
+                          ? 'bg-red-500/15 border-red-500 text-red-400'
                           : 'bg-[#0b0e16] border-slate-850 text-slate-450 hover:text-slate-200'
                       }`}
                     >
@@ -784,7 +784,7 @@ function RandomizerContent() {
                           className="sr-only"
                         />
                         <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
-                          isChecked ? 'bg-blue-600 border-blue-500' : 'border-slate-850 bg-[#0b0e16]'
+                          isChecked ? 'bg-red-600 border-red-500' : 'border-slate-850 bg-[#0b0e16]'
                         }`}>
                           {isChecked && <div className="w-1.5 h-1.5 bg-slate-950 rounded-sm" />}
                         </div>
@@ -870,9 +870,9 @@ function RandomizerContent() {
                         className="sr-only"
                       />
                       <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                        formsMode === form.value ? 'border-blue-500 bg-blue-600/10' : 'border-slate-800 bg-transparent'
+                        formsMode === form.value ? 'border-red-500 bg-red-600/10' : 'border-slate-800 bg-transparent'
                       }`}>
-                        {formsMode === form.value && <div className="w-1 h-1 rounded-full bg-blue-500" />}
+                        {formsMode === form.value && <div className="w-1 h-1 rounded-full bg-red-500" />}
                       </div>
                       {form.label}
                     </label>
@@ -1243,7 +1243,7 @@ function RandomizerContent() {
           <button
             onClick={handleRandomize}
             disabled={filteredCount === 0 || isSpinning}
-            className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold rounded-2xl shadow-xl shadow-blue-600/20 active:scale-98 transition-all hover:shadow-blue-600/35 border border-blue-500/35 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
+            className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white font-extrabold rounded-2xl shadow-xl shadow-red-600/25 active:scale-98 transition-all hover:shadow-red-600/40 border border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
           >
             <RefreshCw className={`w-5 h-5 ${(isSpinning || spinningSlots.some(Boolean)) ? 'animate-spin' : ''}`} />
             {quantity > 1 ? 'Reroll Unlocked Slots' : 'Generate Pokémon'}

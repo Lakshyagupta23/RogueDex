@@ -9,20 +9,20 @@ export default function Footer() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-b border-slate-900/60 pb-6">
           
           <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-blue-500" />
+            <Shield className="w-4 h-4 text-red-500" />
             <span className="text-sm font-semibold text-slate-400">
-              Rogue<span className="text-blue-500">Dex</span>
+              Rogue<span className="text-red-500">Dex</span>
             </span>
           </div>
 
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-slate-400">
-            <Link href="/randomizer" className="hover:text-blue-400 transition-colors">Randomizer</Link>
-            <Link href="/team-builder" className="hover:text-blue-400 transition-colors">Team Builder</Link>
-            <Link href="/challenges" className="hover:text-blue-400 transition-colors">Challenges</Link>
-            <Link href="/pokemon" className="hover:text-blue-400 transition-colors">Pokédex</Link>
-            <Link href="/favorites" className="hover:text-blue-400 transition-colors">Favorites</Link>
-            <Link href="/about" className="hover:text-blue-400 transition-colors">About</Link>
-            <Link href="/privacy" className="hover:text-blue-400 transition-colors">Privacy</Link>
+            <Link href="/randomizer" className="hover:text-red-400 transition-colors">Randomizer</Link>
+            <Link href="/team-builder" className="hover:text-red-400 transition-colors">Team Builder</Link>
+            <Link href="/challenges" className="hover:text-red-400 transition-colors">Challenges</Link>
+            <Link href="/pokemon" className="hover:text-red-400 transition-colors">Pokédex</Link>
+            <Link href="/favorites" className="hover:text-red-400 transition-colors">Favorites</Link>
+            <Link href="/about" className="hover:text-red-400 transition-colors">About</Link>
+            <Link href="/privacy" className="hover:text-red-400 transition-colors">Privacy</Link>
           </div>
 
         </div>

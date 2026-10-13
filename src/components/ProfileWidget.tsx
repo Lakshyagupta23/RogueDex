@@ -23,7 +23,7 @@ export default function ProfileWidget({ collapsed = false }: { collapsed?: boole
         <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-xl shadow-inner relative overflow-hidden flex-shrink-0 cursor-pointer">
           {rank.icon}
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950">
-            <div className="h-full bg-indigo-500" style={{ width: `${progress * 100}%` }} />
+            <div className="h-full bg-gradient-to-r from-red-500 to-amber-500" style={{ width: `${progress * 100}%` }} />
           </div>
         </div>
         <div className="absolute left-16 bg-[#0f1420] border border-slate-800 rounded px-3 py-2 text-xs font-bold text-white opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover:translate-x-0 z-50 shadow-xl whitespace-nowrap">

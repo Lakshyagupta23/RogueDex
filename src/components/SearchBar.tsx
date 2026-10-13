@@ -88,7 +88,7 @@ export default function SearchBar() {
           }}
           onFocus={() => setIsOpen(true)}
           placeholder="Search name, type, or #ID..."
-          className="w-full pl-10 pr-10 py-1.5 bg-[#161c2c] border border-slate-700/60 rounded-full text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/30 text-sm transition-all shadow-inner"
+          className="w-full pl-10 pr-10 py-1.5 bg-[#161c2c] border border-slate-700/60 rounded-full text-slate-200 placeholder-slate-500 focus:outline-none focus:border-red-500/80 focus:ring-1 focus:ring-red-500/30 text-sm transition-all shadow-inner"
         />
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
         {query && (
@@ -113,7 +113,7 @@ export default function SearchBar() {
                 onClick={() => handleSelect(pk)}
                 className={`flex items-center justify-between px-4 py-2 text-sm cursor-pointer transition-colors ${
                   idx === activeIndex
-                    ? 'bg-blue-600/20 text-blue-200 border-l-2 border-blue-500'
+                    ? 'bg-red-500/15 text-red-200 border-l-2 border-red-500'
                     : 'text-slate-350 hover:bg-[#181f2f] hover:text-slate-100'
                 }`}
               >

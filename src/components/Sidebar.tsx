@@ -60,7 +60,7 @@ export default function Sidebar() {
             <Menu className="w-6 h-6" />
           </button>
           <Link href="/" className="flex items-center gap-1.5 font-bold text-white text-sm">
-            <span className="text-blue-500">Rogue</span>Dex
+            <span className="text-red-500">Rogue</span>Dex
           </Link>
         </div>
         <div className="w-48 sm:w-60">
@@ -84,7 +84,7 @@ export default function Sidebar() {
           <div className="relative flex flex-col w-72 max-w-xs bg-[#0b101b] border-r border-slate-900 p-5 h-full animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <span className="text-base font-extrabold text-white">
-                Rogue<span className="text-blue-500">Dex</span> Menu
+                Rogue<span className="text-red-500">Dex</span> Menu
               </span>
               <button
                 onClick={() => setMobileOpen(false)}
@@ -110,8 +110,8 @@ export default function Sidebar() {
                     onClick={() => setMobileOpen(false)}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600/15 text-blue-400 border-l-4 border-blue-500'
-                        : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                        ? 'bg-red-500/15 text-red-400 border-l-4 border-red-500'
+                        : 'text-slate-400 hover:bg-slate-900/80 hover:text-amber-300'
                     }`}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
@@ -133,12 +133,12 @@ export default function Sidebar() {
         {/* Logo Section */}
         <div className="h-16 flex items-center justify-between border-b border-slate-900 px-4">
           <Link href="/" className="flex items-center gap-2 group overflow-hidden">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20 group-hover:shadow-blue-500/40 transition-all duration-300">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 via-rose-500 to-amber-500 shadow-lg shadow-red-500/25 group-hover:shadow-red-500/40 transition-all duration-300">
               <Shield className="w-5 h-5 text-white animate-pulse" />
             </div>
             {!isCollapsed && (
               <span className="text-base font-black tracking-tight text-white font-sans truncate animate-fade-in">
-                Rogue<span className="text-blue-500">Dex</span>
+                Rogue<span className="text-red-500">Dex</span>
               </span>
             )}
           </Link>
@@ -174,8 +174,8 @@ export default function Sidebar() {
                   isCollapsed ? 'justify-center p-3' : 'gap-3.5 px-4 py-3'
                 } ${
                   isActive
-                    ? 'bg-blue-600/10 text-blue-400 border border-blue-500/25 shadow-[0_0_15px_rgba(59,130,246,0.06)]'
-                    : 'text-slate-400 border border-transparent hover:text-slate-200 hover:bg-slate-900/40'
+                    ? 'bg-red-500/10 text-red-400 border border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.12)]'
+                    : 'text-slate-400 border border-transparent hover:text-amber-300 hover:bg-slate-900/60'
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />

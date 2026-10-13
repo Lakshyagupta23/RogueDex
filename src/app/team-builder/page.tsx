@@ -396,7 +396,7 @@ function TeamBuilderContent() {
             onClick={() => setTeamSize(3)}
             className={`px-4 py-2 text-xs font-bold rounded-lg border transition-all ${
               teamSize === 3
-                ? 'bg-blue-600 border-blue-500 text-white'
+                ? 'bg-red-600 border-red-500 text-white shadow-md shadow-red-600/20'
                 : 'bg-[#111622] border-slate-800 text-slate-400'
             }`}
           >
@@ -406,7 +406,7 @@ function TeamBuilderContent() {
             onClick={() => setTeamSize(6)}
             className={`px-4 py-2 text-xs font-bold rounded-lg border transition-all ${
               teamSize === 6
-                ? 'bg-blue-600 border-blue-500 text-white'
+                ? 'bg-red-600 border-red-500 text-white shadow-md shadow-red-600/20'
                 : 'bg-[#111622] border-slate-800 text-slate-400'
             }`}
           >
@@ -425,7 +425,7 @@ function TeamBuilderContent() {
               <h2 className="font-bold text-slate-200 text-sm">Drafting Rules</h2>
               <button
                 onClick={() => setShowMobileRules(!showMobileRules)}
-                className="lg:hidden text-xs font-bold text-blue-400 bg-blue-600/10 px-2.5 py-1 rounded-lg border border-blue-500/30"
+                className="lg:hidden text-xs font-bold text-red-400 bg-red-600/10 px-2.5 py-1 rounded-lg border border-red-500/30"
               >
                 {showMobileRules ? 'Hide Rules' : 'Customize Rules'}
               </button>
@@ -501,7 +501,7 @@ function TeamBuilderContent() {
                   className="sr-only"
                 />
                 <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                  fullyEvolvedOnly ? 'bg-blue-600 border-blue-500' : 'border-slate-800 bg-[#0b0e16]'
+                  fullyEvolvedOnly ? 'bg-red-600 border-red-500' : 'border-slate-800 bg-[#0b0e16]'
                 }`}>
                   {fullyEvolvedOnly && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
                 </div>
@@ -516,7 +516,7 @@ function TeamBuilderContent() {
                   className="sr-only"
                 />
                 <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                  isCompetitiveMode ? 'bg-blue-600 border-blue-500' : 'border-slate-800 bg-[#0b0e16]'
+                  isCompetitiveMode ? 'bg-red-600 border-red-500' : 'border-slate-800 bg-[#0b0e16]'
                 }`}>
                   {isCompetitiveMode && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
                 </div>
@@ -531,7 +531,7 @@ function TeamBuilderContent() {
                   className="sr-only"
                 />
                 <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                  !allowDuplicateTypes ? 'bg-blue-600 border-blue-500' : 'border-slate-800 bg-[#0b0e16]'
+                  !allowDuplicateTypes ? 'bg-red-600 border-red-500' : 'border-slate-800 bg-[#0b0e16]'
                 }`}>
                   {!allowDuplicateTypes && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
                 </div>
@@ -722,7 +722,7 @@ function TeamBuilderContent() {
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => handleGenerateTeam()}
-              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold rounded-xl transition-all duration-300 shadow-lg shadow-blue-900/40 hover:shadow-blue-500/20 active:scale-98 flex items-center justify-center gap-2 border border-blue-400/20 text-sm"
+              className="flex-1 py-3 bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white font-extrabold rounded-xl transition-all duration-300 shadow-lg shadow-red-900/40 hover:shadow-red-500/25 active:scale-98 flex items-center justify-center gap-2 border border-red-400/30 text-sm"
             >
               <RefreshCw className="w-4 h-4 animate-spin-hover" />
               REROLL UNLOCKED SLOTS
@@ -939,7 +939,7 @@ function TeamBuilderContent() {
               <button
                 onClick={handleSaveTeam}
                 disabled={!teamName.trim()}
-                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold rounded-xl text-xs transition-all"
+                className="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold rounded-xl text-xs transition-all shadow-md shadow-red-600/20"
               >
                 Confirm Save
               </button>
@@ -973,7 +973,7 @@ function TeamBuilderContent() {
               </button>
               <button
                 onClick={handleCopyShowdown}
-                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/30"
+                className="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-900/30"
               >
                 <Clipboard className="w-3.5 h-3.5" />
                 Copy Showdown Sets
