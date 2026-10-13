@@ -610,7 +610,7 @@ function RandomizerContent() {
       {/* Hero Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-900 pb-6 text-center md:text-left">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white mb-1.5 animate-in fade-in slide-in-from-top duration-300">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-1.5 animate-in fade-in slide-in-from-top duration-300 font-display">
             RogueDex <span className="text-red-500 glow-text-primary">Randomizer</span>
           </h1>
           <p className="text-slate-400 text-sm max-w-xl">
@@ -1057,12 +1057,12 @@ function RandomizerContent() {
                   {/* Meta details */}
                   <div className="text-center md:text-left flex flex-col gap-2">
                     <div className="flex items-center justify-center md:justify-start gap-3">
-                      <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white capitalize">
+                      <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white capitalize font-display">
                         {currentPokemon.displayName}
                       </h2>
                       <button
                         onClick={() => playCry(currentPokemon.id)}
-                        className="p-1.5 rounded-lg bg-slate-950/40 border border-slate-800/40 hover:bg-slate-900 text-slate-400 hover:text-white transition-colors"
+                        className="p-2 rounded-xl btn-tactile bg-slate-950/60 border border-slate-800/60 hover:bg-slate-900 text-slate-350 hover:text-white transition-colors"
                         title="Listen to cry"
                       >
                         <Volume2 className="w-4 h-4" />
@@ -1070,7 +1070,7 @@ function RandomizerContent() {
                     </div>
                     
                     <div className="flex flex-wrap gap-2 justify-center md:justify-start items-center mt-1">
-                      <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">
+                      <span className="text-[10px] font-bold tracking-widest uppercase px-2.5 py-0.5 rounded-lg bg-slate-900/80 border border-slate-800 text-slate-400 font-tactical">
                         GEN {currentPokemon.generation}
                       </span>
                       
@@ -1272,7 +1272,7 @@ function RandomizerContent() {
           <button
             onClick={handleRandomize}
             disabled={filteredCount === 0 || isSpinning}
-            className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white font-extrabold rounded-2xl shadow-xl shadow-red-600/25 active:scale-98 transition-all hover:shadow-red-600/40 border border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
+            className="w-full sm:w-auto flex items-center justify-center gap-3 px-9 py-4 bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white font-bold rounded-2xl shadow-xl shadow-red-600/25 btn-tactile transition-all hover:shadow-red-600/40 border border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed text-base uppercase tracking-wider font-tactical"
           >
             <RefreshCw className={`w-5 h-5 ${(isSpinning || spinningSlots.some(Boolean)) ? 'animate-spin' : ''}`} />
             {quantity > 1 ? 'Reroll Unlocked Slots' : 'Generate Pokémon'}
@@ -1282,7 +1282,7 @@ function RandomizerContent() {
             <button
               onClick={handleExportShowdown}
               disabled={isExporting || isSpinning}
-              className="w-full sm:w-auto flex items-center justify-center gap-3 px-6 py-4 bg-slate-800 hover:bg-slate-700 text-indigo-400 font-extrabold rounded-2xl active:scale-98 transition-all border border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
+              className="w-full sm:w-auto flex items-center justify-center gap-3 px-7 py-4 bg-slate-900/90 hover:bg-slate-800 text-indigo-300 font-bold rounded-2xl btn-tactile transition-all border border-slate-700/80 disabled:opacity-50 disabled:cursor-not-allowed text-base uppercase tracking-wider font-tactical shadow-lg"
             >
               {isExporting ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sword className="w-5 h-5" />}
               Showdown Export

@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from "next";
 export const viewport: Viewport = {
   themeColor: "#0b0e16",
 };
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Outfit, Rajdhani, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { PokemonProvider } from "@/context/PokemonContext";
 import { PlayerProfileProvider } from "@/context/PlayerProfileContext";
@@ -18,9 +18,22 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+});
+
+const rajdhani = Rajdhani({
+  variable: "--font-rajdhani",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -50,9 +63,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${geistSans.variable} ${outfit.variable} ${rajdhani.variable} ${jetbrainsMono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-screen bg-slate-950 text-slate-100 flex flex-col antialiased relative overflow-x-hidden">
+      <body className="min-h-screen bg-[#06080F] text-slate-100 flex flex-col antialiased relative overflow-x-hidden font-sans selection:bg-red-500/30 selection:text-red-200">
         <PokemonProvider>
           {/* Dynamic Type-Shifting Ambient Aura Atmosphere */}
           <AmbientAura />

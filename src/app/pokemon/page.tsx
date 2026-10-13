@@ -201,7 +201,7 @@ function PokemonBrowseContent() {
       {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-900 pb-6">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white mb-1">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-1 font-display">
             RogueDex <span className="text-red-500 glow-text-primary">Database</span>
           </h1>
           <p className="text-slate-400 text-sm">
@@ -454,11 +454,12 @@ function PokemonBrowseContent() {
                       onMouseEnter={() => setAmbientType(primaryType)}
                       onMouseLeave={() => setAmbientType(null)}
                       style={{
-                        background: `linear-gradient(145deg, ${typeColor}1c 0%, rgba(18, 22, 34, 0.9) 60%, rgba(10, 13, 20, 0.96) 100%)`,
+                        background: `linear-gradient(145deg, ${typeColor}1c 0%, rgba(13, 17, 29, 0.92) 60%, rgba(6, 8, 15, 0.98) 100%)`,
                         borderColor: `${typeColor}45`,
-                        boxShadow: `0 4px 22px -5px ${typeColor}35`
+                        borderTopColor: 'rgba(255, 255, 255, 0.16)',
+                        boxShadow: `0 4px 24px -5px ${typeColor}35, inset 0 1px 0 0 rgba(255, 255, 255, 0.08)`
                       }}
-                      className="rounded-2xl p-4 flex flex-col items-center relative border group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                      className="rounded-2xl p-4 flex flex-col items-center relative border group cursor-pointer btn-tactile transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
                       onClick={(e) => {
                         // Avoid trigger detail view if favorite button was clicked
                         if ((e.target as HTMLElement).closest('.fav-btn')) return;
@@ -466,7 +467,7 @@ function PokemonBrowseContent() {
                       }}
                     >
                       {/* ID tag */}
-                      <span className="absolute top-3.5 left-4 text-[10px] font-bold font-mono text-slate-500">
+                      <span className="absolute top-3.5 left-4 text-[10px] font-bold font-mono-numbers text-slate-500">
                         #{pk.id.toString().padStart(3, '0')}
                       </span>
 
@@ -509,13 +510,13 @@ function PokemonBrowseContent() {
                       </div>
 
                       {/* Name */}
-                      <h3 className="font-extrabold text-sm text-slate-200 text-center tracking-tight truncate w-full group-hover:text-blue-400 transition-colors flex items-center justify-center gap-1 px-2">
+                      <h3 className="font-bold text-sm text-slate-200 text-center tracking-tight truncate w-full group-hover:text-blue-400 transition-colors flex items-center justify-center gap-1 px-2 font-display">
                         {isShinyMode && <Sparkle className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />}
                         {pk.displayName}
                       </h3>
 
                       {/* Badges */}
-                      <div className="flex gap-1 mt-2.5 flex-wrap justify-center">
+                      <div className="flex gap-1 mt-2.5 flex-wrap justify-center font-tactical">
                         {pk.types.map(t => (
                           <span
                             key={t}
@@ -524,7 +525,7 @@ function PokemonBrowseContent() {
                               color: TYPE_COLORS[t],
                               borderColor: `${TYPE_COLORS[t]}2b`,
                             }}
-                            className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border"
+                            className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border"
                           >
                             {t}
                           </span>

@@ -2337,9 +2337,9 @@ export default function DraftMode() {
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between mb-8 pb-4 border-b border-slate-800 gap-4">
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-xl font-black bg-gradient-to-r from-red-500 via-rose-500 to-amber-400 bg-clip-text text-transparent">RogueDex</Link>
+            <Link href="/" className="text-xl font-black bg-gradient-to-r from-red-500 via-rose-500 to-amber-400 bg-clip-text text-transparent font-display">RogueDex</Link>
             <span className="text-slate-600 font-bold hidden sm:inline">/</span>
-            <h1 className="text-lg font-bold text-slate-300 flex items-center gap-2">
+            <h1 className="text-lg font-bold text-slate-300 flex items-center gap-2 font-display">
               <Users className="w-5 h-5 text-indigo-400 hidden sm:block" /> <span className="hidden sm:inline">Clash Draft</span>
             </h1>
           </div>

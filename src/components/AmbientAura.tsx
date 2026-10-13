@@ -12,9 +12,12 @@ export default function AmbientAura() {
     <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden transition-all duration-700 ease-out">
       {/* Background Wallpaper Image */}
       <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20 pointer-events-none transition-opacity duration-700"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-15 pointer-events-none transition-opacity duration-700"
         style={{ backgroundImage: "url('/images/bg.jpg')" }}
       />
+
+      {/* Esports Stadium Dot-Matrix Grid Texture */}
+      <div className="absolute inset-0 stadium-grid-bg opacity-70 pointer-events-none" />
 
       {/* Dynamic Ambient Flare 1 (Top-Left) */}
       <div 
@@ -58,8 +61,8 @@ export default function AmbientAura() {
         }}
       />
 
-      {/* Vignette Overlay to maintain dark readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0a0d14]/40 via-[#0a0d14]/85 to-[#0a0d14]/95 transition-colors duration-700" />
+      {/* Vignette Overlay to maintain dark obsidian readability */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#06080f]/50 via-[#06080f]/85 to-[#06080f]/98 transition-colors duration-700" />
     </div>
   );
 }

@@ -94,6 +94,21 @@ export default function HoloCard({ children, className = '', typeColor = '#fffff
         }}
       />
 
+      {/* Iridescent Prismatic Holographic Foil Overlay */}
+      <motion.div
+        className="absolute inset-0 z-20 pointer-events-none rounded-xl"
+        style={{
+          background: 'linear-gradient(125deg, transparent 0%, rgba(255, 100, 180, 0.16) 20%, rgba(255, 230, 90, 0.18) 35%, rgba(100, 255, 200, 0.16) 50%, rgba(90, 200, 255, 0.18) 65%, rgba(200, 120, 255, 0.16) 80%, transparent 100%)',
+          backgroundSize: '250% 250%',
+          mixBlendMode: 'color-dodge',
+        }}
+        animate={{
+          backgroundPosition: isHovered ? ['0% 0%', '100% 100%'] : '0% 0%',
+          opacity: isHovered ? 0.85 : 0,
+        }}
+        transition={{ duration: 1.5, repeat: isHovered ? Infinity : 0, ease: "linear" }}
+      />
+
       {/* Glare/Sheen */}
       <motion.div
         className="absolute inset-0 z-30 pointer-events-none mix-blend-overlay rounded-xl"
@@ -105,7 +120,7 @@ export default function HoloCard({ children, className = '', typeColor = '#fffff
         transition={{ duration: 0.3 }}
       />
       
-      {/* Type-based Ambient Edge Glow & Luminous Border */}
+      {/* Type-based Ambient Edge Glow & Specular Luminous Border */}
       <div 
         className="absolute inset-0 z-0 pointer-events-none rounded-xl transition-all duration-300"
         style={{
@@ -113,6 +128,7 @@ export default function HoloCard({ children, className = '', typeColor = '#fffff
             ? `0 0 35px -5px ${typeColor}, inset 0 0 20px -8px ${typeColor}` 
             : `0 0 20px -8px ${typeColor}66`,
           borderColor: isHovered ? `${typeColor}99` : `${typeColor}40`,
+          borderTopColor: isHovered ? 'rgba(255, 255, 255, 0.55)' : `${typeColor}77`,
           borderWidth: '1px',
           borderStyle: 'solid',
         }}

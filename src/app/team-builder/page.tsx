@@ -384,7 +384,7 @@ function TeamBuilderContent() {
       {/* Header Title */}
       <div className="border-b border-slate-900 pb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white mb-1">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-1 font-display">
             RogueDex <span className="text-blue-500">Team Builder</span>
           </h1>
           <p className="text-slate-450 text-sm">
@@ -394,7 +394,7 @@ function TeamBuilderContent() {
         <div className="flex gap-2">
           <button
             onClick={() => setTeamSize(3)}
-            className={`px-4 py-2 text-xs font-bold rounded-lg border transition-all ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg border btn-tactile font-tactical tracking-wider transition-all ${
               teamSize === 3
                 ? 'bg-red-600 border-red-500 text-white shadow-md shadow-red-600/20'
                 : 'bg-[#111622] border-slate-800 text-slate-400'
@@ -404,7 +404,7 @@ function TeamBuilderContent() {
           </button>
           <button
             onClick={() => setTeamSize(6)}
-            className={`px-4 py-2 text-xs font-bold rounded-lg border transition-all ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg border btn-tactile font-tactical tracking-wider transition-all ${
               teamSize === 6
                 ? 'bg-red-600 border-red-500 text-white shadow-md shadow-red-600/20'
                 : 'bg-[#111622] border-slate-800 text-slate-400'
@@ -731,7 +731,7 @@ function TeamBuilderContent() {
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => handleGenerateTeam()}
-              className="flex-1 py-3 bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white font-extrabold rounded-xl transition-all duration-300 shadow-lg shadow-red-900/40 hover:shadow-red-500/25 active:scale-98 flex items-center justify-center gap-2 border border-red-400/30 text-sm"
+              className="flex-1 py-3.5 bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white font-bold rounded-xl transition-all duration-300 shadow-lg shadow-red-900/40 hover:shadow-red-500/25 btn-tactile flex items-center justify-center gap-2 border border-red-400/30 text-base uppercase tracking-wider font-tactical"
             >
               <RefreshCw className="w-4 h-4 animate-spin-hover" />
               REROLL UNLOCKED SLOTS

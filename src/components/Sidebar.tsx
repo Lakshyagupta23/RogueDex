@@ -136,17 +136,17 @@ export default function Sidebar() {
       {/* Desktop Vertical Sidebar (Stays fixed on left) */}
       <aside
         style={{ width: isCollapsed ? '72px' : '240px' }}
-        className="hidden md:flex flex-col sticky top-0 h-screen z-40 bg-[#080b12]/90 border-r border-slate-900 backdrop-blur-md transition-all duration-300 select-none shrink-0"
+        className="hidden md:flex flex-col sticky top-0 h-screen z-40 bg-[#06080F]/90 border-r border-slate-850/80 backdrop-blur-md transition-all duration-300 select-none shrink-0"
       >
         
         {/* Logo Section */}
-        <div className="h-16 flex items-center justify-between border-b border-slate-900 px-4">
+        <div className="h-16 flex items-center justify-between border-b border-slate-850/80 px-4">
           <Link href="/" className="flex items-center gap-2 group overflow-hidden">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 via-rose-500 to-amber-500 shadow-lg shadow-red-500/25 group-hover:shadow-red-500/40 transition-all duration-300">
               <Shield className="w-5 h-5 text-white animate-pulse" />
             </div>
             {!isCollapsed && (
-              <span className="text-base font-black tracking-tight text-white font-sans truncate animate-fade-in">
+              <span className="text-base font-black tracking-tight text-white font-display truncate animate-fade-in">
                 Rogue<span className="text-red-500">Dex</span>
               </span>
             )}
@@ -179,7 +179,7 @@ export default function Sidebar() {
                 key={item.href}
                 href={item.href}
                 title={isCollapsed ? item.label : undefined}
-                className={`flex items-center rounded-xl transition-all duration-200 relative group ${
+                className={`flex items-center rounded-xl btn-tactile transition-all duration-200 relative group ${
                   isCollapsed ? 'justify-center p-3' : 'gap-3.5 px-4 py-3'
                 } ${
                   isActive
@@ -205,7 +205,7 @@ export default function Sidebar() {
         <div className="p-3 border-t border-slate-900 flex justify-center">
           <button
             onClick={handleToggleCollapse}
-            className="p-2 rounded-xl bg-slate-900 border border-slate-850 hover:bg-slate-850 text-slate-400 hover:text-white transition-colors"
+            className="p-2 rounded-xl btn-tactile bg-slate-900 border border-slate-850 hover:bg-slate-850 text-slate-400 hover:text-white transition-colors"
           >
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>

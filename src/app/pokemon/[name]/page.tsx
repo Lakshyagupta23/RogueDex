@@ -210,7 +210,7 @@ function DetailContent({ params }: { params: Promise<{ name: string }> }) {
                 #{details.id.toString().padStart(3, '0')}
               </span>
               <div className="flex items-center justify-center md:justify-start gap-3 mt-0.5">
-                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white capitalize">
+                <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white capitalize font-display">
                   {details.displayName}
                 </h1>
                 <button
