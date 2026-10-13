@@ -602,9 +602,14 @@ function TeamBuilderContent() {
               return (
                 <div
                   key={idx}
-                  className={`glass-panel rounded-2xl p-3 sm:p-4 flex flex-col items-center relative border border-slate-850 ${
-                    member ? 'min-h-[190px] sm:min-h-[220px]' : 'min-h-[190px] sm:min-h-[220px] justify-center'
-                  } overflow-hidden group`}
+                  style={member ? {
+                    background: `linear-gradient(145deg, ${typeColor}1c 0%, rgba(18, 22, 34, 0.9) 60%, rgba(10, 13, 20, 0.96) 100%)`,
+                    borderColor: `${typeColor}45`,
+                    boxShadow: `0 4px 22px -5px ${typeColor}35`
+                  } : undefined}
+                  className={`glass-panel rounded-2xl p-3 sm:p-4 flex flex-col items-center relative border ${
+                    member ? 'min-h-[190px] sm:min-h-[220px]' : 'min-h-[190px] sm:min-h-[220px] justify-center border-slate-850'
+                  } overflow-hidden group transition-all duration-300 hover:-translate-y-1`}
                 >
                   
                   {/* Slot index number */}
@@ -653,8 +658,8 @@ function TeamBuilderContent() {
                       {/* Sprite artwork */}
                       <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative my-2 sm:my-3">
                         <div
-                          style={{ backgroundColor: `${typeColor}08` }}
-                          className="absolute inset-0 rounded-full blur-xl animate-pulse scale-90"
+                          style={{ backgroundColor: `${typeColor}24` }}
+                          className="absolute inset-0 rounded-full blur-xl animate-pulse scale-95"
                         />
                         <img
                           src={isShinyMode ? member.shinySprite : member.sprite}

@@ -155,7 +155,14 @@ function DetailContent({ params }: { params: Promise<{ name: string }> }) {
       </div>
 
       {/* Main card */}
-      <div className={`glass-panel rounded-3xl border relative bg-gradient-to-b ${gradientClass} ${glowClass} p-6 sm:p-10 flex flex-col gap-10`}>
+      <div 
+        style={{
+          background: `linear-gradient(135deg, ${typeColor}22 0%, rgba(18, 22, 34, 0.88) 50%, rgba(10, 13, 20, 0.96) 100%)`,
+          borderColor: `${typeColor}55`,
+          boxShadow: `0 0 50px -15px ${typeColor}55, inset 0 0 35px -15px ${typeColor}30`,
+        }}
+        className="glass-panel rounded-3xl border relative p-6 sm:p-10 flex flex-col gap-10"
+      >
         
         {/* Profile Header */}
         <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
@@ -163,8 +170,8 @@ function DetailContent({ params }: { params: Promise<{ name: string }> }) {
           <div className="flex flex-col items-center gap-3 flex-shrink-0">
             <div className="w-52 h-52 sm:w-64 sm:h-64 flex items-center justify-center relative">
               <div
-                style={{ backgroundColor: `${typeColor}15` }}
-                className="absolute inset-0 rounded-full blur-2xl animate-pulse scale-90"
+                style={{ backgroundColor: `${typeColor}28` }}
+                className="absolute inset-0 rounded-full blur-3xl animate-pulse scale-95"
               />
               <img
                 src={viewShiny ? (details as any).shinySprite || details.sprite : details.sprite}

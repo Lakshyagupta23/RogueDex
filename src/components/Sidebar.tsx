@@ -7,19 +7,28 @@ import { Menu, X, Shield, Heart, Zap, Layers, Sparkles, BookOpen, Smile, Calcula
 import SearchBar from './SearchBar';
 import ProfileWidget from './ProfileWidget';
 
-const NAV_ITEMS = [
-  { href: '/randomizer', label: 'Randomizer', icon: Zap },
-  { href: '/team-builder', label: 'Team Builder', icon: Layers },
-  { href: '/draft', label: 'Draft Mode', icon: Users },
-  { href: '/pokemon/compare', label: 'Compare', icon: Scale },
-  { href: '/games/whos-that-pokemon', label: 'Guess Game', icon: Sparkles },
-  { href: '/tools/breeding', label: 'Breeding', icon: HeartHandshake },
-  { href: '/tools/iv-calculator', label: 'IV Calc', icon: Calculator },
-  { href: '/tools/type-chart', label: 'Type Chart', icon: Grid },
-  { href: '/tools/natures', label: 'Natures', icon: BookOpen },
-  { href: '/tools/nicknames', label: 'Nicknames', icon: Smile },
-  { href: '/pokemon', label: 'Pokédex', icon: Shield },
-  { href: '/favorites', label: 'Favorites', icon: Heart },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: any;
+  color: string;
+  activeBg: string;
+  glow: string;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { href: '/randomizer', label: 'Randomizer', icon: Zap, color: 'text-amber-400', activeBg: 'bg-amber-500/15 border-amber-500 text-amber-300', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.2)]' },
+  { href: '/team-builder', label: 'Team Builder', icon: Layers, color: 'text-blue-400', activeBg: 'bg-blue-500/15 border-blue-500 text-blue-300', glow: 'shadow-[0_0_15px_rgba(59,130,246,0.2)]' },
+  { href: '/draft', label: 'Draft Mode', icon: Users, color: 'text-rose-400', activeBg: 'bg-rose-500/15 border-rose-500 text-rose-300', glow: 'shadow-[0_0_15px_rgba(244,63,94,0.2)]' },
+  { href: '/pokemon/compare', label: 'Compare', icon: Scale, color: 'text-purple-400', activeBg: 'bg-purple-500/15 border-purple-500 text-purple-300', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.2)]' },
+  { href: '/games/whos-that-pokemon', label: 'Guess Game', icon: Sparkles, color: 'text-yellow-400', activeBg: 'bg-yellow-500/15 border-yellow-500 text-yellow-300', glow: 'shadow-[0_0_15px_rgba(250,204,21,0.2)]' },
+  { href: '/tools/breeding', label: 'Breeding', icon: HeartHandshake, color: 'text-pink-400', activeBg: 'bg-pink-500/15 border-pink-500 text-pink-300', glow: 'shadow-[0_0_15px_rgba(236,72,153,0.2)]' },
+  { href: '/tools/iv-calculator', label: 'IV Calc', icon: Calculator, color: 'text-cyan-400', activeBg: 'bg-cyan-500/15 border-cyan-500 text-cyan-300', glow: 'shadow-[0_0_15px_rgba(6,182,212,0.2)]' },
+  { href: '/tools/type-chart', label: 'Type Chart', icon: Grid, color: 'text-emerald-400', activeBg: 'bg-emerald-500/15 border-emerald-500 text-emerald-300', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.2)]' },
+  { href: '/tools/natures', label: 'Natures', icon: BookOpen, color: 'text-teal-400', activeBg: 'bg-teal-500/15 border-teal-500 text-teal-300', glow: 'shadow-[0_0_15px_rgba(20,184,166,0.2)]' },
+  { href: '/tools/nicknames', label: 'Nicknames', icon: Smile, color: 'text-orange-400', activeBg: 'bg-orange-500/15 border-orange-500 text-orange-300', glow: 'shadow-[0_0_15px_rgba(249,115,22,0.2)]' },
+  { href: '/pokemon', label: 'Pokédex', icon: Shield, color: 'text-red-400', activeBg: 'bg-red-500/15 border-red-500 text-red-300', glow: 'shadow-[0_0_15px_rgba(239,68,68,0.2)]' },
+  { href: '/favorites', label: 'Favorites', icon: Heart, color: 'text-rose-500', activeBg: 'bg-rose-500/15 border-rose-500 text-rose-300', glow: 'shadow-[0_0_15px_rgba(244,63,94,0.2)]' },
 ];
 
 export default function Sidebar() {
@@ -110,11 +119,11 @@ export default function Sidebar() {
                     onClick={() => setMobileOpen(false)}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-red-500/15 text-red-400 border-l-4 border-red-500'
-                        : 'text-slate-400 hover:bg-slate-900/80 hover:text-amber-300'
+                        ? `${item.activeBg} border-l-4 ${item.glow}`
+                        : 'text-slate-350 hover:bg-slate-900/80 hover:text-white'
                     }`}
                   >
-                    <Icon className="w-4 h-4 shrink-0" />
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? item.color : `${item.color} opacity-80 group-hover:opacity-100`}`} />
                     {item.label}
                   </Link>
                 );
@@ -174,11 +183,11 @@ export default function Sidebar() {
                   isCollapsed ? 'justify-center p-3' : 'gap-3.5 px-4 py-3'
                 } ${
                   isActive
-                    ? 'bg-red-500/10 text-red-400 border border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.12)]'
-                    : 'text-slate-400 border border-transparent hover:text-amber-300 hover:bg-slate-900/60'
+                    ? `${item.activeBg} border ${item.glow}`
+                    : 'text-slate-400 border border-transparent hover:text-white hover:bg-slate-900/70'
                 }`}
               >
-                <Icon className="w-4 h-4 shrink-0" />
+                <Icon className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${isActive ? item.color : `${item.color} opacity-75 group-hover:opacity-100`}`} />
                 {!isCollapsed && <span className="text-xs font-bold truncate">{item.label}</span>}
                 
                 {/* Custom Tooltip on Hover in Collapsed state */}

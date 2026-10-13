@@ -6,7 +6,7 @@ import { Heart, RefreshCw, SlidersHorizontal, Trash2, HelpCircle, Sparkles, Volu
 import { usePokemon } from '@/context/PokemonContext';
 import { PokemonIndexItem } from '@/lib/pokemon/types';
 import { getRandomPokemon, FilterCriteria, filterPokemon } from '@/lib/pokemon/data';
-import { TYPE_COLORS, TYPE_GLOWS, TYPE_GRADIENTS, GENERATIONS, CATEGORIES, SPECIAL_FORMS } from '@/lib/pokemon/constants';
+import { TYPE_COLORS, TYPE_GLOWS, TYPE_GRADIENTS, GENERATIONS, GENERATION_THEMES, CATEGORIES, SPECIAL_FORMS } from '@/lib/pokemon/constants';
 import { generateShowdownTeam } from '@/lib/pokemon/showdown';
 import StatBar from '@/components/StatBar';
 
@@ -671,17 +671,20 @@ function RandomizerContent() {
               <div className="grid grid-cols-2 gap-1.5">
                 {GENERATIONS.map(gen => {
                   const isChecked = selectedGens.includes(gen.value);
+                  const theme = GENERATION_THEMES[gen.value];
                   return (
                     <button
                       key={gen.value}
                       onClick={() => handleGenToggle(gen.value)}
-                      className={`py-1.5 px-2 rounded-lg text-[10px] font-bold border text-center transition-all ${
-                        isChecked
-                          ? 'bg-red-500/15 border-red-500 text-red-400'
-                          : 'bg-[#0b0e16] border-slate-850 text-slate-450 hover:text-slate-200'
-                      }`}
+                      style={{
+                        backgroundColor: isChecked ? `${theme.bg}25` : '#0b0e16',
+                        borderColor: isChecked ? theme.bg : 'rgba(255,255,255,0.08)',
+                        color: isChecked ? theme.bg : '#94a3b8',
+                        boxShadow: isChecked ? `0 0 12px ${theme.bg}35` : 'none'
+                      }}
+                      className="py-1.5 px-2 rounded-lg text-[10px] font-bold border text-center transition-all hover:scale-[1.02]"
                     >
-                      Gen {gen.value}
+                      Gen {gen.value} ({theme.region})
                     </button>
                   );
                 })}
@@ -992,7 +995,14 @@ function RandomizerContent() {
         {/* Quantity = 1 Layout (Default Large Card view) */}
         {quantity === 1 ? (
           currentPokemon ? (
-            <div className={`glass-panel rounded-3xl overflow-hidden relative border transition-all duration-500 ease-out bg-gradient-to-b ${gradientClass} ${glowClass}`}>
+            <div 
+              style={{
+                background: `linear-gradient(135deg, ${primaryColor}22 0%, rgba(18, 22, 34, 0.88) 50%, rgba(10, 13, 20, 0.96) 100%)`,
+                borderColor: `${primaryColor}55`,
+                boxShadow: `0 0 45px -10px ${primaryColor}55, inset 0 0 35px -15px ${primaryColor}30`,
+              }}
+              className="glass-panel rounded-3xl overflow-hidden relative border transition-all duration-500 ease-out"
+            >
               
               {/* Top Bar actions */}
               <div className="absolute top-6 left-6 right-6 flex justify-between items-center z-10">
@@ -1017,8 +1027,8 @@ function RandomizerContent() {
                 {/* Artwork wrapper */}
                 <div className="w-48 h-48 sm:w-64 sm:h-64 flex items-center justify-center relative group">
                   <div
-                    style={{ backgroundColor: `${primaryColor}10` }}
-                    className="absolute inset-0 rounded-full blur-2xl animate-pulse scale-90 group-hover:scale-105 transition-transform duration-500"
+                    style={{ backgroundColor: `${primaryColor}28` }}
+                    className="absolute inset-0 rounded-full blur-3xl animate-pulse scale-95 group-hover:scale-110 transition-transform duration-500"
                   />
                   <img
                     src={isShinyMode ? currentPokemon.shinySprite : currentPokemon.sprite}
@@ -1141,7 +1151,12 @@ function RandomizerContent() {
               return (
                 <div
                   key={idx}
-                  className="glass-panel glass-panel-hover rounded-2xl p-4 flex flex-col items-center relative border border-slate-850 min-h-[220px] overflow-hidden group"
+                  style={{
+                    background: `linear-gradient(145deg, ${typeColor}1c 0%, rgba(18, 22, 34, 0.9) 60%, rgba(10, 13, 20, 0.96) 100%)`,
+                    borderColor: `${typeColor}45`,
+                    boxShadow: `0 4px 22px -5px ${typeColor}35`
+                  }}
+                  className="rounded-2xl p-4 flex flex-col items-center relative border min-h-[220px] overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
                 >
                   {/* Lock slot control */}
                   <div className="absolute top-2.5 left-3 flex gap-1.5 z-10">
@@ -1189,8 +1204,8 @@ function RandomizerContent() {
                   {/* Artwork Image Well */}
                   <div className="w-20 h-20 flex items-center justify-center relative my-3">
                     <div
-                      style={{ backgroundColor: `${typeColor}08` }}
-                      className="absolute inset-0 rounded-full blur-xl animate-pulse scale-90"
+                      style={{ backgroundColor: `${typeColor}24` }}
+                      className="absolute inset-0 rounded-full blur-xl animate-pulse scale-95"
                     />
                     <img
                       src={isShinyMode ? slotPk.shinySprite : slotPk.sprite}

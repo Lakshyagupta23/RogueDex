@@ -6,7 +6,7 @@ import { Shield, RefreshCw, SlidersHorizontal, Heart, Search, HelpCircle, Volume
 import { usePokemon } from '@/context/PokemonContext';
 import { PokemonIndexItem } from '@/lib/pokemon/types';
 import { filterPokemon, FilterCriteria } from '@/lib/pokemon/data';
-import { TYPE_COLORS, GENERATIONS, CATEGORIES, SPECIAL_FORMS } from '@/lib/pokemon/constants';
+import { TYPE_COLORS, GENERATIONS, GENERATION_THEMES, CATEGORIES, SPECIAL_FORMS } from '@/lib/pokemon/constants';
 
 function PokemonBrowseContent() {
   const router = useRouter();
@@ -265,19 +265,25 @@ function PokemonBrowseContent() {
             <div>
               <h3 className="text-[11px] font-bold uppercase text-slate-500 tracking-wider mb-2">Generations</h3>
               <div className="grid grid-cols-2 gap-1.5">
-                {GENERATIONS.map(gen => (
-                  <button
-                    key={gen.value}
-                    onClick={() => handleGenToggle(gen.value)}
-                    className={`py-1.5 px-2 rounded-lg text-[10px] font-bold border text-center transition-all ${
-                      selectedGens.includes(gen.value)
-                        ? 'bg-red-500/15 border-red-500 text-red-400'
-                        : 'bg-[#0b0e16] border-slate-850 text-slate-450 hover:text-slate-200 hover:border-slate-800'
-                    }`}
-                  >
-                    Gen {gen.value}
-                  </button>
-                ))}
+                {GENERATIONS.map(gen => {
+                  const isChecked = selectedGens.includes(gen.value);
+                  const theme = GENERATION_THEMES[gen.value];
+                  return (
+                    <button
+                      key={gen.value}
+                      onClick={() => handleGenToggle(gen.value)}
+                      style={{
+                        backgroundColor: isChecked ? `${theme.bg}25` : '#0b0e16',
+                        borderColor: isChecked ? theme.bg : 'rgba(255,255,255,0.08)',
+                        color: isChecked ? theme.bg : '#94a3b8',
+                        boxShadow: isChecked ? `0 0 12px ${theme.bg}35` : 'none'
+                      }}
+                      className="py-1.5 px-2 rounded-lg text-[10px] font-bold border text-center transition-all hover:scale-[1.02]"
+                    >
+                      Gen {gen.value} ({theme.region})
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -445,7 +451,12 @@ function PokemonBrowseContent() {
                   return (
                     <div
                       key={pk.id}
-                      className="glass-panel glass-panel-hover rounded-2xl p-4 flex flex-col items-center relative border border-slate-850 group cursor-pointer"
+                      style={{
+                        background: `linear-gradient(145deg, ${typeColor}1c 0%, rgba(18, 22, 34, 0.9) 60%, rgba(10, 13, 20, 0.96) 100%)`,
+                        borderColor: `${typeColor}45`,
+                        boxShadow: `0 4px 22px -5px ${typeColor}35`
+                      }}
+                      className="rounded-2xl p-4 flex flex-col items-center relative border group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
                       onClick={(e) => {
                         // Avoid trigger detail view if favorite button was clicked
                         if ((e.target as HTMLElement).closest('.fav-btn')) return;
@@ -484,8 +495,8 @@ function PokemonBrowseContent() {
                       {/* Artwork thumbnail */}
                       <div className="w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center relative my-3">
                         <div
-                          style={{ backgroundColor: `${typeColor}08` }}
-                          className="absolute inset-0 rounded-full blur-xl animate-pulse scale-90"
+                          style={{ backgroundColor: `${typeColor}24` }}
+                          className="absolute inset-0 rounded-full blur-xl animate-pulse scale-95"
                         />
                         <img
                           src={isShinyMode ? pk.shinySprite : pk.sprite}

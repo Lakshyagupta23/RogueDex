@@ -75,6 +75,18 @@ export const GENERATIONS = [
   { value: 9, label: 'Gen 9 (Paldea)' },
 ];
 
+export const GENERATION_THEMES: Record<number, { name: string; region: string; color: string; border: string; bg: string }> = {
+  1: { name: 'Gen 1', region: 'Kanto', color: '#ef4444', border: '#ef4444', bg: '#ef4444' }, // Red & Blue
+  2: { name: 'Gen 2', region: 'Johto', color: '#f59e0b', border: '#f59e0b', bg: '#f59e0b' }, // Gold & Silver
+  3: { name: 'Gen 3', region: 'Hoenn', color: '#10b981', border: '#10b981', bg: '#10b981' }, // Ruby, Sapphire, Emerald
+  4: { name: 'Gen 4', region: 'Sinnoh', color: '#38bdf8', border: '#38bdf8', bg: '#38bdf8' }, // Diamond & Pearl
+  5: { name: 'Gen 5', region: 'Unova', color: '#94a3b8', border: '#94a3b8', bg: '#94a3b8' }, // Black & White
+  6: { name: 'Gen 6', region: 'Kalos', color: '#3b82f6', border: '#3b82f6', bg: '#3b82f6' }, // X & Y
+  7: { name: 'Gen 7', region: 'Alola', color: '#f97316', border: '#f97316', bg: '#f97316' }, // Sun & Moon
+  8: { name: 'Gen 8', region: 'Galar', color: '#06b6d4', border: '#06b6d4', bg: '#06b6d4' }, // Sword & Shield
+  9: { name: 'Gen 9', region: 'Paldea', color: '#e11d48', border: '#e11d48', bg: '#e11d48' }, // Scarlet & Violet
+};
+
 export const CATEGORIES = [
   { value: 'starter', label: 'Starter Pokémon' },
   { value: 'legendary', label: 'Legendary' },
@@ -103,11 +115,20 @@ export const STAT_LABELS: Record<string, string> = {
   spe: 'SPE',
 };
 
+export const STAT_TEXT_COLORS: Record<string, string> = {
+  hp: 'text-emerald-400',
+  atk: 'text-rose-400',
+  def: 'text-amber-400',
+  spAtk: 'text-fuchsia-400',
+  spDef: 'text-indigo-400',
+  spe: 'text-cyan-400',
+};
+
 export const STAT_COLORS: Record<string, string> = {
-  hp: 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]',
-  atk: 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)]',
-  def: 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]',
-  spAtk: 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.3)]',
-  spDef: 'bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.3)]',
-  spe: 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]',
+  hp: 'bg-gradient-to-r from-emerald-500 to-green-400 shadow-[0_0_12px_rgba(16,185,129,0.45)]',
+  atk: 'bg-gradient-to-r from-red-600 to-rose-400 shadow-[0_0_12px_rgba(239,68,68,0.45)]',
+  def: 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_12px_rgba(245,158,11,0.45)]',
+  spAtk: 'bg-gradient-to-r from-purple-600 to-fuchsia-400 shadow-[0_0_12px_rgba(168,85,247,0.45)]',
+  spDef: 'bg-gradient-to-r from-indigo-500 to-blue-400 shadow-[0_0_12px_rgba(99,102,241,0.45)]',
+  spe: 'bg-gradient-to-r from-cyan-400 to-teal-300 shadow-[0_0_12px_rgba(6,182,212,0.45)]',
 };

@@ -76,6 +76,15 @@ export default function HoloCard({ children, className = '', typeColor = '#fffff
         {children}
       </div>
 
+      {/* Type-spectrum background illumination */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none rounded-xl transition-opacity duration-300"
+        style={{
+          background: `radial-gradient(ellipse at top, ${typeColor}22 0%, transparent 75%)`,
+          opacity: isHovered ? 0.9 : 0.45,
+        }}
+      />
+
       {/* Glare/Sheen */}
       <motion.div
         className="absolute inset-0 z-30 pointer-events-none mix-blend-overlay rounded-xl"
@@ -87,15 +96,17 @@ export default function HoloCard({ children, className = '', typeColor = '#fffff
         transition={{ duration: 0.3 }}
       />
       
-      {/* Type-based Ambient Edge Glow */}
-      <motion.div 
-        className="absolute inset-0 z-0 pointer-events-none rounded-xl"
+      {/* Type-based Ambient Edge Glow & Luminous Border */}
+      <div 
+        className="absolute inset-0 z-0 pointer-events-none rounded-xl transition-all duration-300"
         style={{
-          boxShadow: `0 0 40px -10px ${typeColor}`,
-          opacity: isHovered ? 0.6 : 0,
+          boxShadow: isHovered 
+            ? `0 0 35px -5px ${typeColor}, inset 0 0 20px -8px ${typeColor}` 
+            : `0 0 20px -8px ${typeColor}66`,
+          borderColor: isHovered ? `${typeColor}99` : `${typeColor}40`,
+          borderWidth: '1px',
+          borderStyle: 'solid',
         }}
-        animate={{ opacity: isHovered ? 0.6 : 0 }}
-        transition={{ duration: 0.3 }}
       />
     </motion.div>
   );
