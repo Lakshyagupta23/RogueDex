@@ -16,7 +16,7 @@ import { scoreCandidates } from '@/lib/pokemon/recommendation';
 function TeamBuilderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { pokemonList, loading, error, saveTeam, toggleFavorite, isFavorite } = usePokemon();
+  const { pokemonList, loading, error, saveTeam, toggleFavorite, isFavorite, setAmbientType } = usePokemon();
 
   // Settings state
   const [teamSize, setTeamSize] = useState<3 | 6>(6);
@@ -602,6 +602,10 @@ function TeamBuilderContent() {
               return (
                 <div
                   key={idx}
+                  onMouseEnter={() => {
+                    if (member?.types?.[0]) setAmbientType(member.types[0]);
+                  }}
+                  onMouseLeave={() => setAmbientType(null)}
                   style={member ? {
                     background: `linear-gradient(145deg, ${typeColor}1c 0%, rgba(18, 22, 34, 0.9) 60%, rgba(10, 13, 20, 0.96) 100%)`,
                     borderColor: `${typeColor}45`,
@@ -866,6 +870,10 @@ function TeamBuilderContent() {
               {recommendedAdditions.map(rec => (
                 <div
                   key={rec.pokemon.id}
+                  onMouseEnter={() => {
+                    if (rec.pokemon?.types?.[0]) setAmbientType(rec.pokemon.types[0]);
+                  }}
+                  onMouseLeave={() => setAmbientType(null)}
                   className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3 hover:border-indigo-500/50 transition-all group"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">

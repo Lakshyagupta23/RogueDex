@@ -15,7 +15,7 @@ function DetailContent({ params }: { params: Promise<{ name: string }> }) {
   const resolvedParams = use(params);
   const name = decodeURIComponent(resolvedParams.name);
 
-  const { pokemonList, loading: indexLoading, error: indexError, toggleFavorite, isFavorite } = usePokemon();
+  const { pokemonList, loading: indexLoading, error: indexError, toggleFavorite, isFavorite, setAmbientType } = usePokemon();
   const [details, setDetails] = useState<PokemonDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +30,17 @@ function DetailContent({ params }: { params: Promise<{ name: string }> }) {
   const basePokemon = pokemonList.find(
     pk => pk.name.toLowerCase() === name.toLowerCase() || pk.displayName.toLowerCase() === name.toLowerCase()
   );
+
+  // Sync Dynamic Ambient Aura with viewed Pokémon's primary type
+  useEffect(() => {
+    const activeType = details?.types[0] || basePokemon?.types[0];
+    if (activeType) {
+      setAmbientType(activeType);
+    }
+    return () => {
+      setAmbientType(null);
+    };
+  }, [details, basePokemon, setAmbientType]);
 
   // 2. Fetch detailed info from PokéAPI once index is loaded
   useEffect(() => {

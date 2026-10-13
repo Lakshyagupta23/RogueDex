@@ -3042,7 +3042,7 @@ export default function DraftMode() {
                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 gap-2">
                         {gameState.p1Options.map(pk => (
                           <motion.div layoutId={`pk-card-${pk.id}`} key={pk.id} className="w-full aspect-square">
-                            <HoloCard typeColor={TYPE_COLORS[pk.types[0]]} className="w-full h-full">
+                            <HoloCard typeColor={TYPE_COLORS[pk.types[0]]} pokemonType={pk.types[0]} className="w-full h-full">
                               <button
                                 disabled={gameState.snakeTurn !== myPlayerNum}
                                 onClick={() => submitSnakePick(pk.id)}
@@ -3534,7 +3534,7 @@ function TeamSlot({ data, index, playerNum }: { data?: DraftTeamMember, index: n
           <span className="absolute text-5xl">💀</span>
         </motion.div>
       )}
-      <HoloCard typeColor={TYPE_COLORS[pk.types[0]]} className={`aspect-square w-full h-full relative ${data.wasAssassinated ? 'animate-shake' : ''}`}>
+      <HoloCard typeColor={TYPE_COLORS[pk.types[0]]} pokemonType={pk.types[0]} className={`aspect-square w-full h-full relative ${data.wasAssassinated ? 'animate-shake' : ''}`}>
         <div 
           className="w-full h-full relative rounded-2xl transition-transform duration-700"
           style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}

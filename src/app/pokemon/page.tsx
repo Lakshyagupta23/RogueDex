@@ -11,7 +11,7 @@ import { TYPE_COLORS, GENERATIONS, GENERATION_THEMES, CATEGORIES, SPECIAL_FORMS 
 function PokemonBrowseContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { pokemonList, loading, error, toggleFavorite, isFavorite } = usePokemon();
+  const { pokemonList, loading, error, toggleFavorite, isFavorite, setAmbientType } = usePokemon();
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -451,6 +451,8 @@ function PokemonBrowseContent() {
                   return (
                     <div
                       key={pk.id}
+                      onMouseEnter={() => setAmbientType(primaryType)}
+                      onMouseLeave={() => setAmbientType(null)}
                       style={{
                         background: `linear-gradient(145deg, ${typeColor}1c 0%, rgba(18, 22, 34, 0.9) 60%, rgba(10, 13, 20, 0.96) 100%)`,
                         borderColor: `${typeColor}45`,

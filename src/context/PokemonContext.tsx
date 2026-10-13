@@ -9,6 +9,8 @@ interface PokemonContextType {
   error: string | null;
   favorites: number[]; // Pokemon variety IDs
   savedTeams: SavedTeam[];
+  ambientType: string | null;
+  setAmbientType: (type: string | null) => void;
   toggleFavorite: (id: number) => void;
   isFavorite: (id: number) => boolean;
   saveTeam: (name: string, pokemon: PokemonIndexItem[], notes?: string) => void;
@@ -23,6 +25,7 @@ export function PokemonProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<number[]>([]);
   const [savedTeams, setSavedTeams] = useState<SavedTeam[]>([]);
+  const [ambientType, setAmbientType] = useState<string | null>(null);
 
   // 1. Fetch static Pokemon index on mount
   useEffect(() => {
@@ -112,6 +115,8 @@ export function PokemonProvider({ children }: { children: React.ReactNode }) {
         error,
         favorites,
         savedTeams,
+        ambientType,
+        setAmbientType,
         toggleFavorite,
         isFavorite,
         saveTeam,

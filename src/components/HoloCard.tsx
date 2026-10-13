@@ -1,14 +1,17 @@
 import React, { useRef, useState, MouseEvent } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, useMotionTemplate } from 'framer-motion';
+import { usePokemon } from '@/context/PokemonContext';
 
 interface HoloCardProps {
   children: React.ReactNode;
   className?: string;
   typeColor?: string; // Dominant color for the holo glow (e.g., Fire = orange, Water = blue)
+  pokemonType?: string; // Signature Pokemon type for dynamic ambient aura shifting
   layoutId?: string; // For framer-motion shared layout animations
 }
 
-export default function HoloCard({ children, className = '', typeColor = '#ffffff', layoutId }: HoloCardProps) {
+export default function HoloCard({ children, className = '', typeColor = '#ffffff', pokemonType, layoutId }: HoloCardProps) {
+  const { setAmbientType } = usePokemon();
   const cardRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -43,6 +46,9 @@ export default function HoloCard({ children, className = '', typeColor = '#fffff
 
   const handleMouseEnter = () => {
     setIsHovered(true);
+    if (pokemonType) {
+      setAmbientType(pokemonType);
+    }
   };
 
   const handleMouseLeave = () => {
@@ -50,6 +56,9 @@ export default function HoloCard({ children, className = '', typeColor = '#fffff
     // Reset to center smoothly
     x.set(0);
     y.set(0);
+    if (pokemonType) {
+      setAmbientType(null);
+    }
   };
 
   return (

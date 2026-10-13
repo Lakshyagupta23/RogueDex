@@ -27,7 +27,7 @@ const preloadImage = (src: string): Promise<void> => {
 function RandomizerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { pokemonList, loading, error, toggleFavorite, isFavorite } = usePokemon();
+  const { pokemonList, loading, error, toggleFavorite, isFavorite, setAmbientType } = usePokemon();
 
   // 1. Filter States
   const [selectedGens, setSelectedGens] = useState<number[]>([]);
@@ -277,6 +277,18 @@ function RandomizerContent() {
   // Single active pokemon shortcut (results[0])
   const currentPokemon = results[0];
   const isSpinning = spinningSlots[0];
+
+  // Sync Dynamic Ambient Aura with active Pokemon when viewing single card
+  useEffect(() => {
+    if (quantity === 1 && currentPokemon?.types?.[0]) {
+      setAmbientType(currentPokemon.types[0]);
+    } else {
+      setAmbientType(null);
+    }
+    return () => {
+      setAmbientType(null);
+    };
+  }, [quantity, currentPokemon, setAmbientType]);
 
   // Handle Randomization trigger (grid-wide)
   const handleRandomize = () => {
@@ -1151,6 +1163,8 @@ function RandomizerContent() {
               return (
                 <div
                   key={idx}
+                  onMouseEnter={() => setAmbientType(primaryType)}
+                  onMouseLeave={() => setAmbientType(quantity === 1 && currentPokemon?.types?.[0] ? currentPokemon.types[0] : null)}
                   style={{
                     background: `linear-gradient(145deg, ${typeColor}1c 0%, rgba(18, 22, 34, 0.9) 60%, rgba(10, 13, 20, 0.96) 100%)`,
                     borderColor: `${typeColor}45`,
@@ -1296,6 +1310,8 @@ function RandomizerContent() {
                 <a
                   key={pk.id}
                   href={`/pokemon/${pk.name}`}
+                  onMouseEnter={() => setAmbientType(pk.types[0])}
+                  onMouseLeave={() => setAmbientType(quantity === 1 && currentPokemon?.types?.[0] ? currentPokemon.types[0] : null)}
                   className="flex-shrink-0 bg-[#111622]/60 border border-slate-850 hover:border-slate-800 rounded-xl p-3 flex items-center gap-3 w-44 hover:bg-[#181e2b] transition-all group"
                 >
                   <img src={pk.sprite} alt={pk.displayName} className="w-10 h-10 object-contain drop-shadow" />
